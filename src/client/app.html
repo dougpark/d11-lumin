@@ -526,6 +526,7 @@
             await Promise.all([loadBookmarks(), loadTags()])
 
             if (preUrl) {
+                S.bookmarkletMode = true
                 openAddModal(preUrl, preTitle, preDesc)
             }
         }
@@ -909,6 +910,7 @@
 
         function closeModal() {
             hideEl('bookmark-modal')
+            if (S.bookmarkletMode) window.close()
         }
 
         function handleModalBackdrop(e) {
