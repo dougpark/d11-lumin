@@ -944,6 +944,11 @@
             }
             localStorage.setItem('d11_token', token)
             setAuthCookie(token)
+            // Tell the browser to save the credential immediately (works in Safari + Chrome)
+            if (window.PasswordCredential) {
+                const cred = new PasswordCredential({ id: 'd11.me', password: token })
+                navigator.credentials.store(cred).catch(() => { })
+            }
             setBusy('login', false)
             show('view-dashboard')
             initBookmarklet()
