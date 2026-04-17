@@ -944,15 +944,10 @@
             }
             localStorage.setItem('d11_token', token)
             setAuthCookie(token)
-            // Tell the browser to save the credential immediately (works in Safari + Chrome)
-            if (window.PasswordCredential) {
-                const cred = new PasswordCredential({ id: 'd11.me', password: token })
-                navigator.credentials.store(cred).catch(() => { })
-            }
-            setBusy('login', false)
-            show('view-dashboard')
-            initBookmarklet()
-            await Promise.all([loadBookmarks(), loadTags()])
+            // Navigate while the password form is still in the DOM — this is what
+            // triggers Safari (and Chrome) to offer to save the credential.
+            // boot() will find the token in localStorage and skip straight to dashboard.
+            location.replace('/')
         }
 
         async function doRegister() {
