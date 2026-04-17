@@ -63,6 +63,340 @@
 <body class="bg-[#FAFAFA] font-sans text-g-black antialiased min-h-screen">
 
     <!-- ═══════════════════════════════════════════════════════════════════════════
+     LANDING VIEW
+═══════════════════════════════════════════════════════════════════════════ -->
+    <div id="view-landing" class="hidden">
+
+        <!-- NAV -->
+        <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-g-border">
+            <div class="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
+                <a href="/" class="text-2xl font-bold tracking-tight">
+                    <span class="text-g-blue">d11</span><span class="text-g-black">.me</span>
+                </a>
+                <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-g-gray">
+                    <a href="#features" class="hover:text-g-blue transition-colors">Features</a>
+                    <a href="#how-it-works" class="hover:text-g-blue transition-colors">How It Works</a>
+                    <a href="#dashboard" class="hover:text-g-blue transition-colors">Dashboard</a>
+                </nav>
+                <div class="flex items-center gap-4">
+                    <button onclick="show('view-login')"
+                        class="text-sm font-medium text-g-gray hover:text-g-blue transition-colors">Log In</button>
+                    <button onclick="show('view-login')"
+                        class="bg-g-blue text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-600 transition-all shadow-sm">Get
+                        Started</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- HERO -->
+        <section class="py-24 px-8 text-center bg-white">
+            <div class="max-w-4xl mx-auto">
+                <div
+                    class="inline-flex items-center gap-2 bg-blue-50 text-g-blue text-xs font-semibold px-4 py-1.5 rounded-full mb-6 border border-blue-100">
+                    <span class="w-1.5 h-1.5 rounded-full bg-g-blue inline-block"></span>
+                    Now in Beta
+                </div>
+                <h1 class="text-5xl md:text-6xl font-semibold tracking-tight text-g-black leading-tight mb-6">
+                    Bookmark Smarter.<br>
+                    <span class="text-g-blue">Share Instantly.</span>
+                </h1>
+                <p class="text-lg text-g-gray leading-relaxed max-w-2xl mx-auto mb-10">
+                    Save and organize your bookmarks, then share them with a short, memorable link you choose. No more
+                    copying 200-character URLs.
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                    <button onclick="show('view-login')"
+                        class="bg-g-blue text-white px-8 py-3.5 rounded-full font-semibold text-base hover:bg-blue-600 transition-all shadow-soft w-full sm:w-auto">
+                        Start for Free
+                    </button>
+                    <a href="#how-it-works"
+                        class="border border-g-border text-g-black px-8 py-3.5 rounded-full font-semibold text-base hover:border-g-blue hover:text-g-blue transition-all w-full sm:w-auto">
+                        See How It Works
+                    </a>
+                </div>
+                <!-- URL example card -->
+                <div
+                    class="inline-flex flex-col sm:flex-row items-center gap-3 bg-white border border-g-border rounded-[24px] px-6 py-4 shadow-soft text-sm">
+                    <div class="flex items-center gap-2 flex-wrap justify-center">
+                        <span class="text-g-blue font-bold font-mono">d11.me/l/cowboys</span>
+                        <span class="text-g-gray">→</span>
+                        <span
+                            class="text-g-gray font-mono truncate max-w-[260px]">https://www.nfl.com/teams/dallas-cowboys</span>
+                    </div>
+                    <span class="hidden sm:block text-g-border">|</span>
+                    <span
+                        class="bg-green-50 text-green-600 text-xs font-semibold px-3 py-1 rounded-full border border-green-100">Public</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURES -->
+        <section id="features" class="py-20 px-8 bg-[#FAFAFA]">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-semibold tracking-tight text-g-black mb-4">Everything You Need</h2>
+                    <p class="text-g-gray text-base leading-relaxed">Powerful features, beautifully simple.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div
+                        class="bg-white border border-g-border rounded-[24px] p-8 shadow-sm hover:shadow-soft transition-shadow">
+                        <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-g-black mb-2">Smart Bookmarking</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Save any URL instantly. Tag, organize, and search
+                            through your entire collection — like Pinboard, but with a modern feel.</p>
+                    </div>
+                    <div
+                        class="bg-white border border-g-border rounded-[24px] p-8 shadow-sm hover:shadow-soft transition-shadow">
+                        <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-g-black mb-2">Custom Short Links</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Give every bookmark a short, memorable slug.
+                            Share <span class="text-g-blue font-medium">d11.me/l/cowboys</span> instead of the full URL.
+                        </p>
+                    </div>
+                    <div
+                        class="bg-white border border-g-border rounded-[24px] p-8 shadow-sm hover:shadow-soft transition-shadow">
+                        <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-g-black mb-2">Public &amp; Private</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Keep bookmarks private for yourself, or flip them
+                            public to share with anyone. Full control on every single link.</p>
+                    </div>
+                    <div
+                        class="bg-white border border-g-border rounded-[24px] p-8 shadow-sm hover:shadow-soft transition-shadow">
+                        <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-g-black mb-2">Token Authentication</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Secure, token-based access. Use d11.me from your
+                            browser, the command line, or integrate it with any workflow tool.</p>
+                    </div>
+                    <div
+                        class="bg-white border border-g-border rounded-[24px] p-8 shadow-sm hover:shadow-soft transition-shadow">
+                        <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-g-black mb-2">Tags &amp; Search</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Organize with tags and find anything instantly
+                            with full-text search across titles, URLs, and your saved notes.</p>
+                    </div>
+                    <div
+                        class="bg-white border border-g-border rounded-[24px] p-8 shadow-sm hover:shadow-soft transition-shadow">
+                        <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-g-black mb-2">Instant Redirect</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Every short link redirects at the edge via
+                            Cloudflare Workers — zero lag, globally distributed, always fast.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section id="how-it-works" class="py-24 px-8 bg-white">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-4xl font-semibold tracking-tight text-g-black mb-4">How It Works</h2>
+                <p class="text-g-gray mb-16">Three steps to a smarter link workflow.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                    <div class="flex flex-col items-center">
+                        <div
+                            class="w-14 h-14 bg-g-blue text-white rounded-full flex items-center justify-center text-xl font-bold mb-5 shadow-soft">
+                            1</div>
+                        <h3 class="text-lg font-semibold text-g-black mb-2">Save a URL</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Paste any URL into d11.me. Add a title, tags, and
+                            an optional description to keep things organized.</p>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div
+                            class="w-14 h-14 bg-g-blue text-white rounded-full flex items-center justify-center text-xl font-bold mb-5 shadow-soft">
+                            2</div>
+                        <h3 class="text-lg font-semibold text-g-black mb-2">Choose a Slug</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Give it a short name like <span
+                                class="text-g-blue font-medium">cowboys</span> and it becomes <span
+                                class="text-g-blue font-medium">d11.me/l/cowboys</span> instantly.</p>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div
+                            class="w-14 h-14 bg-g-blue text-white rounded-full flex items-center justify-center text-xl font-bold mb-5 shadow-soft">
+                            3</div>
+                        <h3 class="text-lg font-semibold text-g-black mb-2">Share &amp; Redirect</h3>
+                        <p class="text-g-gray text-sm leading-relaxed">Anyone who visits your short link is instantly
+                            forwarded to the full destination URL in their browser.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DASHBOARD PREVIEW -->
+        <section id="dashboard" class="py-20 px-8 bg-[#FAFAFA]">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-semibold tracking-tight text-g-black mb-4">Your Dashboard</h2>
+                    <p class="text-g-gray">Manage all your bookmarks in one clean, fast view.</p>
+                </div>
+                <div class="bg-white border border-g-border rounded-[24px] shadow-soft overflow-hidden">
+                    <div class="flex items-center gap-2 px-5 py-3.5 border-b border-g-border bg-[#FAFAFA]">
+                        <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                        <div
+                            class="flex-1 mx-4 bg-white border border-g-border rounded-full px-4 py-1 text-xs text-g-gray font-mono">
+                            d11.me</div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-g-black">My Bookmarks</h3>
+                                <p class="text-xs text-g-gray mt-0.5">4 links saved</p>
+                            </div>
+                            <div
+                                class="bg-g-blue text-white text-sm font-medium px-5 py-2 rounded-full flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Bookmark
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-4 p-4 border border-g-border rounded-[12px]">
+                                <div
+                                    class="w-8 h-8 bg-blue-50 rounded-[8px] flex-shrink-0 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-sm font-semibold text-g-black">Dallas Cowboys — Official Site</p>
+                                        <span
+                                            class="bg-green-50 text-green-600 text-xs font-medium px-2 py-0.5 rounded-full border border-green-100">Public</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-0.5"><span
+                                            class="text-g-blue text-xs font-mono">d11.me/l/cowboys</span><span
+                                            class="text-g-gray text-xs">·</span><span
+                                            class="text-g-gray text-xs">nfl.com/teams/dallas-cowboys</span></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 p-4 border border-g-border rounded-[12px]">
+                                <div
+                                    class="w-8 h-8 bg-blue-50 rounded-[8px] flex-shrink-0 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-sm font-semibold text-g-black">Cloudflare Workers Docs</p><span
+                                            class="bg-gray-100 text-g-gray text-xs font-medium px-2 py-0.5 rounded-full border border-g-border">Private</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-0.5"><span
+                                            class="text-g-blue text-xs font-mono">d11.me/l/cfworkers</span><span
+                                            class="text-g-gray text-xs">·</span><span
+                                            class="text-g-gray text-xs">developers.cloudflare.com/workers/</span></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 p-4 border border-g-border rounded-[12px]">
+                                <div
+                                    class="w-8 h-8 bg-blue-50 rounded-[8px] flex-shrink-0 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-sm font-semibold text-g-black">Bun.js Documentation</p><span
+                                            class="bg-green-50 text-green-600 text-xs font-medium px-2 py-0.5 rounded-full border border-green-100">Public</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-0.5"><span
+                                            class="text-g-blue text-xs font-mono">d11.me/l/bunjs</span><span
+                                            class="text-g-gray text-xs">·</span><span
+                                            class="text-g-gray text-xs">bun.sh/docs</span></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 p-4 border border-g-border rounded-[12px]">
+                                <div
+                                    class="w-8 h-8 bg-blue-50 rounded-[8px] flex-shrink-0 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-sm font-semibold text-g-black">Tailwind CSS — Utility Classes</p>
+                                        <span
+                                            class="bg-gray-100 text-g-gray text-xs font-medium px-2 py-0.5 rounded-full border border-g-border">Private</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-0.5"><span
+                                            class="text-g-blue text-xs font-mono">d11.me/l/tw</span><span
+                                            class="text-g-gray text-xs">·</span><span
+                                            class="text-g-gray text-xs">tailwindcss.com/docs</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="py-24 px-8 text-center bg-white">
+            <div class="max-w-2xl mx-auto">
+                <h2 class="text-4xl font-semibold tracking-tight text-g-black mb-4">Ready to take control of your links?
+                </h2>
+                <p class="text-g-gray leading-relaxed mb-10">Join the beta and start building your personal link library
+                    today. Free to get started.</p>
+                <button onclick="show('view-login')"
+                    class="bg-g-blue text-white px-10 py-4 rounded-full font-semibold text-lg hover:bg-blue-600 transition-all shadow-soft inline-block">
+                    Get Started Free
+                </button>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="border-t border-g-border py-10 px-8 bg-white">
+            <div
+                class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-g-gray">
+                <div class="text-lg font-bold"><span class="text-g-blue">d11</span><span class="text-g-black">.me</span>
+                </div>
+                <p>© 2026 d11.me — Smart Bookmarks &amp; Short Links</p>
+                <div class="flex items-center gap-6">
+                    <a href="#" class="hover:text-g-blue transition-colors">Privacy</a>
+                    <a href="#" class="hover:text-g-blue transition-colors">Terms</a>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════
      LOGIN VIEW
 ═══════════════════════════════════════════════════════════════════════════ -->
     <div id="view-login" class="hidden min-h-screen flex items-center justify-center px-4">
@@ -530,7 +864,7 @@
             const preDesc = params.get('desc')
 
             if (!S.token) {
-                show('view-login')
+                show(preUrl ? 'view-login' : 'view-landing')
                 if (preUrl) { S._preUrl = preUrl; S._preTitle = preTitle; S._preDesc = preDesc }
                 return
             }
@@ -969,7 +1303,7 @@
 
         // ── UI helpers ────────────────────────────────────────────────────────────────
         function show(viewId) {
-            ['view-login', 'view-dashboard'].forEach(id => {
+            ['view-landing', 'view-login', 'view-dashboard'].forEach(id => {
                 const el = qs('#' + id)
                 if (el) el.classList.toggle('hidden', id !== viewId)
             })
