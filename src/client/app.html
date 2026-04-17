@@ -1097,7 +1097,7 @@
                 if (data.description && !qs('#m-desc').value) qs('#m-desc').value = data.description
                 // Auto-suggest slug from domain if empty
                 if (!qs('#m-slug').value) {
-                    const suggested = suggestSlug(url)
+                    const suggested = suggestSlug()
                     qs('#m-slug').value = suggested
                     debounceSlugCheck(suggested)
                 }
@@ -1106,11 +1106,8 @@
             }
         }
 
-        function suggestSlug(url) {
-            try {
-                const hostname = new URL(url).hostname.replace(/^www\./, '').replace(/\./g, '-').slice(0, 32)
-                return hostname.replace(/[^a-z0-9_-]/gi, '').toLowerCase()
-            } catch { return '' }
+        function suggestSlug() {
+            return crypto.randomUUID().replace(/-/g, '').slice(0, 6)
         }
 
         // ── Tag management ────────────────────────────────────────────────────────
