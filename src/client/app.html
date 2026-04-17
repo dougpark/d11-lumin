@@ -505,6 +505,8 @@
         // ── Bootstrap ────────────────────────────────────────────────────────────────
         async function boot() {
             S.token = localStorage.getItem('d11_token')
+            // Keep auth cookie in sync so /l/ routes can verify ownership
+            if (S.token) setAuthCookie(S.token)
 
             // Pre-fill from ?url= query param (bookmarklet)
             const params = new URLSearchParams(location.search)
@@ -550,8 +552,16 @@
             qs('#menu-prefix').textContent = 'd11.me/l/' + S.user.slug_prefix + '/…'
         }
 
+        function setAuthCookie(token) {
+            document.cookie = `d11_auth=${encodeURIComponent(token)}; path=/; SameSite=Lax; Secure; max-age=31536000`
+        }
+        function clearAuthCookie() {
+            document.cookie = 'd11_auth=; path=/; SameSite=Lax; Secure; max-age=0'
+        }
+
         function doLogout() {
             localStorage.removeItem('d11_token')
+            clearAuthCookie()
             S.token = null; S.user = null
             location.reload()
         }
@@ -571,6 +581,7 @@
                 return
             }
             localStorage.setItem('d11_token', token)
+            setAuthCookie(token)
             setBusy('login', false)
             show('view-dashboard')
             initBookmarklet()
@@ -596,6 +607,7 @@
                 S.token = data.token
                 S.user = data.user
                 localStorage.setItem('d11_token', data.token)
+                setAuthCookie(data.token)
                 qs('#token-display').textContent = data.token
                 showEl('token-modal')
             } catch { showError('reg-error', 'Network error. Try again.') }

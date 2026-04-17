@@ -7,7 +7,9 @@ import { authMiddleware } from './middleware/authMiddleware.ts'
 import authRoutes from './routes/auth.ts'
 import bookmarkRoutes from './routes/bookmarks.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
-import { getUserBySlugPrefix } from './db/users.ts'
+import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
+import { hashToken } from './utils/auth.ts'
+import { getCookie } from 'hono/cookie'
 // @ts-expect-error — text module loaded by Wrangler rule
 import appHtml from './client/app.html'
 
@@ -54,7 +56,15 @@ app.get('/l/:prefix/:slug', async (c) => {
   const bookmark = await getBookmarkBySlug(c.env.DB, slug)
   if (!bookmark) return c.notFound()
   if (bookmark.user_id !== user.id) return c.notFound()
-  if (!bookmark.is_public) return c.notFound()
+
+  if (!bookmark.is_public) {
+    // Allow the owner through via their auth cookie
+    const rawToken = getCookie(c, 'd11_auth')
+    if (!rawToken) return c.notFound()
+    const tokenHash = await hashToken(decodeURIComponent(rawToken))
+    const requestingUser = await getUserByTokenHash(c.env.DB, tokenHash)
+    if (requestingUser?.id !== bookmark.user_id) return c.notFound()
+  }
 
   // Fire-and-forget analytics
   c.executionCtx.waitUntil(
