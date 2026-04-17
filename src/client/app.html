@@ -510,10 +510,11 @@
             const params = new URLSearchParams(location.search)
             const preUrl = params.get('url')
             const preTitle = params.get('title')
+            const preDesc = params.get('desc')
 
             if (!S.token) {
                 show('view-login')
-                if (preUrl) { S._preUrl = preUrl; S._preTitle = preTitle }
+                if (preUrl) { S._preUrl = preUrl; S._preTitle = preTitle; S._preDesc = preDesc }
                 return
             }
 
@@ -525,7 +526,7 @@
             await Promise.all([loadBookmarks(), loadTags()])
 
             if (preUrl) {
-                openAddModal(preUrl, preTitle)
+                openAddModal(preUrl, preTitle, preDesc)
             }
         }
 
@@ -839,7 +840,7 @@
         // ── Bookmarklet ───────────────────────────────────────────────────────────────
         function buildBookmarkletHref() {
             const base = location.origin
-            return `javascript:(function(){window.open('${base}/add?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title),'_blank','width=540,height=700,resizable=yes')})();`
+            return `javascript:(function(){var sel=window.getSelection?window.getSelection().toString():'';window.open('${base}/add?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title)+(sel?'&desc='+encodeURIComponent(sel):''),'_blank','width=540,height=700,resizable=yes')})();`
         }
 
         function initBookmarklet() {
@@ -851,7 +852,7 @@
             navigator.clipboard.writeText(buildBookmarkletHref())
             toast('Bookmarklet snippet copied!')
         }
-        function openAddModal(preUrl, preTitle) {
+        function openAddModal(preUrl, preTitle, preDesc) {
             M.mode = 'add'
             M.isPublic = false
             M.tags = []
@@ -862,7 +863,7 @@
             qs('#m-url').value = preUrl || ''
             qs('#m-slug').value = ''
             qs('#m-title').value = preTitle || ''
-            qs('#m-desc').value = ''
+            qs('#m-desc').value = preDesc || ''
             qs('#m-expires').value = ''
             qs('#m-url-error').classList.add('hidden')
             qs('#m-slug-error').classList.add('hidden')
