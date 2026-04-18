@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "d11-shortener",
+      "name": "d11-lumin",
       "dependencies": {
         "hono": "^4.6.0",
       },

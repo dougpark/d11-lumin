@@ -1,4 +1,4 @@
-# d11.me — Bookmark + Link Shortener
+# d11.me — Lumin:Bookmark + Link Shortener
 
 A personal bookmark manager with short links, built on **Cloudflare Workers + Hono + D1**.
 
