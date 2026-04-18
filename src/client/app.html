@@ -769,13 +769,22 @@
                 <div
                     class="flex items-center justify-between px-4 py-2.5 bg-white border-b border-g-border sticky top-0 z-10">
                     <span id="mobile-total-count" class="text-xs text-g-gray font-medium"></span>
-                    <select id="mobile-sort-select" onchange="loadBookmarks()"
-                        class="text-xs border border-g-border rounded-full px-3 py-1.5 text-g-gray focus:outline-none focus:border-g-blue bg-white">
-                        <option value="created_at">Newest first</option>
-                        <option value="title">Title A–Z</option>
-                        <option value="hit_count">Most visited</option>
-                        <option value="last_accessed">Last accessed</option>
-                    </select>
+                    <div class="flex items-center gap-2">
+                        <select id="mobile-sort-select" onchange="loadBookmarks()"
+                            class="text-xs border border-g-border rounded-full px-3 py-1.5 text-g-gray focus:outline-none focus:border-g-blue bg-white">
+                            <option value="created_at">Newest first</option>
+                            <option value="title">Title A–Z</option>
+                            <option value="hit_count">Most visited</option>
+                            <option value="last_accessed">Last accessed</option>
+                        </select>
+                        <button id="mobile-expand-descs-btn" onclick="toggleAllDescs()" title="Expand all descriptions"
+                            class="p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6h16M4 10h10M4 14h16M4 18h10" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="mobile-list-loading" class="hidden flex items-center justify-center py-16">
                     <div class="spinner !w-8 !h-8"></div>
@@ -1513,8 +1522,13 @@
 
         function toggleAllDescs() {
             S.expandDescs = !S.expandDescs
+            // Update desktop button tooltip
             const btn = qs('#expand-descs-btn')
             if (btn) btn.title = S.expandDescs ? 'Collapse all descriptions' : 'Expand all descriptions'
+            // Update mobile button tooltip
+            const mBtn = qs('#mobile-expand-descs-btn')
+            if (mBtn) mBtn.title = S.expandDescs ? 'Collapse all descriptions' : 'Expand all descriptions'
+            // Desktop: update desc paragraphs + per-card show more/less buttons
             document.querySelectorAll('[id^="desc-"]').forEach(p => {
                 p.classList.toggle('line-clamp-2', !S.expandDescs)
                 const toggleBtn = p.nextElementSibling
@@ -1522,6 +1536,14 @@
                     toggleBtn.dataset.expanded = S.expandDescs ? 'true' : 'false'
                     toggleBtn.textContent = S.expandDescs ? 'show less' : 'show more'
                 }
+            })
+            // Mobile: update desc wrappers
+            document.querySelectorAll('#mobile-bookmark-list [data-expanded]').forEach(wrapper => {
+                const p = wrapper.querySelector('p')
+                const fade = wrapper.querySelector('.desc-fade')
+                if (p) p.classList.toggle('line-clamp-2', !S.expandDescs)
+                if (fade) fade.classList.toggle('hidden', S.expandDescs)
+                wrapper.dataset.expanded = S.expandDescs ? 'true' : 'false'
             })
         }
 
@@ -1560,9 +1582,9 @@
         ${b.hit_count ? `<span class="text-g-gray text-xs">· ${b.hit_count}</span>` : ''}
       </div>
       ${b.short_description ? `
-      <div class="relative mt-1 cursor-pointer" onclick="toggleMobileDesc(this)">
-        <p class="text-xs text-g-gray leading-relaxed line-clamp-2 transition-all">${escHtml(b.short_description)}</p>
-        <div class="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white to-transparent pointer-events-none desc-fade"></div>
+      <div class="relative mt-1 cursor-pointer" onclick="toggleMobileDesc(this)" data-expanded="${S.expandDescs}">
+        <p class="text-xs text-g-gray leading-relaxed transition-all ${S.expandDescs ? '' : 'line-clamp-2'}">${escHtml(b.short_description)}</p>
+        <div class="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white to-transparent pointer-events-none desc-fade${S.expandDescs ? ' hidden' : ''}"></div>
       </div>` : ''}
       ${tags ? `<div class="flex flex-wrap gap-1 mt-1.5">${tags}</div>` : ''}
     </div>
