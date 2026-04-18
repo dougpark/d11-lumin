@@ -816,12 +816,18 @@
     <!-- ═══════════════════════════════════════════════════════════════════════════
      MOBILE ACTION SHEET
 ═══════════════════════════════════════════════════════════════════════════ -->
-    <div id="mobile-action-sheet" class="hidden fixed inset-0 z-50"
-        onclick="if(event.target===this)closeMobileActions()">
-        <div class="absolute inset-0 bg-black/40"></div>
+    <div id="mobile-action-sheet" class="hidden fixed inset-0 z-50">
+        <button class="absolute inset-0 bg-black/40 w-full h-full cursor-default" onclick="closeMobileActions()"
+            tabindex="-1" aria-label="Close"></button>
         <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] shadow-soft">
             <div class="w-10 h-1 bg-g-border rounded-full mx-auto mt-3 mb-1"></div>
-            <div id="mobile-action-list" class="pb-6"></div>
+            <div id="mobile-action-list" class="pb-2"></div>
+            <div class="px-4 pb-6 pt-1 border-t border-g-border">
+                <button onclick="closeMobileActions()"
+                    class="w-full py-3.5 text-sm font-semibold text-g-black bg-[#F3F4F6] rounded-[14px] active:bg-g-border transition-colors">
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 
