@@ -79,9 +79,9 @@
                     <a href="#dashboard" class="hover:text-g-blue transition-colors">Dashboard</a>
                 </nav>
                 <div class="flex items-center gap-4">
-                    <button onclick="show('view-login')"
+                    <button onclick="goTo('login')"
                         class="text-sm font-medium text-g-gray hover:text-g-blue transition-colors">Log In</button>
-                    <button onclick="show('view-login')"
+                    <button onclick="goTo('login')"
                         class="bg-g-blue text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-600 transition-all shadow-sm">Get
                         Started</button>
                 </div>
@@ -105,7 +105,7 @@
                     copying 200-character URLs.
                 </p>
                 <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-                    <button onclick="show('view-login')"
+                    <button onclick="goTo('login')"
                         class="bg-g-blue text-white px-8 py-3.5 rounded-full font-semibold text-base hover:bg-blue-600 transition-all shadow-soft w-full sm:w-auto">
                         Start for Free
                     </button>
@@ -377,7 +377,7 @@
                 </h2>
                 <p class="text-g-gray leading-relaxed mb-10">Join the beta and start building your personal link library
                     today. Free to get started.</p>
-                <button onclick="show('view-login')"
+                <button onclick="goTo('login')"
                     class="bg-g-blue text-white px-10 py-4 rounded-full font-semibold text-lg hover:bg-blue-600 transition-all shadow-soft inline-block">
                     Get Started Free
                 </button>
@@ -672,6 +672,160 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════════════
+     MOBILE DASHBOARD VIEW
+═══════════════════════════════════════════════════════════════════════════ -->
+    <div id="mobile-view-dashboard" class="hidden flex flex-col bg-[#FAFAFA]" style="height:100dvh">
+
+        <!-- Top bar -->
+        <header class="bg-white border-b border-g-border px-4 h-14 flex items-center gap-3 flex-shrink-0 relative z-30">
+            <span class="text-xl font-bold flex-1 select-none">
+                <span class="text-g-blue">d11</span><span class="text-g-black">.me</span>
+            </span>
+            <button onclick="toggleMobileSearch()" class="p-2 text-g-gray" title="Search">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
+                </svg>
+            </button>
+            <button onclick="openAddModal()"
+                class="bg-g-blue text-white rounded-full p-2 hover:bg-blue-600 transition-colors" title="Add bookmark">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
+            <button onclick="toggleMobileUserMenu()"
+                class="w-8 h-8 bg-blue-100 rounded-full text-g-blue font-bold text-xs flex-shrink-0 flex items-center justify-center"
+                id="mobile-user-avatar">?</button>
+            <!-- User dropdown -->
+            <div id="mobile-user-menu"
+                class="hidden absolute right-4 top-14 bg-white border border-g-border rounded-[14px] shadow-soft w-52 py-1 z-50 fade-in">
+                <div class="px-4 py-2.5 border-b border-g-border">
+                    <p class="text-xs font-semibold text-g-black truncate" id="mobile-menu-name">—</p>
+                    <p class="text-xs text-g-gray truncate" id="mobile-menu-prefix">—</p>
+                </div>
+                <button onclick="copyLoginLink(); toggleMobileUserMenu()"
+                    class="w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Copy
+                    Login Link</button>
+                <button onclick="doLogout()"
+                    class="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">Sign
+                    Out</button>
+            </div>
+        </header>
+
+        <!-- Collapsible search bar -->
+        <div id="mobile-search-bar" class="hidden bg-white border-b border-g-border px-4 py-2.5 flex-shrink-0">
+            <div class="relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-g-gray pointer-events-none"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
+                </svg>
+                <input id="mobile-search-input" type="text" placeholder="Search bookmarks…"
+                    class="w-full pl-9 pr-4 py-2 text-sm border border-g-border rounded-full focus:outline-none focus:border-g-blue bg-[#FAFAFA] transition-colors"
+                    oninput="debounceSearch(this.value)">
+            </div>
+        </div>
+
+        <!-- Active tag row -->
+        <div id="mobile-active-tag-row"
+            class="hidden px-4 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2 flex-shrink-0">
+            <span class="text-xs text-g-blue font-medium flex-1" id="mobile-active-tag-label"></span>
+            <button onclick="filterByTag(null)" class="text-xs font-semibold text-blue-400 px-2">✕ clear</button>
+        </div>
+
+        <!-- Scrollable area -->
+        <div class="flex-1 overflow-y-auto min-h-0">
+
+            <!-- Bookmarks tab -->
+            <div id="mobile-tab-bookmarks">
+                <div
+                    class="flex items-center justify-between px-4 py-2.5 bg-white border-b border-g-border sticky top-0 z-10">
+                    <span id="mobile-total-count" class="text-xs text-g-gray font-medium"></span>
+                    <select id="mobile-sort-select" onchange="loadBookmarks()"
+                        class="text-xs border border-g-border rounded-full px-3 py-1.5 text-g-gray focus:outline-none focus:border-g-blue bg-white">
+                        <option value="created_at">Newest first</option>
+                        <option value="title">Title A–Z</option>
+                        <option value="hit_count">Most visited</option>
+                        <option value="last_accessed">Last accessed</option>
+                    </select>
+                </div>
+                <div id="mobile-list-loading" class="hidden flex items-center justify-center py-16">
+                    <div class="spinner !w-8 !h-8"></div>
+                </div>
+                <div id="mobile-list-empty" class="hidden text-center py-16 px-6">
+                    <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-7 h-7 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                    </div>
+                    <p class="font-semibold text-g-black mb-1">No bookmarks yet</p>
+                    <p class="text-sm text-g-gray mb-5">Save your first link to get started.</p>
+                    <button onclick="openAddModal()"
+                        class="bg-g-blue text-white text-sm font-semibold px-5 py-2.5 rounded-full inline-flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Bookmark
+                    </button>
+                </div>
+                <div id="mobile-bookmark-list" class="divide-y divide-g-border"></div>
+                <div id="mobile-pagination" class="hidden py-4 flex flex-wrap items-center justify-center gap-2 px-4">
+                </div>
+            </div>
+
+            <!-- Tags tab -->
+            <div id="mobile-tab-tags" class="hidden px-4 py-3">
+                <button onclick="filterByTag(null); switchMobileTab('bookmarks')" id="mobile-tag-all"
+                    class="w-full text-left px-3 py-2.5 rounded-[8px] font-medium text-sm mb-1 bg-g-blue text-white transition-colors">
+                    All bookmarks
+                </button>
+                <div id="mobile-tag-list" class="flex flex-col gap-1"></div>
+                <div class="mt-4 pt-4 border-t border-g-border">
+                    <label class="flex items-center gap-2 text-sm text-g-gray cursor-pointer select-none">
+                        <input type="checkbox" id="mobile-show-archived" onchange="loadBookmarks()"
+                            class="rounded accent-g-blue">
+                        Show archived
+                    </label>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom nav -->
+        <nav class="bg-white border-t border-g-border flex-shrink-0 flex">
+            <button onclick="switchMobileTab('bookmarks')" id="mobile-nav-bookmarks"
+                class="flex-1 flex flex-col items-center py-3 gap-1 text-g-blue">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                <span class="text-xs font-medium">Bookmarks</span>
+            </button>
+            <button onclick="switchMobileTab('tags')" id="mobile-nav-tags"
+                class="flex-1 flex flex-col items-center py-3 gap-1 text-g-gray">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z" />
+                </svg>
+                <span class="text-xs font-medium">Tags</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════
+     MOBILE ACTION SHEET
+═══════════════════════════════════════════════════════════════════════════ -->
+    <div id="mobile-action-sheet" class="hidden fixed inset-0 z-50"
+        onclick="if(event.target===this)closeMobileActions()">
+        <div class="absolute inset-0 bg-black/40"></div>
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] shadow-soft">
+            <div class="w-10 h-1 bg-g-border rounded-full mx-auto mt-3 mb-1"></div>
+            <div id="mobile-action-list" class="pb-6"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════
      ADD / EDIT MODAL  (built in Step 6 — placeholder shown)
 ═══════════════════════════════════════════════════════════════════════════ -->
     <div id="bookmark-modal"
@@ -843,10 +997,12 @@
             searchTimer: null,
             confirmCb: null,
             newToken: null,      // stored temporarily after register
+            isMobile: false,     // set in boot() — true when viewport < 768px
         }
 
         // ── Bootstrap ────────────────────────────────────────────────────────────────
         async function boot() {
+            S.isMobile = window.innerWidth < 768
             // Parse URL params once — used for both auto-login and bookmarklet pre-fill
             const params = new URLSearchParams(location.search)
 
@@ -870,16 +1026,17 @@
             const preDesc = params.get('desc')
 
             if (!S.token) {
-                show(preUrl ? 'view-login' : 'view-landing')
+                goTo(preUrl ? 'login' : 'landing')
                 if (preUrl) { S._preUrl = preUrl; S._preTitle = preTitle; S._preDesc = preDesc }
                 return
             }
 
             const ok = await validateToken()
-            if (!ok) { show('view-login'); return }
+            if (!ok) { goTo('login'); return }
 
-            show('view-dashboard')
+            goTo('dashboard')
             initBookmarklet()
+            initMobile()
             await Promise.all([loadBookmarks(), loadTags()])
 
             if (preUrl) {
@@ -902,9 +1059,19 @@
         function updateUserUI() {
             if (!S.user) return
             const initials = (S.user.full_name || S.user.slug_prefix || '?').slice(0, 2).toUpperCase()
+            const name = S.user.full_name || S.user.slug_prefix
+            const prefix = 'd11.me/l/' + S.user.slug_prefix + '/…'
+            // Desktop
             qs('#user-avatar').textContent = initials
-            qs('#menu-name').textContent = S.user.full_name || S.user.slug_prefix
-            qs('#menu-prefix').textContent = 'd11.me/l/' + S.user.slug_prefix + '/…'
+            qs('#menu-name').textContent = name
+            qs('#menu-prefix').textContent = prefix
+            // Mobile
+            const mob = qs('#mobile-user-avatar')
+            if (mob) mob.textContent = initials
+            const mobName = qs('#mobile-menu-name')
+            if (mobName) mobName.textContent = name
+            const mobPrefix = qs('#mobile-menu-prefix')
+            if (mobPrefix) mobPrefix.textContent = prefix
         }
 
         function setAuthCookie(token) {
@@ -981,53 +1148,51 @@
         }
 
         async function dismissTokenModal() {
-            // Clear any in-memory auth state so boot() won't skip the login view
-            // on the upcoming location.replace('/') call.
             S.token = null; S.user = null
             localStorage.removeItem('d11_token')
             clearAuthCookie()
             const token = S.newToken
             hideEl('token-modal')
-            switchTab('login')
-            show('view-login')
-            //qs('#login-token').value = token
-            // Use requestSubmit() so the browser sees a real form-submit event,
-            // which is the signal it needs to offer "Save Password?".
-            // qs('#login-token').closest('form').requestSubmit()
+            if (!S.isMobile) switchTab('login')
+            goTo('login')
+            qs('#login-token').value = token
+            qs('#login-token').closest('form').requestSubmit()
         }
 
         // ── Bookmarks ─────────────────────────────────────────────────────────────────
         async function loadBookmarks(page = 1) {
             S.page = page
-            showEl('list-loading')
-            hideEl('bookmark-list')
-            hideEl('list-empty')
-            hideEl('pagination')
+            const p = S.isMobile ? 'mobile-' : ''
+            showEl(p + 'list-loading')
+            hideEl(p + 'bookmark-list')
+            hideEl(p + 'list-empty')
+            hideEl(p + 'pagination')
 
             const params = new URLSearchParams({
-                sort: qs('#sort-select')?.value || 'created_at',
+                sort: qs('#' + p + 'sort-select')?.value || 'created_at',
                 order: 'DESC',
                 page: String(page),
                 per_page: String(S.perPage),
-                archived: qs('#show-archived')?.checked ? '1' : '0',
+                archived: qs('#' + p + 'show-archived')?.checked ? '1' : '0',
             })
             if (S.activeTag) params.set('tag', S.activeTag)
             if (S.searchQuery) params.set('search', S.searchQuery)
 
             const res = await api('GET', `/api/bookmarks?${params}`)
-            hideEl('list-loading')
+            hideEl(p + 'list-loading')
             if (!res.ok) { toast('Failed to load bookmarks.', 'error'); return }
 
             const { data, meta } = await res.json()
             S.bookmarks = data
             S.total = meta.total
 
-            qs('#total-count').textContent = `${meta.total} bookmark${meta.total !== 1 ? 's' : ''}`
+            const countEl = qs('#' + p + 'total-count')
+            if (countEl) countEl.textContent = `${meta.total} bookmark${meta.total !== 1 ? 's' : ''}`
 
-            if (data.length === 0) { showEl('list-empty'); return }
+            if (data.length === 0) { showEl(p + 'list-empty'); return }
 
-            showEl('bookmark-list')
-            qs('#bookmark-list').innerHTML = data.map(renderBookmarkRow).join('')
+            showEl(p + 'bookmark-list')
+            qs('#' + p + 'bookmark-list').innerHTML = data.map(S.isMobile ? renderMobileBookmarkRow : renderBookmarkRow).join('')
             renderPagination(meta)
         }
 
@@ -1040,31 +1205,34 @@
         }
 
         function renderTagSidebar(tags) {
-            const container = qs('#tag-list')
-            container.innerHTML = tags.map(t => `
+            const html = tags.map(t => `
     <button onclick="filterByTag('${escAttr(t)}')"
       data-tag="${escAttr(t)}"
       class="text-left text-sm px-3 py-2 rounded-[8px] text-g-gray hover:bg-[#F3F4F6] transition-colors font-medium">
       #${escHtml(t)}
     </button>`).join('')
+            const el = qs('#tag-list')
+            if (el) el.innerHTML = html
+            const mel = qs('#mobile-tag-list')
+            if (mel) mel.innerHTML = html
         }
 
         function filterByTag(tag) {
             S.activeTag = tag
             S.page = 1
 
-            // Update sidebar highlight
-            qs('#tag-all').className = tag === null
-                ? 'text-left text-sm px-3 py-2 rounded-[8px] font-medium bg-g-blue text-white transition-colors'
-                : 'text-left text-sm px-3 py-2 rounded-[8px] font-medium text-g-gray hover:bg-[#F3F4F6] transition-colors'
-
+            // Update sidebar highlight (shared data-tag buttons cover both desktop + mobile lists)
+            const activeClass = 'text-left text-sm px-3 py-2 rounded-[8px] font-medium bg-g-blue text-white transition-colors'
+            const inactiveClass = 'text-left text-sm px-3 py-2 rounded-[8px] font-medium text-g-gray hover:bg-[#F3F4F6] transition-colors'
+                ;[qs('#tag-all'), qs('#mobile-tag-all')].forEach(el => {
+                    if (el) el.className = tag === null ? activeClass : inactiveClass
+                })
             document.querySelectorAll('[data-tag]').forEach(el => {
-                el.className = el.dataset.tag === tag
-                    ? 'text-left text-sm px-3 py-2 rounded-[8px] font-medium bg-g-blue text-white transition-colors'
+                el.className = el.dataset.tag === tag ? activeClass
                     : 'text-left text-sm px-3 py-2 rounded-[8px] text-g-gray hover:bg-[#F3F4F6] transition-colors font-medium'
             })
 
-            // Active badge
+            // Desktop active badge
             if (tag) {
                 qs('#active-tag-label').textContent = '#' + tag
                 qs('#active-tag-badge').classList.remove('hidden')
@@ -1072,6 +1240,18 @@
             } else {
                 qs('#active-tag-badge').classList.add('hidden')
                 qs('#active-tag-badge').classList.remove('inline-flex')
+            }
+            // Mobile active tag row
+            const mRow = qs('#mobile-active-tag-row')
+            const mLabel = qs('#mobile-active-tag-label')
+            if (mRow) {
+                if (tag) {
+                    if (mLabel) mLabel.textContent = '#' + tag
+                    mRow.classList.remove('hidden')
+                    if (S.isMobile) switchMobileTab('bookmarks')
+                } else {
+                    mRow.classList.add('hidden')
+                }
             }
             loadBookmarks()
         }
@@ -1172,9 +1352,10 @@
         }
 
         function renderPagination(meta) {
-            if (meta.total_pages <= 1) { hideEl('pagination'); return }
-            showEl('pagination')
-            const pag = qs('#pagination')
+            const p = S.isMobile ? 'mobile-' : ''
+            if (meta.total_pages <= 1) { hideEl(p + 'pagination'); return }
+            showEl(p + 'pagination')
+            const pag = qs('#' + p + 'pagination')
             let html = ''
 
             if (meta.page > 1) {
@@ -1233,6 +1414,112 @@
             p.classList.toggle('line-clamp-2', expanded)
             btn.dataset.expanded = expanded ? 'false' : 'true'
             btn.textContent = expanded ? 'show more' : 'show less'
+        }
+
+        // ── Mobile: dense card renderer ───────────────────────────────────────────────
+        function renderMobileBookmarkRow(b) {
+            const tags = (Array.isArray(b.tag_list) ? b.tag_list : []).map(t =>
+                `<button onclick="filterByTag('${escAttr(t)}')" class="bg-[#F3F4F6] text-g-gray text-xs px-2 py-0.5 rounded-full hover:bg-g-blue hover:text-white transition-colors">#${escHtml(t)}</button>`
+            ).join('')
+
+            const favicon = b.favicon_url
+                ? `<img src="${escAttr(b.favicon_url)}" class="w-8 h-8 rounded-[6px] object-contain flex-shrink-0" onerror="this.style.display='none'" loading="lazy">`
+                : `<div class="w-8 h-8 bg-blue-100 rounded-[6px] flex-shrink-0 flex items-center justify-center"><svg class="w-4 h-4 text-g-blue" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 102 0V3h4v1a1 1 0 102 0V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9 4a1 1 0 10-2 0 1 1 0 002 0zm-4 0a1 1 0 10-2 0 1 1 0 002 0z" clip-rule="evenodd"/></svg></div>`
+
+            const fullShortLink = `${location.origin}/l/${S.user?.slug_prefix}/${b.slug}`
+            const shortLink = S.user ? `d11.me/l/${S.user.slug_prefix}/${b.slug}` : `d11.me/l/${b.slug}`
+            const pubDot = b.is_public
+                ? `<span class="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" title="Public"></span>`
+                : `<span class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" title="Private"></span>`
+
+            return `
+  <div class="flex items-start gap-3 px-4 py-3 bg-white" data-id="${b.id}">
+    <div class="mt-0.5 flex-shrink-0">${favicon}</div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-start gap-2">
+        <a href="${escAttr(b.url)}" target="_blank" rel="noopener noreferrer"
+          class="text-sm font-semibold text-g-black leading-snug line-clamp-1 flex-1">${escHtml(b.title || b.url)}</a>
+        <button onclick="openMobileActions(${b.id})" class="flex-shrink-0 p-1 -mr-1 text-g-gray">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/></svg>
+        </button>
+      </div>
+      <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+        ${pubDot}
+        <button onclick="copyLink('${escAttr(fullShortLink)}')" class="text-xs text-g-blue font-mono hover:underline">${escHtml(shortLink)}</button>
+        <span class="text-g-border text-xs">·</span>
+        <span class="text-g-gray text-xs">${escHtml(shortDomain(b.url))}</span>
+        ${b.hit_count ? `<span class="text-g-gray text-xs">· ${b.hit_count}</span>` : ''}
+      </div>
+      ${b.short_description ? `<p class="text-xs text-g-gray leading-relaxed mt-1 line-clamp-2">${escHtml(b.short_description)}</p>` : ''}
+      ${tags ? `<div class="flex flex-wrap gap-1 mt-1.5">${tags}</div>` : ''}
+    </div>
+  </div>`
+        }
+
+        // ── Mobile: action sheet ──────────────────────────────────────────────────────
+        function openMobileActions(id) {
+            const b = S.bookmarks.find(x => x.id === id)
+            if (!b) return
+            const fullShortLink = `${location.origin}/l/${S.user?.slug_prefix}/${b.slug}`
+            qs('#mobile-action-list').innerHTML = `
+      <button onclick="copyLink('${escAttr(fullShortLink)}'); closeMobileActions()" class="w-full flex items-center gap-4 px-6 py-4 text-sm font-medium text-g-black active:bg-[#F3F4F6]">
+        <svg class="w-5 h-5 text-g-gray flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Copy Short Link
+      </button>
+      <button onclick="closeMobileActions(); openEditModal(${id})" class="w-full flex items-center gap-4 px-6 py-4 text-sm font-medium text-g-black active:bg-[#F3F4F6]">
+        <svg class="w-5 h-5 text-g-gray flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Edit
+      </button>
+      <button onclick="closeMobileActions(); togglePublic(${id}, ${b.is_public})" class="w-full flex items-center gap-4 px-6 py-4 text-sm font-medium text-g-black active:bg-[#F3F4F6]">
+        ${b.is_public
+                    ? `<svg class="w-5 h-5 text-g-gray flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>Make Private`
+                    : `<svg class="w-5 h-5 text-g-gray flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>Make Public`}
+      </button>
+      <button onclick="closeMobileActions(); toggleArchive(${id}, ${b.is_archived})" class="w-full flex items-center gap-4 px-6 py-4 text-sm font-medium text-g-black active:bg-[#F3F4F6]">
+        <svg class="w-5 h-5 text-g-gray flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        ${b.is_archived ? 'Unarchive' : 'Archive'}
+      </button>
+      <button onclick="closeMobileActions(); deleteBookmark(${id})" class="w-full flex items-center gap-4 px-6 py-4 text-sm font-medium text-red-500 active:bg-red-50">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Delete
+      </button>`
+            showEl('mobile-action-sheet')
+        }
+
+        function closeMobileActions() { hideEl('mobile-action-sheet') }
+
+        // ── Mobile: nav + search toggle ───────────────────────────────────────────────
+        function switchMobileTab(tab) {
+            const isBookmarks = tab === 'bookmarks'
+            qs('#mobile-tab-bookmarks').classList.toggle('hidden', !isBookmarks)
+            qs('#mobile-tab-tags').classList.toggle('hidden', isBookmarks)
+            const active = 'flex-1 flex flex-col items-center py-3 gap-1 text-g-blue'
+            const inactive = 'flex-1 flex flex-col items-center py-3 gap-1 text-g-gray'
+            qs('#mobile-nav-bookmarks').className = isBookmarks ? active : inactive
+            qs('#mobile-nav-tags').className = isBookmarks ? inactive : active
+        }
+
+        function toggleMobileSearch() {
+            const bar = qs('#mobile-search-bar')
+            bar.classList.toggle('hidden')
+            if (!bar.classList.contains('hidden')) qs('#mobile-search-input').focus()
+            else { S.searchQuery = ''; qs('#mobile-search-input').value = ''; loadBookmarks() }
+        }
+
+        function toggleMobileUserMenu() {
+            qs('#mobile-user-menu').classList.toggle('hidden')
+        }
+
+        function initMobile() {
+            if (!S.isMobile) return
+            // Close mobile user menu on outside click
+            document.addEventListener('click', e => {
+                const menu = qs('#mobile-user-menu')
+                if (menu && !menu.classList.contains('hidden') &&
+                    !e.target.closest('[onclick="toggleMobileUserMenu()"]') && !menu.contains(e.target)) {
+                    menu.classList.add('hidden')
+                }
+            }, { once: false })
         }
 
         // ── Bookmarklet ───────────────────────────────────────────────────────────────
@@ -1332,7 +1619,7 @@
 
         // ── UI helpers ────────────────────────────────────────────────────────────────
         function show(viewId) {
-            ['view-landing', 'view-login', 'view-dashboard'].forEach(id => {
+            ['view-landing', 'view-login', 'view-dashboard', 'mobile-view-dashboard'].forEach(id => {
                 const el = qs('#' + id)
                 if (el) el.classList.toggle('hidden', id !== viewId)
             })
@@ -1341,6 +1628,14 @@
         function showEl(id) { const el = qs('#' + id); el && el.classList.remove('hidden') }
         function hideEl(id) { const el = qs('#' + id); el && el.classList.add('hidden') }
         function qs(sel) { return document.querySelector(sel) }
+
+        // Route to the correct view, swapping in mobile-view-dashboard on small screens
+        function goTo(name) {
+            if (name === 'dashboard' && S.isMobile) show('mobile-view-dashboard')
+            else show('view-' + name)
+        }
+        // Return the mobile or desktop variant of a shared element by base-id
+        function lEl(id) { return qs('#' + (S.isMobile ? 'mobile-' : '') + id) }
 
         function setBusy(prefix, busy) {
             const btn = qs(`#${prefix}-btn-text`); const spin = qs(`#${prefix}-spinner`)
