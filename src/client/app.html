@@ -515,7 +515,7 @@
             </button>
             <button onclick="dismissTokenModal()"
                 class="w-full bg-g-blue text-white font-semibold py-3 rounded-full hover:bg-blue-600 transition-all text-sm">
-                I've saved it — Go to Dashboard
+                I've saved it — Sign In
             </button>
         </div>
     </div>
@@ -965,11 +965,10 @@
                 })
                 const data = await res.json()
                 if (!res.ok) { showError('reg-error', data.error || 'Registration failed.'); setBusy('reg', false); return }
+                // Store the token temporarily but don't persist auth yet.
+                // dismissTokenModal() will route through the login form submit,
+                // which is what triggers the browser's save-password prompt.
                 S.newToken = data.token
-                S.token = data.token
-                S.user = data.user
-                localStorage.setItem('d11_token', data.token)
-                setAuthCookie(data.token)
                 qs('#token-display').textContent = data.token
                 showEl('token-modal')
             } catch { showError('reg-error', 'Network error. Try again.') }
@@ -982,11 +981,19 @@
         }
 
         async function dismissTokenModal() {
+            // Clear any in-memory auth state so boot() won't skip the login view
+            // on the upcoming location.replace('/') call.
+            S.token = null; S.user = null
+            localStorage.removeItem('d11_token')
+            clearAuthCookie()
+            const token = S.newToken
             hideEl('token-modal')
-            show('view-dashboard')
-            initBookmarklet()
-            updateUserUI()
-            await Promise.all([loadBookmarks(), loadTags()])
+            switchTab('login')
+            show('view-login')
+            //qs('#login-token').value = token
+            // Use requestSubmit() so the browser sees a real form-submit event,
+            // which is the signal it needs to offer "Save Password?".
+            // qs('#login-token').closest('form').requestSubmit()
         }
 
         // ── Bookmarks ─────────────────────────────────────────────────────────────────
