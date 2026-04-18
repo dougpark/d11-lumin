@@ -115,23 +115,25 @@ export async function isSlugAvailable(
     return row === null
 }
 
-/** Return the distinct set of tags used by a user. */
-export async function listTags(db: D1Database, userId: number): Promise<string[]> {
+/** Return tags with usage counts for a user, sorted by count desc then name asc. */
+export async function listTags(db: D1Database, userId: number): Promise<{ tag: string; count: number }[]> {
     const rows = await db
         .prepare('SELECT tag_list FROM bookmarks WHERE user_id = ? AND tag_list != ?')
         .bind(userId, '[]')
         .all<{ tag_list: string }>()
 
-    const tagSet = new Set<string>()
+    const counts = new Map<string, number>()
     for (const row of rows.results) {
         try {
             const tags: string[] = JSON.parse(row.tag_list)
-            tags.forEach((t) => tagSet.add(t))
+            tags.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1))
         } catch {
             // malformed JSON — skip
         }
     }
-    return Array.from(tagSet).sort()
+    return Array.from(counts.entries())
+        .map(([tag, count]) => ({ tag, count }))
+        .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
 }
 
 // ─── Write ────────────────────────────────────────────────────────────────────
