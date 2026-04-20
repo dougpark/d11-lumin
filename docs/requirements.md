@@ -1,7 +1,10 @@
+# Requirements
+
 Build a Cloudflare worker with Hono and D1 server app with an html/js/css front end
 use Bun.js and Wrangler
 
-Goal
+## Goal
+
 Create a user friendly on-line bookmark site similar to Pinboard in functionality. With the additional feature of accessing that bookmark url with a short_link user provided name. Ex. d11.me/l/cowboys which would then link to the attached full url and show that page in the users browser.
 
 The client should have a token based authentication. 
@@ -9,7 +12,7 @@ The client should provide a list of their bookmarked url's with: copy,edit, dele
 
 A route so that users can send their slug (short link) and have it forward to linked url.
 
-Domain name
+## Domain name
 d11.me
 
 # Server
