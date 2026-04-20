@@ -90,6 +90,23 @@ bookmarks.post('/', async (c) => {
     return c.json({ data: parseBookmark(bookmark) }, 201)
 })
 
+// ─── GET /api/bookmarks/check-url?url=:url ───────────────────────────────────
+// Returns { exists: false } or { exists: true, bookmark: {...} }
+bookmarks.get('/check-url', async (c) => {
+    const user = c.get('user')
+    const url = c.req.query('url')
+    if (!url) return c.json({ error: 'url is required' }, 400)
+    try { new URL(url) } catch { return c.json({ error: 'invalid url' }, 400) }
+
+    const row = await c.env.DB
+        .prepare('SELECT * FROM bookmarks WHERE user_id = ? AND url = ? LIMIT 1')
+        .bind(user.id, url)
+        .first()
+
+    if (!row) return c.json({ exists: false })
+    return c.json({ exists: true, bookmark: parseBookmark(row as Parameters<typeof parseBookmark>[0]) })
+})
+
 // ─── GET /api/bookmarks/:id ───────────────────────────────────────────────────
 bookmarks.get('/:id', async (c) => {
     const user = c.get('user')

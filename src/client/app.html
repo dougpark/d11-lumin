@@ -1863,7 +1863,7 @@
             populateTagDatalist()
             showEl('bookmark-modal')
             setTimeout(() => qs('#m-url').focus(), 50)
-            if (preUrl) fetchPreview()
+            if (preUrl) { checkUrlDuplicate(preUrl); fetchPreview() }
         }
 
         function openEditModal(id) {
@@ -2075,7 +2075,38 @@
         function debouncePreview(val) {
             clearTimeout(M.previewTimer)
             if (!val) return
-            M.previewTimer = setTimeout(() => fetchPreview(), 800)
+            M.previewTimer = setTimeout(() => { checkUrlDuplicate(val); fetchPreview() }, 800)
+        }
+
+        async function checkUrlDuplicate(url) {
+            if (M.mode !== 'add') return
+            try { new URL(url) } catch { return }
+            try {
+                const res = await api('GET', `/api/bookmarks/check-url?url=${encodeURIComponent(url)}`)
+                if (!res.ok) return
+                const data = await res.json()
+                if (!data.exists) return
+                // URL already saved — silently switch to edit mode
+                const b = data.bookmark
+                M.mode = 'edit'
+                M.editId = b.id
+                M.isPublic = !!b.is_public
+                M.tags = Array.isArray(b.tag_list) ? [...b.tag_list] : []
+                M.slugOk = true
+                qs('#modal-title').textContent = 'Edit Bookmark'
+                qs('#m-submit-text').textContent = 'Save Changes'
+                qs('#m-url').value = b.url
+                qs('#m-slug').value = b.slug
+                if (!qs('#m-title').value) qs('#m-title').value = b.title || ''
+                if (!qs('#m-desc').value) qs('#m-desc').value = b.short_description || ''
+                qs('#m-expires').value = b.expires_at ? b.expires_at.slice(0, 10) : ''
+                qs('#slug-prefix-hint').textContent = S.user?.slug_prefix || ''
+                qs('#slug-live').textContent = b.slug
+                qs('#slug-status').textContent = ''
+                setModalPublicUI(M.isPublic)
+                renderTagChips()
+                toast('You already saved this URL — editing existing bookmark.')
+            } catch { /* silent */ }
         }
 
         async function fetchPreview() {

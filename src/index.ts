@@ -143,6 +143,10 @@ app.get('/api/check-slug', authMiddleware, async (c) => {
   const q = c.req.query('q')
   return c.redirect(`/api/bookmarks/check-slug/availability${q ? `?q=${encodeURIComponent(q)}` : ''}`)
 })
+app.get('/api/check-url', authMiddleware, async (c) => {
+  const url = c.req.query('url')
+  return c.redirect(`/api/bookmarks/check-url${url ? `?url=${encodeURIComponent(url)}` : ''}`)
+})
 app.get('/api/preview', authMiddleware, async (c) => {
   const url = c.req.query('url')
   return c.redirect(`/api/bookmarks/preview/fetch${url ? `?url=${encodeURIComponent(url)}` : ''}`)
