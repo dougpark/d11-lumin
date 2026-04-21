@@ -109,10 +109,14 @@
         const pathParts = location.pathname.replace(/\/+$/, '').split('/')
         const dashboardTag = pathParts[pathParts.length - 1] || 'station'
 
+        // Community mode: ?community in URL → show all-users public bookmarks
+        const isCommunity = new URLSearchParams(location.search).has('community')
+
         // Update nav title and empty-state hint tag
         const displayName = dashboardTag.charAt(0).toUpperCase() + dashboardTag.slice(1)
-        document.title = displayName + ' Station — Lumin'
-        qs('#page-title').textContent = displayName + ' Station'
+        const modeSuffix = isCommunity ? ' · Community' : ' Station'
+        document.title = displayName + modeSuffix + ' — Lumin'
+        qs('#page-title').textContent = displayName + modeSuffix
         qs('#empty-tag').textContent = '#' + dashboardTag
 
         // ── Favicon renderer ──────────────────────────────────────────────────
@@ -153,7 +157,8 @@
         // ── Init ──────────────────────────────────────────────────────────────
         async function init() {
             try {
-                const res = await fetch('/api/v/' + encodeURIComponent(dashboardTag))
+                const apiUrl = '/api/v/' + encodeURIComponent(dashboardTag) + (isCommunity ? '?community' : '')
+                const res = await fetch(apiUrl)
                 hideEl('loading')
                 if (!res.ok) { showEl('empty'); return }
                 const { groups } = await res.json()

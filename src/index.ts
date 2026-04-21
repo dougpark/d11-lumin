@@ -182,13 +182,18 @@ app.get('/api/v/:dashboardTag', async (c) => {
     return c.json({ error: 'Invalid tag name' }, 400)
   }
 
-  // Optional auth via cookie
+  // ?community forces the public-all-users query regardless of auth
+  const community = c.req.query('community') !== undefined
+
+  // Optional auth via cookie (skipped in community mode)
   let userId: number | undefined
-  const rawToken = getCookie(c, 'd11_auth')
-  if (rawToken) {
-    const tokenHash = await hashToken(decodeURIComponent(rawToken))
-    const user = await getUserByTokenHash(c.env.DB, tokenHash)
-    userId = user?.id
+  if (!community) {
+    const rawToken = getCookie(c, 'd11_auth')
+    if (rawToken) {
+      const tokenHash = await hashToken(decodeURIComponent(rawToken))
+      const user = await getUserByTokenHash(c.env.DB, tokenHash)
+      userId = user?.id
+    }
   }
 
   // The LIKE pattern safely bound as a parameter — not interpolated into SQL
@@ -240,7 +245,7 @@ app.get('/api/v/:dashboardTag', async (c) => {
   const groups = [...groupMap.values()]
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
 
-  return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId })
+  return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId, community: community && !userId })
 })
 
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
