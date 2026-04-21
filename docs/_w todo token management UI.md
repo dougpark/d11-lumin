@@ -1,4 +1,4 @@
-# generate a new UI for token management
+# generate a new UI for API token management
 
 ## Needed for Universal nodes ingestion
 - move up the priority list
