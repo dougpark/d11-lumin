@@ -80,6 +80,7 @@
                     <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
                 </a>
                 <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-g-gray">
+                    <a href="/e" class="hover:text-g-blue transition-colors">Explore</a>
                     <a href="#features" class="hover:text-g-blue transition-colors">Features</a>
                     <a href="#how-it-works" class="hover:text-g-blue transition-colors">How It Works</a>
                     <a href="#dashboard" class="hover:text-g-blue transition-colors">Dashboard</a>
@@ -110,7 +111,7 @@
                     Save and organize your bookmarks, then share them with a short, memorable link you choose. No more
                     copying 200-character URLs.
                 </p>
-                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
                     <button onclick="goTo('login')"
                         class="bg-g-blue text-white px-8 py-3.5 rounded-full font-semibold text-base hover:bg-blue-600 transition-all shadow-soft w-full sm:w-auto">
                         Start Now
@@ -120,6 +121,14 @@
                         See How It Works
                     </a>
                 </div>
+                <a href="/e"
+                    class="inline-flex items-center gap-1.5 text-sm text-g-blue hover:underline font-medium mb-16">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    Browse community links — no sign-up needed
+                </a>
                 <!-- URL example card -->
                 <div
                     class="inline-flex flex-col sm:flex-row items-center gap-3 bg-white border border-g-border rounded-[24px] px-6 py-4 shadow-soft text-sm">
@@ -216,6 +225,167 @@
                         <h3 class="text-xl font-semibold text-g-black mb-2">Instant Redirect</h3>
                         <p class="text-g-gray text-sm leading-relaxed">Every short link redirects at the edge via
                             Cloudflare Workers — zero lag, globally distributed, always fast.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- EXPLORE TEASER -->
+        <section id="explore" class="py-24 px-8 bg-gradient-to-br from-[#EEF4FF] to-white border-y border-blue-100">
+            <div class="max-w-6xl mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                    <!-- Left: pitch -->
+                    <div>
+                        <div
+                            class="inline-flex items-center gap-2 bg-white text-g-blue text-xs font-semibold px-4 py-1.5 rounded-full mb-6 border border-blue-200 shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            No account required
+                        </div>
+                        <h2 class="text-4xl font-semibold tracking-tight text-g-black mb-4 leading-tight">
+                            The Bookmark Library,<br><span class="text-g-blue">Open to Everyone</span>
+                        </h2>
+                        <p class="text-g-gray text-base leading-relaxed mb-8">
+                            Explore is a live, searchable directory of links the Lumin community has made public &mdash;
+                            organized by tag, browsable by topic, and filterable in real time. Think of it as a curated
+                            link index built by real people, not an algorithm.
+                        </p>
+                        <div class="space-y-4 mb-10">
+                            <div class="flex items-start gap-3">
+                                <div
+                                    class="w-7 h-7 bg-white rounded-full border border-blue-200 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                                    <svg class="w-3.5 h-3.5 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-g-black">Browse by topic</p>
+                                    <p class="text-sm text-g-gray">Jump into any tag &mdash; AI, design, devtools, news,
+                                        whatever the community is curating.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div
+                                    class="w-7 h-7 bg-white rounded-full border border-blue-200 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                                    <svg class="w-3.5 h-3.5 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-g-black">Search across all public links</p>
+                                    <p class="text-sm text-g-gray">Filter by title or URL in real time &mdash; no page
+                                        reload, no waiting.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div
+                                    class="w-7 h-7 bg-white rounded-full border border-blue-200 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                                    <svg class="w-3.5 h-3.5 text-g-blue" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-g-black">Clip links to your collection</p>
+                                    <p class="text-sm text-g-gray">See something useful? One click saves it to your own
+                                        Lumin account.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <a href="/e"
+                                class="inline-flex items-center gap-2 bg-g-blue text-white px-7 py-3 rounded-full font-semibold text-sm hover:bg-blue-600 transition-all shadow-soft">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                </svg>
+                                Open Explore
+                            </a>
+                            <p class="text-xs text-g-gray self-center">No account needed &mdash; open to everyone</p>
+                        </div>
+                    </div>
+                    <!-- Right: mock pill grid preview -->
+                    <div class="relative">
+                        <div
+                            class="bg-white border border-g-border rounded-[24px] shadow-soft p-6 relative overflow-hidden">
+                            <!-- fake browser chrome -->
+                            <div class="flex items-center gap-2 mb-5 pb-4 border-b border-g-border">
+                                <div class="w-2.5 h-2.5 rounded-full bg-red-300"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-yellow-300"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-green-300"></div>
+                                <div
+                                    class="flex-1 mx-3 bg-[#FAFAFA] border border-g-border rounded-full px-3 py-1 text-xs text-g-gray font-mono">
+                                    d11.me/e</div>
+                            </div>
+                            <!-- pill grid -->
+                            <p class="text-[11px] font-semibold text-g-gray uppercase tracking-widest mb-3">Top Tags
+                                &mdash; Community</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-blue-200 bg-blue-50 text-sm font-medium text-g-blue"><span
+                                        class="font-mono text-xs">#ai</span><span
+                                        class="text-xs opacity-50">48</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#development</span><span
+                                        class="text-xs opacity-50">41</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#design</span><span
+                                        class="text-xs opacity-50">36</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#productivity</span><span
+                                        class="text-xs opacity-50">29</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#cloudflare</span><span
+                                        class="text-xs opacity-50">24</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#javascript</span><span
+                                        class="text-xs opacity-50">22</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#devtools</span><span
+                                        class="text-xs opacity-50">18</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#architecture</span><span
+                                        class="text-xs opacity-50">15</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#ux</span><span
+                                        class="text-xs opacity-50">13</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#security</span><span
+                                        class="text-xs opacity-50">11</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#news</span><span
+                                        class="text-xs opacity-50">9</span></span>
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white text-sm font-medium text-g-gray"><span
+                                        class="font-mono text-xs">#sports</span><span
+                                        class="text-xs opacity-50">7</span></span>
+                            </div>
+                            <!-- fade overlay at bottom -->
+                            <div
+                                class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent rounded-b-[24px] pointer-events-none">
+                            </div>
+                        </div>
+                        <!-- decorative glow -->
+                        <div
+                            class="absolute -bottom-4 -right-4 w-32 h-32 bg-blue-200 rounded-full blur-3xl opacity-30 pointer-events-none">
+                        </div>
                     </div>
                 </div>
             </div>
