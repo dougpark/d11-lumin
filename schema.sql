@@ -97,3 +97,38 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id    ON api_tokens (user_id);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens (token_hash);
+
+-- ─── RSS Feeds (seed rows managed via SQL, admin UI in V2) ───────────────────
+CREATE TABLE IF NOT EXISTS rss_feeds (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  url             TEXT    NOT NULL UNIQUE,
+  name            TEXT    NOT NULL,
+  is_active       INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  last_fetched_at TEXT,
+  created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- ─── RSS Items (auto-expire after 30 days, separate from user bookmarks) ─────
+CREATE TABLE IF NOT EXISTS rss_items (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  feed_id      INTEGER NOT NULL REFERENCES rss_feeds (id) ON DELETE CASCADE,
+
+  -- Deduplication key — use RSS <guid> or fall back to URL
+  guid         TEXT    NOT NULL UNIQUE,
+
+  url          TEXT    NOT NULL,
+  title        TEXT,
+  summary      TEXT,                           -- <description> snippet, plain text
+
+  -- Tags derived from RSS <category> fields + title keyword extraction
+  tag_list     TEXT    NOT NULL DEFAULT '[]',
+
+  published_at TEXT,                           -- RSS <pubDate> normalised to ISO 8601 UTC
+  expires_at   TEXT    NOT NULL,               -- created_at + 30 days, enforced at ingest
+  created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_rss_items_guid       ON rss_items (guid);
+CREATE INDEX IF NOT EXISTS idx_rss_items_expires_at ON rss_items (expires_at);
+CREATE INDEX IF NOT EXISTS idx_rss_items_feed_id    ON rss_items (feed_id);
+CREATE INDEX IF NOT EXISTS idx_rss_items_tag_list   ON rss_items (tag_list);

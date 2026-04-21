@@ -28,6 +28,10 @@ type = "Text"
 globs = ["**/*.html"]
 fallthrough = true
 
+# ─── Cron Triggers ──────────────────────────────────────────────────────────
+[triggers]
+crons = ["*/30 * * * *"]
+
 # ─── Local dev overrides ─────────────────────────────────────────────────────
 [dev]
 port = 8787

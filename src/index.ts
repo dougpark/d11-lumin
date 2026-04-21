@@ -12,6 +12,7 @@ import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
+import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 // @ts-expect-error — text module loaded by Wrangler rule
 import appHtml from './client/app.html'
 // @ts-expect-error — text module loaded by Wrangler rule
@@ -22,6 +23,8 @@ import exploreHtml from './client/explore.html'
 import importPinboardHtml from './client/import-pinboard.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import importBrowserHtml from './client/import-browser.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import newsHtml from './client/news.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -371,19 +374,150 @@ app.get('/api/e/:dashboardTag', async (c) => {
   return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId, community: community && !userId })
 })
 
+// ─── News API: GET /api/n — top tags from active rss_items ──────────────────
+app.get('/api/n', async (c) => {
+  const result = await c.env.DB.prepare(
+    `SELECT tag_list FROM rss_items WHERE expires_at > ?`
+  ).bind(new Date().toISOString()).all()
+
+  const counts = new Map<string, number>()
+  for (const row of (result.results as { tag_list: string }[])) {
+    let tags: string[] = []
+    try { tags = JSON.parse(row.tag_list || '[]') } catch { /* skip */ }
+    for (const t of tags) {
+      const name = t.split(':')[0].toLowerCase()
+      counts.set(name, (counts.get(name) ?? 0) + 1)
+    }
+  }
+
+  const top = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([tag, count]) => ({ tag, count }))
+
+  return c.json({ tags: top })
+})
+
+// ─── News API: GET /api/n/:tag — items matching tag, grouped by secondary tags
+app.get('/api/n/:tag', async (c) => {
+  const rawTag = c.req.param('tag').toLowerCase()
+
+  if (!/^[a-z0-9_.-]{1,64}$/.test(rawTag)) {
+    return c.json({ error: 'Invalid tag name' }, 400)
+  }
+
+  const now = new Date().toISOString()
+  const likePattern = `%"${rawTag}"%`
+
+  const result = await c.env.DB.prepare(
+    `SELECT r.id, r.url, r.title, r.summary, r.tag_list, r.published_at, r.feed_id,
+            f.name AS feed_name
+       FROM rss_items r
+       JOIN rss_feeds f ON f.id = r.feed_id
+      WHERE r.expires_at > ? AND r.tag_list LIKE ?
+      ORDER BY r.published_at DESC`
+  ).bind(now, likePattern).all()
+
+  type Group = { name: string; items: unknown[] }
+  const groupMap = new Map<string, Group>()
+
+  for (const row of (result.results as Record<string, unknown>[])) {
+    let tags: string[] = []
+    try { tags = JSON.parse((row.tag_list as string) || '[]') } catch { /* skip */ }
+
+    const secondaryTags = tags.filter(t => t.toLowerCase() !== rawTag)
+    const groupTags = secondaryTags.length > 0 ? secondaryTags : ['misc']
+
+    for (const gTag of groupTags) {
+      if (!groupMap.has(gTag)) groupMap.set(gTag, { name: gTag, items: [] })
+      groupMap.get(gTag)!.items.push({
+        id: row.id,
+        url: row.url,
+        title: row.title,
+        summary: row.summary,
+        published_at: row.published_at,
+        feed_name: row.feed_name,
+      })
+    }
+  }
+
+  // Sort groups by item count descending
+  const groups = [...groupMap.values()]
+    .sort((a, b) => b.items.length - a.items.length)
+
+  return c.json({ tag: rawTag, groups })
+})
+
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
 app.get('/', (c) => c.html(appHtml as string))
 app.get('/add', (c) => c.html(appHtml as string))
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
 app.get('/e', (c) => c.html(exploreHtml as string))
 app.get('/e/:dashboardTag', (c) => c.html(exploreHtml as string))
+app.get('/n', (c) => c.html(newsHtml as string))
+app.get('/n/:tag', (c) => c.html(newsHtml as string))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not Found' }, 404))
 
-export default app
+// ─── Cron Trigger: RSS ingest ────────────────────────────────────────────────
+async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  ctx.waitUntil(ingestAllFeeds(env))
+}
+
+async function ingestAllFeeds(env: Env): Promise<void> {
+  // Load active feeds
+  const feedRows = await env.DB.prepare(
+    'SELECT id, url, name FROM rss_feeds WHERE is_active = 1'
+  ).all()
+
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  for (const feed of feedRows.results as { id: number; url: string; name: string }[]) {
+    try {
+      const items = await fetchFeed(feed.url)
+
+      for (const item of items) {
+        const keywords = extractKeywords(item.title)
+        const tagList = buildTagList(item.categories, keywords)
+
+        await env.DB.prepare(`
+          INSERT OR IGNORE INTO rss_items
+            (feed_id, guid, url, title, summary, tag_list, published_at, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          feed.id,
+          item.guid,
+          item.url,
+          item.title,
+          item.summary,
+          tagList,
+          item.publishedAt,
+          expiresAt,
+        ).run()
+      }
+
+      // Update last_fetched_at
+      await env.DB.prepare(
+        `UPDATE rss_feeds SET last_fetched_at = ? WHERE id = ?`
+      ).bind(now.toISOString(), feed.id).run()
+
+    } catch (err) {
+      // Log but don't abort the whole run — one bad feed shouldn't block others
+      console.error(`[rss] Failed to ingest feed ${feed.name}: ${(err as Error).message}`)
+    }
+  }
+
+  // Hard delete expired items
+  await env.DB.prepare(
+    `DELETE FROM rss_items WHERE expires_at < ?`
+  ).bind(now.toISOString()).run()
+}
+
+export default { fetch: app.fetch, scheduled }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

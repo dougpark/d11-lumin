@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News — Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .card-glow {
+            transition: box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .card-glow:hover {
+            box-shadow: 0 0 0 2px #4285F4, 0 8px 28px rgba(66, 133, 244, 0.12);
+            border-color: #4285F4 !important;
+        }
+
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+
+    <!-- ── Nav ── -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
+        <div class="max-w-7xl mx-auto px-6 h-14 flex items-center gap-3">
+            <a href="/" class="flex-shrink-0">
+                <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
+            </a>
+            <!-- Back / Forward / Top -->
+            <div class="flex items-center gap-0.5 flex-shrink-0">
+                <button id="nav-back" onclick="history.back()" title="Back"
+                    class="p-1.5 rounded-full text-g-gray opacity-50 hover:opacity-100 hover:text-g-blue hover:bg-blue-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <button id="nav-forward" onclick="history.forward()" title="Forward" disabled
+                    class="p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+                <button id="nav-top" onclick="navigateToTop()" title="All topics"
+                    class="p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </button>
+            </div>
+            <span class="text-g-border select-none">|</span>
+            <h1 id="page-title" class="text-sm font-semibold text-g-black hidden sm:block flex-shrink-0 capitalize">News
+            </h1>
+            <!-- Inline search -->
+            <div class="flex-1 relative min-w-0">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-gray pointer-events-none"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
+                </svg>
+                <input id="search-input" type="search" autocomplete="off"
+                    class="w-full pl-8 pr-4 py-1.5 text-sm border border-g-border rounded-full focus:outline-none focus:border-g-blue bg-[#FAFAFA] transition-colors"
+                    placeholder="Filter topics" oninput="filterCards(this.value)">
+            </div>
+            <!-- Explore link -->
+            <a href="/e" title="Explore community bookmarks"
+                class="flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors flex-shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                <span class="hidden sm:inline">Explore</span>
+            </a>
+            <!-- Dashboard link -->
+            <a href="/" title="Back to dashboard"
+                class="flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors flex-shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span class="hidden sm:inline">Dashboard</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- ── Loading ── -->
+    <div id="loading" class="flex items-center justify-center py-40">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- ── Empty state ── -->
+    <div id="empty" class="hidden text-center py-40 px-6">
+        <div class="w-16 h-16 bg-blue-50 rounded-[16px] flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+        </div>
+        <p class="font-semibold text-g-black mb-1" id="empty-headline">No news yet</p>
+        <p class="text-sm text-g-gray" id="empty-sub">RSS feeds are ingested every 30 minutes. Check back soon.</p>
+        <a href="/n" class="mt-6 inline-block text-sm text-g-blue hover:underline">← All topics</a>
+    </div>
+
+    <!-- ── Card grid ── -->
+    <main id="grid" class="hidden max-w-7xl mx-auto px-6 py-8">
+        <div id="card-grid" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
+        </div>
+    </main>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+        function showEl(id) { qs('#' + id)?.classList.remove('hidden') }
+        function hideEl(id) { qs('#' + id)?.classList.add('hidden') }
+        function escHtml(s) {
+            return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        }
+
+        // ── Relative time ─────────────────────────────────────────────────────
+        function relativeTime(isoStr) {
+            if (!isoStr) return ''
+            const diff = Date.now() - new Date(isoStr).getTime()
+            const m = Math.floor(diff / 60000)
+            if (m < 1) return 'just now'
+            if (m < 60) return m + 'm ago'
+            const h = Math.floor(m / 60)
+            if (h < 24) return h + 'h ago'
+            const d = Math.floor(h / 24)
+            if (d < 7) return d + 'd ago'
+            return Math.floor(d / 7) + 'w ago'
+        }
+
+        function isFresh(isoStr) {
+            if (!isoStr) return false
+            return (Date.now() - new Date(isoStr).getTime()) < 86400000  // < 24h
+        }
+
+        // ── URL / tag state ───────────────────────────────────────────────────
+        let currentTag = (() => {
+            const path = location.pathname.replace(/\/+$/, '')
+            if (path === '/n') return ''
+            const parts = path.split('/')
+            const last = parts[parts.length - 1]
+            return last === 'n' ? '' : (last || '')
+        })()
+
+        let historyDepth = 0
+        let historyMaxDepth = 0
+
+        function updateNavButtons() {
+            const backBtn = qs('#nav-back')
+            const fwdBtn = qs('#nav-forward')
+            const enabled = 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            const exit = 'p-1.5 rounded-full text-g-gray opacity-50 hover:opacity-100 hover:text-g-blue hover:bg-blue-50 transition-colors'
+            const disabled = 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+            if (backBtn) { backBtn.disabled = false; backBtn.className = historyDepth === 0 ? exit : enabled }
+            if (fwdBtn) { fwdBtn.disabled = historyDepth >= historyMaxDepth; fwdBtn.className = historyDepth >= historyMaxDepth ? disabled : enabled }
+        }
+
+        function syncUrl(push = false) {
+            const url = currentTag ? '/n/' + encodeURIComponent(currentTag) : '/n'
+            if (push) history.pushState({ tag: currentTag, depth: historyDepth }, '', url)
+            else history.replaceState({ tag: currentTag, depth: historyDepth }, '', url)
+        }
+
+        function applyTitle() {
+            const isLanding = currentTag === ''
+            document.title = isLanding ? 'News — Lumin' : (currentTag.charAt(0).toUpperCase() + currentTag.slice(1)) + ' · News — Lumin'
+            qs('#page-title').textContent = isLanding ? 'News' : '#' + currentTag
+            const si = qs('#search-input')
+            if (si) si.placeholder = isLanding ? 'Filter topics' : 'Filter in #' + currentTag
+            const topBtn = qs('#nav-top')
+            if (topBtn) {
+                topBtn.disabled = isLanding
+                topBtn.className = isLanding
+                    ? 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+                    : 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            }
+        }
+
+        function navigateToTag(tag) {
+            if (!tag || tag === currentTag) return
+            currentTag = tag
+            historyDepth++
+            historyMaxDepth = historyDepth
+            syncUrl(true)
+            applyTitle()
+            updateNavButtons()
+            init()
+        }
+
+        function navigateToTop() {
+            if (currentTag === '') return
+            currentTag = ''
+            historyDepth++
+            historyMaxDepth = historyDepth
+            syncUrl(true)
+            applyTitle()
+            updateNavButtons()
+            init()
+        }
+
+        window.addEventListener('popstate', (e) => {
+            if (e.state) {
+                currentTag = e.state.tag ?? ''
+                historyDepth = e.state.depth ?? 0
+            } else {
+                const path = location.pathname.replace(/\/+$/, '')
+                const parts = path.split('/')
+                const last = parts[parts.length - 1]
+                currentTag = last === 'n' ? '' : (last || '')
+                historyDepth = 0
+            }
+            applyTitle()
+            updateNavButtons()
+            init()
+        })
+
+        applyTitle()
+        syncUrl(false)
+        updateNavButtons()
+
+        // ── Clip helpers (reused from explore) ────────────────────────────────
+        const CLIP_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m-2-2h4"/></svg>`
+        const CHECK_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`
+        const X_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`
+        const SPIN_SVG = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`
+
+        function makeSlug(url, suffix = '') {
+            try {
+                const u = new URL(url)
+                const base = (u.hostname + u.pathname).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56)
+                return (base || 'clip') + (suffix ? '-' + suffix : '')
+            } catch { return 'clip' + (suffix ? '-' + suffix : '') }
+        }
+
+        function setClipped(btn) {
+            btn.innerHTML = CHECK_SVG
+            btn.title = 'Already in Mine'
+            btn.className = btn.className.replace('text-g-gray', 'text-green-500').replace('opacity-40', 'opacity-100').replace('group-hover:opacity-100', '')
+            btn.dataset.clipped = '1'
+        }
+
+        async function clipBookmark(btn) {
+            if (btn.dataset.clipping || btn.dataset.clipped) return
+            btn.dataset.clipping = '1'
+            const token = localStorage.getItem('d11_token')
+            if (!token) {
+                btn.innerHTML = X_SVG
+                btn.title = 'Sign in to clip'
+                btn.className = btn.className.replace('text-g-gray', 'text-amber-400')
+                setTimeout(() => { btn.innerHTML = CLIP_SVG; btn.className = btn.className.replace('text-amber-400', 'text-g-gray'); btn.title = 'Clip to mine'; delete btn.dataset.clipping }, 2000)
+                return
+            }
+            btn.innerHTML = SPIN_SVG
+            const { url, title, tags } = btn.dataset
+            const slug = makeSlug(url)
+            const body = { url, title: title || undefined, tag_list: JSON.parse(tags || '[]'), is_public: false, slug }
+            const post = (s) => fetch('/api/bookmarks', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ ...body, slug: s }) })
+            let res = await post(slug)
+            if (res.status === 409) {
+                const chk = await fetch('/api/bookmarks/check-url?url=' + encodeURIComponent(url), { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.json()).catch(() => ({}))
+                if (chk.exists) { delete btn.dataset.clipping; setClipped(btn); return }
+                res = await post(makeSlug(url, Math.random().toString(36).slice(2, 6)))
+            }
+            delete btn.dataset.clipping
+            if (res.ok) { setClipped(btn) }
+            else {
+                btn.innerHTML = X_SVG
+                btn.title = res.status === 401 ? 'Sign in to clip' : 'Clip failed — try again'
+                btn.className = btn.className.replace('text-g-gray', 'text-red-400')
+                setTimeout(() => { btn.innerHTML = CLIP_SVG; btn.className = btn.className.replace('text-red-400', 'text-g-gray'); btn.title = 'Clip to mine' }, 2500)
+            }
+        }
+
+        async function markAlreadyClipped() {
+            const token = localStorage.getItem('d11_token')
+            if (!token) return
+            const buttons = [...document.querySelectorAll('.clip-btn')]
+            if (!buttons.length) return
+            await Promise.all(buttons.map(async btn => {
+                try {
+                    const res = await fetch('/api/bookmarks/check-url?url=' + encodeURIComponent(btn.dataset.url), { headers: { 'Authorization': 'Bearer ' + token } })
+                    if (!res.ok) return
+                    const { exists } = await res.json()
+                    if (exists) setClipped(btn)
+                } catch { /* non-critical */ }
+            }))
+        }
+
+        // ── Card renderer ─────────────────────────────────────────────────────
+        function renderCard(group) {
+            const token = localStorage.getItem('d11_token')
+
+            const items = group.items.map(item => {
+                const fresh = isFresh(item.published_at)
+                const relTime = relativeTime(item.published_at)
+                const freshBadge = fresh
+                    ? `<span class="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">NEW</span>`
+                    : ''
+                const feedLabel = item.feed_name
+                    ? `<span class="text-[10px] text-g-gray/60 flex-shrink-0">${escHtml(item.feed_name)}</span>`
+                    : ''
+                const tagsArr = (() => { try { return JSON.parse(item.tag_list || '[]') } catch { return [] } })()
+                const clipBtn = `<button class="clip-btn flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 text-g-gray hover:text-g-blue transition-all rounded"
+                    data-url="${escHtml(item.url)}"
+                    data-title="${escHtml(item.title || '')}"
+                    data-tags="${escHtml(JSON.stringify(tagsArr))}"
+                    title="Clip to mine">${CLIP_SVG}</button>`
+
+                return `
+                <div class="link-row group flex flex-col gap-1 px-2 py-2 -mx-2 rounded-[8px] hover:bg-blue-50 transition-colors">
+                    <div class="flex items-start gap-2">
+                        <a href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer"
+                           class="flex-1 text-sm text-g-black group-hover:text-g-blue transition-colors leading-snug font-medium min-w-0">
+                            ${escHtml(item.title || item.url)}
+                        </a>
+                        ${clipBtn}
+                    </div>
+                    ${item.summary ? `<p class="text-xs text-g-gray leading-relaxed line-clamp-2">${escHtml(item.summary)}</p>` : ''}
+                    <div class="flex items-center gap-2 mt-0.5">
+                        ${freshBadge}
+                        ${relTime ? `<span class="text-[10px] text-g-gray/70">${escHtml(relTime)}</span>` : ''}
+                        ${feedLabel}
+                    </div>
+                </div>`
+            }).join('')
+
+            return `
+            <div class="bg-white border border-g-border rounded-[20px] p-5 card-glow">
+                <button class="tag-nav-btn text-[11px] font-semibold text-g-gray uppercase tracking-widest mb-3 leading-none hover:text-g-blue transition-colors text-left w-full cursor-pointer"
+                    data-tag="${escHtml(group.name.toLowerCase())}">#${escHtml(group.name)}</button>
+                <div class="space-y-1">${items}</div>
+            </div>`
+        }
+
+        // Event delegation
+        document.getElementById('card-grid').addEventListener('click', e => {
+            const tagBtn = e.target.closest('.tag-nav-btn')
+            if (tagBtn?.dataset.tag) { navigateToTag(tagBtn.dataset.tag); return }
+            const clipBtn = e.target.closest('.clip-btn')
+            if (clipBtn) { e.preventDefault(); clipBookmark(clipBtn) }
+        })
+
+        // ── Init ──────────────────────────────────────────────────────────────
+        async function init() {
+            if (currentTag === '') await initLanding()
+            else await initTag()
+        }
+
+        // ── Landing: top-30 topic pills ───────────────────────────────────────
+        async function initLanding() {
+            hideEl('grid')
+            hideEl('empty')
+            showEl('loading')
+            try {
+                const res = await fetch('/api/n')
+                hideEl('loading')
+                if (!res.ok) { showEl('empty'); return }
+                const { tags } = await res.json()
+                if (!tags || tags.length === 0) {
+                    qs('#empty-headline').textContent = 'No news yet'
+                    qs('#empty-sub').textContent = 'RSS feeds are ingested every 30 minutes — check back soon.'
+                    showEl('empty')
+                    return
+                }
+                const grid = qs('#card-grid')
+                grid.className = 'flex flex-wrap gap-2'
+                grid.removeAttribute('style')
+                grid.innerHTML = tags.map(({ tag, count }) =>
+                    `<button class="tag-nav-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white hover:border-g-blue hover:text-g-blue text-sm font-medium text-g-gray transition-all"
+                        data-tag="${escHtml(tag)}">
+                        <span class="font-mono text-xs">#${escHtml(tag)}</span>
+                        <span class="text-xs opacity-50 tabular-nums">${count}</span>
+                    </button>`
+                ).join('')
+                const si = qs('#search-input')
+                if (si) si.value = ''
+                showEl('grid')
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        // ── Tag view: articles for a topic ────────────────────────────────────
+        async function initTag() {
+            hideEl('grid')
+            hideEl('empty')
+            showEl('loading')
+            try {
+                const res = await fetch('/api/n/' + encodeURIComponent(currentTag))
+                hideEl('loading')
+                if (!res.ok) { showEl('empty'); return }
+                const { groups } = await res.json()
+                if (!groups || groups.length === 0) {
+                    qs('#empty-headline').textContent = 'No articles for #' + currentTag
+                    qs('#empty-sub').textContent = 'RSS feeds are ingested every 30 minutes — check back soon.'
+                    showEl('empty')
+                    return
+                }
+                const grid = qs('#card-grid')
+                grid.className = 'grid gap-4'
+                grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))'
+                grid.innerHTML = groups.map(renderCard).join('')
+                const si = qs('#search-input')
+                if (si) si.value = ''
+                showEl('grid')
+                markAlreadyClipped()
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        // ── Client-side filter ────────────────────────────────────────────────
+        function filterCards(query) {
+            const q = query.trim().toLowerCase()
+            let noMatch = qs('#search-no-match')
+
+            if (currentTag === '') {
+                const pills = document.querySelectorAll('#card-grid .tag-nav-btn')
+                let anyVisible = false
+                pills.forEach(pill => {
+                    const show = !q || (pill.dataset.tag || '').toLowerCase().includes(q)
+                    pill.style.display = show ? '' : 'none'
+                    if (show) anyVisible = true
+                })
+                if (!anyVisible && q) {
+                    if (!noMatch) { noMatch = document.createElement('p'); noMatch.id = 'search-no-match'; noMatch.className = 'w-full text-center text-sm text-g-gray py-8'; qs('#card-grid').appendChild(noMatch) }
+                    noMatch.textContent = 'No topics matching \u201c' + query.trim() + '\u201d'
+                } else if (noMatch) noMatch.remove()
+                return
+            }
+
+            const cards = document.querySelectorAll('#card-grid > div')
+            let anyVisible = false
+            cards.forEach(card => {
+                if (!q) { card.style.display = ''; card.querySelectorAll('.link-row').forEach(r => r.style.display = ''); anyVisible = true; return }
+                const terms = q.split(/\s+/)
+                const groupName = (card.querySelector('.tag-nav-btn')?.dataset.tag || '').toLowerCase()
+                const rows = card.querySelectorAll('.link-row')
+                let cardVisible = false
+                rows.forEach(row => {
+                    const text = (row.textContent || '').toLowerCase() + ' ' + groupName
+                    const match = terms.every(t => text.includes(t))
+                    row.style.display = match ? '' : 'none'
+                    if (match) cardVisible = true
+                })
+                card.style.display = cardVisible ? '' : 'none'
+                if (cardVisible) anyVisible = true
+            })
+            if (!anyVisible && q) {
+                if (!noMatch) { noMatch = document.createElement('p'); noMatch.id = 'search-no-match'; noMatch.className = 'col-span-full text-center text-sm text-g-gray py-10'; qs('#card-grid').appendChild(noMatch) }
+                noMatch.textContent = 'No results for \u201c' + query.trim() + '\u201d'
+            } else if (noMatch) noMatch.remove()
+        }
+
+        init()
+    </script>
+
+</body>
+
+</html>

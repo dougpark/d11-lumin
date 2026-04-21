@@ -14,11 +14,134 @@
 ## Version 1 goals
 - start with hardcoded RSS feeds list with 2 feeds
 - use RSS catagories as initial TAGS
-- auto add #nerdnews to all new bookmarks 
+- what about building tags from title as v1 and remove stop words
 - create a /n -> news.html page, defaults to showing #nerdnews tag
-- hmmmm we need a reliable way to filter #nerdnews from all other queries, should we have our own news table in D1
-- 
+- create RSS specific tables in D1
+- Clip to mine
 
+# v1 implementation plan
+
+Explore codebase for RSS feature
+
+Read [](file:///Users/dougpark/Projects/d11-lumin/src/index.ts)
+
+Read [](file:///Users/dougpark/Projects/d11-lumin/src/client/explore.html#1-1), lines 1 to 120
+
+Read [](file:///Users/dougpark/Projects/d11-lumin/wrangler.toml)
+
+Read [](file:///Users/dougpark/Projects/d11-lumin/schema.sql)
+
+Read [](file:///Users/dougpark/Library/Application%20Support/Code/User/workspaceStorage/68ef4481403f9d106120f1b5bb6770e0/GitHub.copilot-chat/chat-session-resources/e29d52dc-b1b3-4082-aa36-1b0c8d1f9bde/toolu_bdrk_016DGs59rkowq2SgJzmRx1HJ__vscode-1776543275253/content.txt#1-1), lines 1 to 300
+
+Read [](file:///Users/dougpark/Library/Application%20Support/Code/User/workspaceStorage/68ef4481403f9d106120f1b5bb6770e0/GitHub.copilot-chat/chat-session-resources/e29d52dc-b1b3-4082-aa36-1b0c8d1f9bde/toolu_bdrk_016DGs59rkowq2SgJzmRx1HJ__vscode-1776543275253/content.txt#300-300), lines 300 to 550
+
+Good — I have everything I need. Let me build the plan and save it. 
+
+Created memory file [](file:///Users/dougpark/Library/Application%20Support/Code/User/workspaceStorage/68ef4481403f9d106120f1b5bb6770e0/GitHub.copilot-chat/memory-tool/memories/ZTI5ZDUyZGMtYjFiMy00MDgyLWFhMzYtMWIwYzhkMWY5YmRl/plan.md)
+
+Updated memory file [](file:///Users/dougpark/Library/Application%20Support/Code/User/workspaceStorage/68ef4481403f9d106120f1b5bb6770e0/GitHub.copilot-chat/memory-tool/memories/ZTI5ZDUyZGMtYjFiMy00MDgyLWFhMzYtMWIwYzhkMWY5YmRl/plan.md)
+
+Deleted memory [](file:///Users/dougpark/Library/Application%20Support/Code/User/workspaceStorage/68ef4481403f9d106120f1b5bb6770e0/GitHub.copilot-chat/memory-tool/memories/ZTI5ZDUyZGMtYjFiMy00MDgyLWFhMzYtMWIwYzhkMWY5YmRl/plan.md)
+
+Created memory file [](file:///Users/dougpark/Library/Application%20Support/Code/User/workspaceStorage/68ef4481403f9d106120f1b5bb6770e0/GitHub.copilot-chat/memory-tool/memories/ZTI5ZDUyZGMtYjFiMy00MDgyLWFhMzYtMWIwYzhkMWY5YmRl/plan.md)
+
+Here's the full phased plan:
+
+---
+
+## Plan: RSS Nerd News (`/n`)
+
+**TL;DR**: 2 hardcoded RSS feeds → Cron Trigger fetches every 30 min → keyword-extracts tags from titles → stores in a dedicated `rss_items` D1 table → `/n` renders a news.html (copy of explore) with Clip support. Clean separation from bookmarks, no sentinel tag needed.
+
+---
+
+### Phase 1 — Schema Migration
+*Independently verifiable. Nothing else depends on this until it's run.*
+
+1. Append 2 new tables to schema.sql: **`rss_feeds`** (id, url, name, last_fetched_at) and **`rss_items`** (id, feed_id, guid UNIQUE, url, title, summary, tag_list, published_at, expires_at, created_at) with indexes on guid, expires_at, tag_list
+2. Run remote migration: `wrangler d1 execute d11-db --file=./schema.sql`
+3. Run local migration: `wrangler d1 execute d11-db --local --file=./schema.sql`
+4. Seed 2 feed rows via `wrangler d1 execute`: HN RSS + Ars Technica tech feed
+
+**Verify**: `wrangler d1 execute d11-db --command "SELECT name FROM sqlite_master WHERE type='table'"` shows both new tables
+
+---
+
+### Phase 2 — Ingest Cron Trigger
+*Depends on Phase 1. Separately testable via `/__scheduled` endpoint.*
+
+1. Add to wrangler.toml: `[triggers] crons = ["*/30 * * * *"]`
+2. Create **`src/utils/rss.ts`** with 3 functions:
+   - `fetchAndParseFeed(url)` — fetch XML, regex-extract `<item>` blocks, pull guid/link/title/description/pubDate/category fields
+   - `extractKeywords(title)` — lowercase, split on non-word chars, remove stop words, min 4-char filter, return unique string[]
+   - `buildTagList(categories, keywords)` — merge + lowercase + deduplicate → JSON string
+3. Change `export default app` in index.ts to `export default { fetch: app.fetch, scheduled }` and add the `scheduled()` handler: reads all `rss_feeds` rows, fetches+parses each, `INSERT OR IGNORE` new items with `expires_at = now + 30 days`, updates `last_fetched_at`, runs expired item cleanup
+
+**Verify**: `wrangler dev` + `curl "http://localhost:8787/__scheduled?cron=..."` → rows appear in local D1
+
+---
+
+### Phase 3 — API Routes
+*Depends on Phase 1+2 for real data, but routes can be coded simultaneously.*
+
+Add to index.ts **before** the HTML catch-all routes:
+
+1. `GET /api/n` — parse tag_list from all non-expired rss_items, tally frequency, return top 30 `{tags:[{tag,count}]}` (same pattern as `/api/e`)
+2. `GET /api/n/:tag` — fetch non-expired items matching tag, group by secondary tags, newest first, return `{tag, groups:[{name, items:[{id,url,title,summary,published_at}]}]}`
+3. `GET /n` → serve `newsHtml`; add import at top of index.ts
+
+**Verify**: `curl http://localhost:8787/api/n` + `curl http://localhost:8787/api/n/bun`
+
+---
+
+### Phase 4 — news.html Frontend
+*Depends on Phase 3 routes being live. The bulk of the UI work.*
+
+Copy `explore.html` → `news.html`, then change:
+- API base: `/api/n` (no `/api/e`)
+- Remove Mine/All toggle entirely (news is always public)
+- `renderCard()`: add `summary` as italic subtitle under link title; `published_at` formatted as relative time ("2h ago", "3d ago"); "NEW" badge for items < 24h old
+- Clip button on each link-row: POST to `/api/bookmarks` with url+title+tags (requires auth cookie; button appears only if logged in, same pattern as explore's Clip)
+- Card group header: show feed source name
+- Page title: "News" not "Explore"
+- `filterCards()`: same per-link-row logic as explore — no changes needed
+
+**Verify**: `http://localhost:8787/n` renders pill grid → click tag → see article cards with summaries + Clip buttons
+
+---
+
+### Phase 5 — Surface in Nav + App
+*Additive. Does not block Phase 4.*
+
+In app.html:
+1. Sidebar desktop: add "News" entry (newspaper icon `📰` or heroicon) below existing "Explore" entry
+2. Mobile tags tab: add "News" entry below "Explore"  
+3. Landing page nav: add "News" link after "Explore" link
+
+**Verify**: all three entry points visible and route to `/n`
+
+---
+
+**Relevant files**
+
+- schema.sql — append Phase 1 tables
+- wrangler.toml — add crons (Phase 2)
+- `src/utils/rss.ts` — new file (Phase 2)
+- index.ts — scheduled() export + /api/n routes + /n route (Phases 2–3)
+- `src/client/news.html` — new file, adapted from explore.html (Phase 4)
+- app.html — nav + sidebar entries (Phase 5)
+
+---
+
+**Ready to start with Phase 1?** It's a clean schema-only change — fast to execute, easy to verify, and unblocks everything else.
+
+
+
+
+
+---
+
+# Discussion and idea generation section
 
 That would be the ultimate Information Signal generator. You’re essentially describing the creation of a Curated Intelligence Feed.
 In Information Theory terms, you are acting as a "Low-Pass Filter"—stripping away the noise of the general internet to let only the high-frequency, high-value "Expert" data through to your Explore page.
