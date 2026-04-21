@@ -72,3 +72,28 @@ CREATE TABLE IF NOT EXISTS click_events (
 
 CREATE INDEX IF NOT EXISTS idx_clicks_bookmark_id ON click_events (bookmark_id);
 CREATE INDEX IF NOT EXISTS idx_clicks_clicked_at  ON click_events (clicked_at);
+
+-- ─── API Tokens (programmatic access / v1 API / MCP / RSS) ───────────────────
+--
+-- Each user can issue multiple named tokens — one per consumer ("python script",
+-- "claude agent", "n8n workflow").  Only the SHA-256 hash is stored; the raw
+-- token is shown exactly once at creation time and never again.
+--
+-- scopes: JSON array of capability strings, e.g. '["posts:read","tags:read"]'
+--   Current defined scopes: posts:read, posts:write, tags:read, tags:write
+--   Use '["*"]' to grant all permissions.
+--
+-- expires_at: optional hard expiry.  NULL means the token never expires.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  name         TEXT    NOT NULL,               -- human label, e.g. "my python script"
+  token_hash   TEXT    NOT NULL UNIQUE,        -- SHA-256(raw_token) hex — never store raw
+  scopes       TEXT    NOT NULL DEFAULT '["posts:read","tags:read"]',
+  last_used_at TEXT,                           -- updated on each successful auth
+  expires_at   TEXT,                           -- ISO 8601 UTC, NULL = never
+  created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id    ON api_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens (token_hash);

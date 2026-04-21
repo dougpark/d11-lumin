@@ -2,10 +2,12 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import type { User } from './db/types.ts'
+import type { User, ApiToken } from './db/types.ts'
 import { authMiddleware } from './middleware/authMiddleware.ts'
+import { apiTokenMiddleware } from './middleware/apiTokenMiddleware.ts'
 import authRoutes from './routes/auth.ts'
 import bookmarkRoutes from './routes/bookmarks.ts'
+import v1Routes from './routes/v1.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { hashToken } from './utils/auth.ts'
@@ -29,6 +31,7 @@ export type Env = {
 // ─── Context variables set by middleware ──────────────────────────────────────
 export type Variables = {
   user: User
+  apiToken?: ApiToken   // set when authenticated via api_tokens table (v1 / MCP)
 }
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -155,6 +158,17 @@ app.get('/api/preview', authMiddleware, async (c) => {
   const url = c.req.query('url')
   return c.redirect(`/api/bookmarks/preview/fetch${url ? `?url=${encodeURIComponent(url)}` : ''}`)
 })
+
+// ─── v1 public API ────────────────────────────────────────────────────────────
+// Data endpoints use apiTokenMiddleware (accepts named API tokens or session token).
+// Token management uses authMiddleware (session token only — prevents a token from minting tokens).
+app.use('/api/v1/posts', apiTokenMiddleware)
+app.use('/api/v1/posts/*', apiTokenMiddleware)
+app.use('/api/v1/tags', apiTokenMiddleware)
+app.use('/api/v1/tokens', authMiddleware)
+app.use('/api/v1/tokens/*', authMiddleware)
+
+app.route('/api/v1', v1Routes)
 
 // ─── Station API: GET /api/v/:dashboardTag ──────────────────────────────────
 // Optional auth. Authenticated → owner's own bookmarks. Unauthenticated → public only.

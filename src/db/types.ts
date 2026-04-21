@@ -38,6 +38,17 @@ export type ClickEvent = {
     user_agent: string | null
 }
 
+export type ApiToken = {
+    id: number
+    user_id: number
+    name: string
+    token_hash: string
+    scopes: string        // JSON array string, e.g. '["posts:read","tags:read"]'
+    last_used_at: string | null
+    expires_at: string | null
+    created_at: string
+}
+
 // ─── Input shapes (omit DB-managed fields) ────────────────────────────────────
 
 export type CreateBookmarkInput = {
