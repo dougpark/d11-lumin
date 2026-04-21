@@ -17,6 +17,8 @@ import appHtml from './client/app.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import stationHtml from './client/station.html'
 // @ts-expect-error — text module loaded by Wrangler rule
+import exploreHtml from './client/explore.html'
+// @ts-expect-error — text module loaded by Wrangler rule
 import importPinboardHtml from './client/import-pinboard.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import importBrowserHtml from './client/import-browser.html'
@@ -248,10 +250,89 @@ app.get('/api/v/:dashboardTag', async (c) => {
   return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId, community: community && !userId })
 })
 
+// ─── Explore API: GET /api/e/:dashboardTag ──────────────────────────────────
+// Optional auth. Authenticated → owner's own bookmarks. Unauthenticated → public only.
+// Bookmarks are grouped by their secondary tags (tags other than dashboardTag).
+// Secondary tags may carry a sort order via colon suffix: "AiStation:01".
+app.get('/api/e/:dashboardTag', async (c) => {
+  const rawTag = c.req.param('dashboardTag').toLowerCase()
+
+  // Only allow safe tag characters
+  if (!/^[a-z0-9_-]{1,64}$/.test(rawTag)) {
+    return c.json({ error: 'Invalid tag name' }, 400)
+  }
+
+  // ?community forces the public-all-users query regardless of auth
+  const community = c.req.query('community') !== undefined
+
+  // Optional auth via cookie (skipped in community mode)
+  let userId: number | undefined
+  if (!community) {
+    const rawToken = getCookie(c, 'd11_auth')
+    if (rawToken) {
+      const tokenHash = await hashToken(decodeURIComponent(rawToken))
+      const user = await getUserByTokenHash(c.env.DB, tokenHash)
+      userId = user?.id
+    }
+  }
+
+  // The LIKE pattern safely bound as a parameter — not interpolated into SQL
+  const likePattern = `%"${rawTag}"%`
+
+  const result = userId
+    ? await c.env.DB.prepare(
+      `SELECT id, url, title, favicon_url, hit_count, tag_list
+         FROM bookmarks
+         WHERE user_id = ? AND is_archived = 0 AND tag_list LIKE ?
+         ORDER BY created_at ASC`
+    ).bind(userId, likePattern).all()
+    : await c.env.DB.prepare(
+      `SELECT id, url, title, favicon_url, hit_count, tag_list
+         FROM bookmarks
+         WHERE is_public = 1 AND is_archived = 0 AND tag_list LIKE ?
+         ORDER BY created_at ASC`
+    ).bind(likePattern).all()
+
+  // Group bookmarks by secondary tags
+  // Each secondary tag can carry a numeric sort order via colon suffix: "AiStation:01"
+  type Group = { name: string; order: number; bookmarks: unknown[] }
+  const groupMap = new Map<string, Group>()
+
+  for (const row of (result.results as Record<string, unknown>[])) {
+    let tags: string[] = []
+    try { tags = JSON.parse((row.tag_list as string) || '[]') } catch { /* skip */ }
+
+    // Tags other than the dashboard tag are used as group names
+    const secondaryTags = tags.filter(t => t.toLowerCase() !== rawTag)
+    const groupTags = secondaryTags.length > 0 ? secondaryTags : ['Misc']
+
+    for (const gTag of groupTags) {
+      const colonIdx = gTag.indexOf(':')
+      const name = colonIdx >= 0 ? gTag.slice(0, colonIdx) : gTag
+      const order = colonIdx >= 0 ? (parseInt(gTag.slice(colonIdx + 1), 10) || 500) : 500
+
+      if (!groupMap.has(name)) groupMap.set(name, { name, order, bookmarks: [] })
+      groupMap.get(name)!.bookmarks.push({
+        id: row.id,
+        url: row.url,
+        title: row.title,
+        favicon_url: row.favicon_url,
+        hit_count: row.hit_count,
+      })
+    }
+  }
+
+  const groups = [...groupMap.values()]
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+
+  return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId, community: community && !userId })
+})
+
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
 app.get('/', (c) => c.html(appHtml as string))
 app.get('/add', (c) => c.html(appHtml as string))
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
+app.get('/e/:dashboardTag', (c) => c.html(exploreHtml as string))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))
 

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Station — Lumin</title>
+    <title>Explore — Lumin</title>
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.ico" />
@@ -60,7 +60,7 @@
                 <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
             </a>
             <span class="text-g-border select-none">|</span>
-            <h1 id="page-title" class="text-sm font-semibold text-g-black flex-1 capitalize">Station</h1>
+            <h1 id="page-title" class="text-sm font-semibold text-g-black flex-1 capitalize">Explore</h1>
             <!-- Mine / All toggle -->
             <div class="flex items-center rounded-full border border-g-border bg-[#F8F9FA] p-0.5 gap-0.5 flex-shrink-0">
                 <button id="btn-mine" onclick="setMode('personal')"
@@ -106,7 +106,7 @@
         </div>
         <p class="font-semibold text-g-black mb-1">No bookmarks found</p>
         <p class="text-sm text-g-gray">No bookmarks tagged <span id="empty-tag"
-                class="font-mono text-g-blue">#station</span> found.</p>
+                class="font-mono text-g-blue">#explore</span> found.</p>
         <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Dashboard</a>
     </div>
 
@@ -124,9 +124,9 @@
             return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         }
 
-        // Extract tag from path: /v/station → "station"
+        // Extract tag from path: /v/explore → "explore"
         const pathParts = location.pathname.replace(/\/+$/, '').split('/')
-        const dashboardTag = pathParts[pathParts.length - 1] || 'station'
+        const dashboardTag = pathParts[pathParts.length - 1] || 'explore'
         const displayName = dashboardTag.charAt(0).toUpperCase() + dashboardTag.slice(1)
 
         // Mutable mode — toggled in-place without a page reload
