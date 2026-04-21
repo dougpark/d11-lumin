@@ -147,6 +147,35 @@ Create a new bookmark in your browser, paste this as the URL, and name it `+ d11
 
 ---
 
+## User interface
+
+The main dashboard is a single-page app served at `d11.me/`. The layout is a fixed header, a tag sidebar (desktop), and a paginated bookmark grid.
+
+### Main dashboard
+
+- **Search bar** — Live full-text search across title, URL, and description as you type.
+- **Sort controls** — Sort by Date Added, Title, Hit Count, or Last Accessed; toggle ASC/DESC.
+- **Tag sidebar** — Click any tag to filter the bookmark list. A filter-as-you-type input narrows the tag list itself when you have many tags. "All" clears the filter.
+- **Show archived** — Checkbox at the bottom of the tag sidebar; archived bookmarks are hidden by default.
+- **Bookmark cards** — Each card shows the title, URL, tags, and a hit counter. Click the title to open the URL. Action icons on hover: edit, copy short link, archive, delete.
+- **+ New** button (header) — Opens the add-bookmark drawer with URL and title pre-filled if launched via the bookmarklet.
+
+### User menu (avatar / initials button, top-right)
+
+The dropdown shows your display name and slug prefix, then the following actions:
+
+| Item | What it does |
+|---|---|
+| **Rename Tag** | Opens a modal to rename a tag across all bookmarks at once. Type the old tag name, then the new name. All bookmarks that carry the old tag are updated atomically. |
+| **Export Bookmarks** | Downloads a complete JSON backup of your entire bookmark database — all fields, all tags, all metadata. This is a full Lumin-format export suitable for backup or migration to another instance. The file is named `lumin-bookmarks-YYYY-MM-DD.json`. |
+| **Import Bookmarks** | Imports a Lumin-format JSON file (produced by Export Bookmarks). Accepts either a bare array or the `{ bookmarks: [...] }` wrapper. Duplicate URLs are skipped; a result modal shows how many were imported, skipped, and errored. Safe to re-run — already-existing URLs are never overwritten. |
+| **Import from Pinboard** | Opens a dedicated import page (`/import/pinboard`) for Pinboard JSON exports. Drag-and-drop or pick the file, preview the bookmark and tag counts, then import in batches of 100 with a live progress bar. Maps Pinboard fields to Lumin fields automatically (`description`→title, `extended`→description, space-separated `tags`→tag array, etc.). |
+| **Import from Browser** | Opens a dedicated import page (`/import/browser`) for Netscape HTML bookmark exports — the standard format produced by Chrome, Firefox, Edge, and Safari (`Bookmarks Manager → Export`). Folder names become tags. Safari Reading List items get a `reading-list` tag. A tag chip preview lets you verify the folder→tag mapping before committing. |
+| **Copy Login Link** | Copies your magic login URL to the clipboard. This link contains your session token and can be used to log in from any browser without a password. Treat it like a password — anyone with the link has full access to your account. |
+| **Sign Out** | Clears the `d11_auth` session cookie and returns to the logged-out state. Your data and token are unaffected; you can log back in via your login link. |
+
+---
+
 ## Architecture
 
 ```
