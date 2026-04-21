@@ -250,6 +250,49 @@ app.get('/api/v/:dashboardTag', async (c) => {
   return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId, community: community && !userId })
 })
 
+// ─── Explore API: GET /api/e — top tags landing (no tag param) ────────────
+app.get('/api/e', async (c) => {
+  // ?community forces the public-all-users query regardless of auth
+  const community = c.req.query('community') !== undefined
+
+  let userId: number | undefined
+  if (!community) {
+    const rawToken = getCookie(c, 'd11_auth')
+    if (rawToken) {
+      const tokenHash = await hashToken(decodeURIComponent(rawToken))
+      const user = await getUserByTokenHash(c.env.DB, tokenHash)
+      userId = user?.id
+    }
+  }
+
+  // Fetch only tag_list — no need for other columns
+  const result = userId
+    ? await c.env.DB.prepare(
+      `SELECT tag_list FROM bookmarks WHERE user_id = ? AND is_archived = 0`
+    ).bind(userId).all()
+    : await c.env.DB.prepare(
+      `SELECT tag_list FROM bookmarks WHERE is_public = 1 AND is_archived = 0`
+    ).all()
+
+  // Tally tag frequency (strip sort-order suffix e.g. "AiStation:01" → "aistation")
+  const counts = new Map<string, number>()
+  for (const row of (result.results as Record<string, unknown>[])) {
+    let tags: string[] = []
+    try { tags = JSON.parse((row.tag_list as string) || '[]') } catch { /* skip */ }
+    for (const t of tags) {
+      const name = t.split(':')[0].toLowerCase()
+      counts.set(name, (counts.get(name) ?? 0) + 1)
+    }
+  }
+
+  const top = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([tag, count]) => ({ tag, count }))
+
+  return c.json({ tags: top, authenticated: !!userId, community: community && !userId })
+})
+
 // ─── Explore API: GET /api/e/:dashboardTag ──────────────────────────────────
 // Optional auth. Authenticated → owner's own bookmarks. Unauthenticated → public only.
 // Bookmarks are grouped by their secondary tags (tags other than dashboardTag).
@@ -332,6 +375,7 @@ app.get('/api/e/:dashboardTag', async (c) => {
 app.get('/', (c) => c.html(appHtml as string))
 app.get('/add', (c) => c.html(appHtml as string))
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
+app.get('/e', (c) => c.html(exploreHtml as string))
 app.get('/e/:dashboardTag', (c) => c.html(exploreHtml as string))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))

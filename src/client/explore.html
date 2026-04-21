@@ -59,7 +59,7 @@
             <a href="/" class="flex-shrink-0">
                 <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
             </a>
-            <!-- Back / Forward -->
+            <!-- Back / Forward / Top -->
             <div class="flex items-center gap-0.5 flex-shrink-0">
                 <button id="nav-back" onclick="history.back()" title="Back" disabled
                     class="p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors">
@@ -73,9 +73,28 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
+                <button id="nav-top" onclick="navigateToTop()" title="Top tags"
+                    class="p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </button>
             </div>
             <span class="text-g-border select-none">|</span>
-            <h1 id="page-title" class="text-sm font-semibold text-g-black flex-1 capitalize">Explore</h1>
+            <h1 id="page-title" class="text-sm font-semibold text-g-black hidden sm:block flex-shrink-0 capitalize">
+                Explore</h1>
+            <!-- Inline search -->
+            <div class="flex-1 relative min-w-0">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-gray pointer-events-none"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
+                </svg>
+                <input id="search-input" type="search" autocomplete="off"
+                    class="w-full pl-8 pr-4 py-1.5 text-sm border border-g-border rounded-full focus:outline-none focus:border-g-blue bg-[#FAFAFA] transition-colors"
+                    placeholder="Filter tags" oninput="filterCards(this.value)">
+            </div>
             <!-- Mine / All toggle -->
             <div class="flex items-center rounded-full border border-g-border bg-[#F8F9FA] p-0.5 gap-0.5 flex-shrink-0">
                 <button id="btn-mine" onclick="setMode('personal')"
@@ -105,22 +124,6 @@
             </a>
         </div>
     </header>
-
-    <!-- ── Search bar (shown only when a tag is loaded) ── -->
-    <div id="search-bar" class="hidden bg-white border-b border-g-border">
-        <div class="max-w-7xl mx-auto px-6 py-2.5">
-            <div class="relative max-w-md">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-g-gray pointer-events-none"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
-                </svg>
-                <input id="search-input" type="search" autocomplete="off"
-                    class="w-full pl-9 pr-4 py-1.5 text-sm border border-g-border rounded-full focus:outline-none focus:border-g-blue bg-[#FAFAFA] transition-colors"
-                    placeholder="Filter in #…" oninput="filterCards(this.value)">
-            </div>
-        </div>
-    </div>
 
     <!-- ── Loading ── -->
     <div id="loading" class="flex items-center justify-center py-40">
@@ -155,10 +158,13 @@
             return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         }
 
-        // Mutable tag — changes when user clicks a group header
+        // Mutable tag — changes when user clicks a group header; '' = landing/top-tags view
         let currentTag = (() => {
-            const parts = location.pathname.replace(/\/+$/, '').split('/')
-            return parts[parts.length - 1] || 'explore'
+            const path = location.pathname.replace(/\/+$/, '')
+            if (path === '/e') return ''
+            const parts = path.split('/')
+            const last = parts[parts.length - 1]
+            return last === 'e' ? '' : (last || '')
         })()
 
         // Mutable mode — toggled in-place without a page reload
@@ -184,20 +190,35 @@
         }
 
         function syncUrl(push = false) {
-            const url = '/e/' + encodeURIComponent(currentTag) + (currentMode === 'community' ? '?community' : '')
+            const base = currentTag ? '/e/' + encodeURIComponent(currentTag) : '/e'
+            const url = base + (currentMode === 'community' ? '?community' : '')
             if (push) history.pushState({ tag: currentTag, mode: currentMode, depth: historyDepth }, '', url)
             else history.replaceState({ tag: currentTag, mode: currentMode, depth: historyDepth }, '', url)
         }
 
         function applyMode() {
             const isCommunity = currentMode === 'community'
-            const displayName = currentTag.charAt(0).toUpperCase() + currentTag.slice(1)
-            document.title = displayName + (isCommunity ? ' · Community' : ' · Personal') + ' — Lumin'
-            qs('#page-title').textContent = displayName
-            qs('#empty-tag').textContent = '#' + currentTag
-            // Update search placeholder to reflect current tag
+            const isLanding = currentTag === ''
+            if (isLanding) {
+                document.title = 'Explore' + (isCommunity ? ' · Community' : '') + ' — Lumin'
+                qs('#page-title').textContent = 'Explore'
+            } else {
+                const displayName = currentTag.charAt(0).toUpperCase() + currentTag.slice(1)
+                document.title = displayName + (isCommunity ? ' · Community' : ' · Personal') + ' — Lumin'
+                qs('#page-title').textContent = displayName
+            }
+            qs('#empty-tag').textContent = '#' + (currentTag || 'explore')
+            // Update search placeholder to reflect current state
             const si = qs('#search-input')
-            if (si) si.placeholder = 'Filter in #' + currentTag
+            if (si) si.placeholder = isLanding ? 'Filter tags' : ('Filter in #' + currentTag)
+            // Top button: dim/disable when already on landing
+            const topBtn = qs('#nav-top')
+            if (topBtn) {
+                topBtn.disabled = isLanding
+                topBtn.className = isLanding
+                    ? 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+                    : 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            }
 
             // Pill highlight
             const activeClass = 'flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors bg-white text-g-blue shadow-sm'
@@ -226,15 +247,33 @@
             init()
         }
 
+        // Navigate to the top-tags landing
+        function navigateToTop() {
+            if (currentTag === '') return
+            currentTag = ''
+            historyDepth++
+            historyMaxDepth = historyDepth
+            syncUrl(true)
+            applyMode()
+            updateNavButtons()
+            init()
+        }
+
         // Browser back / forward support
         window.addEventListener('popstate', (e) => {
             if (e.state) {
-                currentTag = e.state.tag || 'explore'
+                currentTag = e.state.tag ?? ''
                 currentMode = e.state.mode || 'personal'
                 historyDepth = e.state.depth ?? 0
             } else {
-                const parts = location.pathname.replace(/\/+$/, '').split('/')
-                currentTag = parts[parts.length - 1] || 'explore'
+                const path = location.pathname.replace(/\/+$/, '')
+                if (path === '/e') {
+                    currentTag = ''
+                } else {
+                    const parts = path.split('/')
+                    const last = parts[parts.length - 1]
+                    currentTag = last === 'e' ? '' : (last || '')
+                }
                 currentMode = new URLSearchParams(location.search).has('community') ? 'community' : 'personal'
                 historyDepth = 0
             }
@@ -429,6 +468,47 @@
 
         // ── Init ──────────────────────────────────────────────────────────────
         async function init() {
+            if (currentTag === '') await initLanding()
+            else await initTag()
+        }
+
+        // ── Landing: show top-30 tags as a pill grid ──────────────────────────
+        async function initLanding() {
+            hideEl('grid')
+            hideEl('empty')
+            showEl('loading')
+            try {
+                const apiUrl = '/api/e' + (currentMode === 'community' ? '?community' : '')
+                const res = await fetch(apiUrl)
+                hideEl('loading')
+                if (!res.ok) { showEl('empty'); return }
+                const { tags } = await res.json()
+                if (!tags || tags.length === 0) { showEl('empty'); return }
+                const grid = qs('#card-grid')
+                grid.className = 'flex flex-wrap gap-2'
+                grid.removeAttribute('style')
+                grid.innerHTML = renderPills(tags)
+                const si = qs('#search-input')
+                if (si) si.value = ''
+                showEl('grid')
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        function renderPills(tags) {
+            return tags.map(({ tag, count }) =>
+                `<button class="tag-nav-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white hover:border-g-blue hover:text-g-blue text-sm font-medium text-g-gray transition-all"
+                    data-tag="${escHtml(tag)}">
+                    <span class="font-mono text-xs">#${escHtml(tag)}</span>
+                    <span class="text-xs opacity-50 tabular-nums">${count}</span>
+                </button>`
+            ).join('')
+        }
+
+        // ── Tag view: show bookmark cards for a tag ───────────────────────────
+        async function initTag() {
             hideEl('grid')
             hideEl('empty')
             showEl('loading')
@@ -439,23 +519,49 @@
                 if (!res.ok) { showEl('empty'); return }
                 const { groups } = await res.json()
                 if (!groups || groups.length === 0) { showEl('empty'); return }
-                qs('#card-grid').innerHTML = groups.map(renderCard).join('')
-                // Reset search and show search bar alongside the grid
+                const grid = qs('#card-grid')
+                grid.className = 'grid gap-4'
+                grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(260px, 1fr))'
+                grid.innerHTML = groups.map(renderCard).join('')
+                // Reset search input
                 const si = qs('#search-input')
                 if (si) si.value = ''
-                showEl('search-bar')
                 showEl('grid')
                 if (currentMode === 'community') markAlreadyClipped()
             } catch {
                 hideEl('loading')
-                hideEl('search-bar')
                 showEl('empty')
             }
         }
 
-        // ── Client-side card filter ───────────────────────────────────────────
+        // ── Client-side filter — pills in landing mode, cards in tag mode ────
         function filterCards(query) {
             const q = query.trim().toLowerCase()
+            let noMatch = qs('#search-no-match')
+
+            if (currentTag === '') {
+                // Landing: filter pill buttons by tag name
+                const pills = document.querySelectorAll('#card-grid .tag-nav-btn')
+                let anyVisible = false
+                pills.forEach(pill => {
+                    const tag = (pill.dataset.tag || '').toLowerCase()
+                    const show = !q || tag.includes(q)
+                    pill.style.display = show ? '' : 'none'
+                    if (show) anyVisible = true
+                })
+                if (!anyVisible && q) {
+                    if (!noMatch) {
+                        noMatch = document.createElement('p')
+                        noMatch.id = 'search-no-match'
+                        noMatch.className = 'w-full text-center text-sm text-g-gray py-8'
+                        qs('#card-grid').appendChild(noMatch)
+                    }
+                    noMatch.textContent = 'No tags matching \u201c' + query.trim() + '\u201d'
+                } else if (noMatch) noMatch.remove()
+                return
+            }
+
+            // Tag view: filter bookmark cards
             const cards = document.querySelectorAll('#card-grid > div')
             let anyVisible = false
             cards.forEach(card => {
@@ -472,8 +578,6 @@
                 card.style.display = match ? '' : 'none'
                 if (match) anyVisible = true
             })
-            // Show inline empty hint if nothing matches
-            let noMatch = qs('#search-no-match')
             if (!anyVisible && q) {
                 if (!noMatch) {
                     noMatch = document.createElement('p')
