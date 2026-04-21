@@ -141,8 +141,44 @@ That alone meaningfully improves LLM tagging signal for most tech feeds
 Full article fetch is a separate, optional enrichment step best done lazily (e.g., only for items that get clipped, or as a background queue)
 Storage concern is minimal — even at 5KB average summary × 1800 live items = ~9MB. D1 handles that trivially.
 
+The pull-then-push pattern (Option A) is the right call. Here's why, and how it would work:
 
+---
 
+**Architecture: Local LLM as an async enrichment daemon**
+
+```
+[Cron: every 30min]          [Local daemon: runs whenever]
+Worker ingests RSS       →   Daemon polls /api/n/unprocessed
+Stores raw keyword tags  →   Sends title+summary to Ollama
+                         →   PATCHes /api/n/:guid/ai with ai_tags + ai_summary
+                         →   Worker stores enriched data back to D1
+```
+
+**Why this beats Cloudflare Tunnel:**
+
+- Worker scheduled handlers have a ~30s CPU limit. One LLM call can take 10-30s, and you have 30-60 items per run — that math doesn't work
+- Tunnel creates a hard dependency: worker breaks if your home network is down
+- With pull/push, basic keyword tags appear immediately; AI enrichment is async and additive — no user-visible delay
+
+**What it needs:**
+
+1. `GET /api/n/unprocessed` — returns items where `ai_tag_list IS NULL`, auth-gated with an API token
+2. `PATCH /api/n/:guid/ai` — accepts `{ai_tags, ai_summary}`, writes to two new nullable columns (`ai_tag_list`, `ai_summary`) — no schema breaking change
+3. Local daemon script (50 lines of Bun) — polls unprocessed, loops through, hits Ollama, POSTs back
+4. news.html — prefers `ai_summary` over keyword summary when available; merges or replaces `tag_list`
+
+**The RSS feed idea** — skip it. RSS adds parsing overhead on the daemon side for no benefit. A plain JSON endpoint is cleaner for machine consumption.
+
+**Auth** — reuse the existing `api_tokens` table. The daemon gets its own token, sends it as `Authorization: Bearer <token>`. Same middleware already exists.
+
+This is a natural V2. Want to plan it out?
+
+## V2 Goals
+- add ai_tags column
+- add ai_summary column
+- add archive column so when ready to keep a history
+- add ai_summary to cards for quick read
 
 ---
 
