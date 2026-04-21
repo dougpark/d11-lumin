@@ -1180,14 +1180,15 @@
             const params = new URLSearchParams(location.search)
 
             // Auto-login from bookmarked login link (?token=…)
+            // Always clean the token from the URL — covers first login, account
+            // switching, and refreshes where the magic link is still in the bar.
             const tokenParam = params.get('token')
-            if (tokenParam && !localStorage.getItem('d11_token')) {
-                localStorage.setItem('d11_token', tokenParam)
-                setAuthCookie(tokenParam)
-                // Clean the token out of the URL without a page reload
+            if (tokenParam) {
                 params.delete('token')
                 const clean = location.pathname + (params.toString() ? '?' + params.toString() : '')
                 history.replaceState(null, '', clean)
+                localStorage.setItem('d11_token', tokenParam)
+                setAuthCookie(tokenParam)
             }
             S.token = localStorage.getItem('d11_token')
             // Keep auth cookie in sync so /l/ routes can verify ownership
