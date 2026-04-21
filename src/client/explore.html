@@ -248,14 +248,41 @@
         }
 
         // ── Card renderer ─────────────────────────────────────────────────────
+        const CLIP_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m-2-2h4"/>
+        </svg>`
+        const CHECK_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>`
+        const X_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>`
+        const SPIN_SVG = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>`
+
         function renderCard(group) {
-            const links = group.bookmarks.map(b => `
-                <a href="${escHtml(b.url)}" target="_blank" rel="noopener noreferrer"
-                   class="flex items-center gap-2.5 px-2 py-1.5 -mx-2 rounded-[8px] hover:bg-blue-50 group transition-colors">
-                    ${faviconHtml(b)}
-                    <span class="flex-1 text-sm text-g-black group-hover:text-g-blue transition-colors leading-snug truncate min-w-0">${escHtml(b.title || b.url)}</span>
-                    ${b.hit_count > 0 ? `<span class="text-[11px] text-g-gray flex-shrink-0 tabular-nums ml-1">${b.hit_count}</span>` : ''}
-                </a>`).join('')
+            const links = group.bookmarks.map(b => {
+                const clipBtn = currentMode === 'community'
+                    ? `<button class="clip-btn flex-shrink-0 p-1 opacity-40 group-hover:opacity-100 text-g-gray hover:text-g-blue transition-all rounded"
+                                data-url="${escHtml(b.url)}"
+                                data-title="${escHtml(b.title || '')}"
+                                data-favicon="${escHtml(b.favicon_url || '')}"
+                                title="Clip to mine">${CLIP_SVG}</button>`
+                    : ''
+                return `
+                <div class="flex items-center gap-1 px-2 py-1.5 -mx-2 rounded-[8px] hover:bg-blue-50 group transition-colors">
+                    <a href="${escHtml(b.url)}" target="_blank" rel="noopener noreferrer"
+                       class="flex items-center gap-2.5 flex-1 min-w-0">
+                        ${faviconHtml(b)}
+                        <span class="flex-1 text-sm text-g-black group-hover:text-g-blue transition-colors leading-snug truncate min-w-0">${escHtml(b.title || b.url)}</span>
+                        ${b.hit_count > 0 ? `<span class="text-[11px] text-g-gray flex-shrink-0 tabular-nums ml-1">${b.hit_count}</span>` : ''}
+                    </a>
+                    ${clipBtn}
+                </div>`
+            }).join('')
 
             return `
                 <div class="bg-white border border-g-border rounded-[20px] p-5 card-glow">
@@ -265,10 +292,120 @@
                 </div>`
         }
 
-        // Tag navigation via event delegation — safe, no inline string injection
+        // ── Clip a community bookmark into the signed-in user's account ───────
+        function makeSlug(url, suffix = '') {
+            try {
+                const u = new URL(url)
+                const base = (u.hostname + u.pathname)
+                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56)
+                return (base || 'clip') + (suffix ? '-' + suffix : '')
+            } catch { return 'clip' + (suffix ? '-' + suffix : '') }
+        }
+
+        // Mark already-clipped buttons green after grid renders
+        async function markAlreadyClipped() {
+            const token = localStorage.getItem('d11_token')
+            if (!token) return
+            const buttons = [...document.querySelectorAll('.clip-btn')]
+            if (!buttons.length) return
+            await Promise.all(buttons.map(async btn => {
+                try {
+                    const res = await fetch(
+                        '/api/bookmarks/check-url?url=' + encodeURIComponent(btn.dataset.url),
+                        { headers: { 'Authorization': 'Bearer ' + token } }
+                    )
+                    if (!res.ok) return
+                    const { exists } = await res.json()
+                    if (exists) setClipped(btn)
+                } catch { /* non-critical, ignore */ }
+            }))
+        }
+
+        function setClipped(btn) {
+            btn.innerHTML = CHECK_SVG
+            btn.title = 'Already in Mine'
+            btn.className = btn.className
+                .replace('text-g-gray', 'text-green-500')
+                .replace('opacity-40', 'opacity-100')
+                .replace('group-hover:opacity-100', '')
+            btn.dataset.clipped = '1'
+        }
+
+        async function clipBookmark(btn) {
+            if (btn.dataset.clipping || btn.dataset.clipped) return
+            btn.dataset.clipping = '1'
+
+            const token = localStorage.getItem('d11_token')
+            if (!token) {
+                btn.innerHTML = X_SVG
+                btn.title = 'Sign in to clip bookmarks'
+                btn.className = btn.className.replace('text-g-gray', 'text-amber-400')
+                setTimeout(() => {
+                    btn.innerHTML = CLIP_SVG
+                    btn.className = btn.className.replace('text-amber-400', 'text-g-gray')
+                    btn.title = 'Clip to mine'
+                    delete btn.dataset.clipping
+                }, 2000)
+                return
+            }
+
+            btn.innerHTML = SPIN_SVG
+
+            const { url, title, favicon } = btn.dataset
+            const body = {
+                url,
+                title: title || undefined,
+                favicon_url: favicon || undefined,
+                tag_list: [currentTag],
+                is_public: false,
+                slug: makeSlug(url),
+            }
+
+            const post = (slug) => fetch('/api/bookmarks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ ...body, slug }),
+            })
+
+            let res = await post(body.slug)
+            if (res.status === 409) {
+                // Could be a slug clash or the URL already exists — check before retrying
+                const chk = await fetch(
+                    '/api/bookmarks/check-url?url=' + encodeURIComponent(url),
+                    { headers: { 'Authorization': 'Bearer ' + token } }
+                ).then(r => r.json()).catch(() => ({}))
+                if (chk.exists) {
+                    delete btn.dataset.clipping
+                    setClipped(btn)
+                    btn.title = 'Already in Mine'
+                    return
+                }
+                res = await post(makeSlug(url, Math.random().toString(36).slice(2, 6)))
+            }
+
+            delete btn.dataset.clipping
+
+            if (res.ok) {
+                btn.title = 'Clipped!'
+                setClipped(btn)
+            } else {
+                btn.innerHTML = X_SVG
+                btn.title = res.status === 401 ? 'Sign in to clip' : 'Clip failed — try again'
+                btn.className = btn.className.replace('text-g-gray', 'text-red-400')
+                setTimeout(() => {
+                    btn.innerHTML = CLIP_SVG
+                    btn.className = btn.className.replace('text-red-400', 'text-g-gray')
+                    btn.title = 'Clip to mine'
+                }, 2500)
+            }
+        }
+
+        // Event delegation — tag navigation + clip (single listener, no inline handlers)
         document.getElementById('card-grid').addEventListener('click', e => {
-            const btn = e.target.closest('.tag-nav-btn')
-            if (btn?.dataset.tag) navigateToTag(btn.dataset.tag)
+            const tagBtn = e.target.closest('.tag-nav-btn')
+            if (tagBtn?.dataset.tag) { navigateToTag(tagBtn.dataset.tag); return }
+            const clipBtn = e.target.closest('.clip-btn')
+            if (clipBtn) { e.preventDefault(); clipBookmark(clipBtn) }
         })
 
         // ── Init ──────────────────────────────────────────────────────────────
@@ -285,6 +422,7 @@
                 if (!groups || groups.length === 0) { showEl('empty'); return }
                 qs('#card-grid').innerHTML = groups.map(renderCard).join('')
                 showEl('grid')
+                if (currentMode === 'community') markAlreadyClipped()
             } catch {
                 hideEl('loading')
                 showEl('empty')
