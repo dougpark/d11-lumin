@@ -59,6 +59,21 @@
             <a href="/" class="flex-shrink-0">
                 <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
             </a>
+            <!-- Back / Forward -->
+            <div class="flex items-center gap-0.5 flex-shrink-0">
+                <button id="nav-back" onclick="history.back()" title="Back" disabled
+                    class="p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <button id="nav-forward" onclick="history.forward()" title="Forward" disabled
+                    class="p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
             <span class="text-g-border select-none">|</span>
             <h1 id="page-title" class="text-sm font-semibold text-g-black flex-1 capitalize">Explore</h1>
             <!-- Mine / All toggle -->
@@ -133,10 +148,29 @@
         // Mutable mode — toggled in-place without a page reload
         let currentMode = new URLSearchParams(location.search).has('community') ? 'community' : 'personal'
 
+        // History depth tracking for back/forward button state
+        let historyDepth = 0
+        let historyMaxDepth = 0
+
+        function updateNavButtons() {
+            const backBtn = qs('#nav-back')
+            const fwdBtn = qs('#nav-forward')
+            const enabledClass = 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            const disabledClass = 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+            if (backBtn) {
+                backBtn.disabled = historyDepth === 0
+                backBtn.className = historyDepth === 0 ? disabledClass : enabledClass
+            }
+            if (fwdBtn) {
+                fwdBtn.disabled = historyDepth >= historyMaxDepth
+                fwdBtn.className = historyDepth >= historyMaxDepth ? disabledClass : enabledClass
+            }
+        }
+
         function syncUrl(push = false) {
             const url = '/e/' + encodeURIComponent(currentTag) + (currentMode === 'community' ? '?community' : '')
-            if (push) history.pushState({ tag: currentTag, mode: currentMode }, '', url)
-            else history.replaceState({ tag: currentTag, mode: currentMode }, '', url)
+            if (push) history.pushState({ tag: currentTag, mode: currentMode, depth: historyDepth }, '', url)
+            else history.replaceState({ tag: currentTag, mode: currentMode, depth: historyDepth }, '', url)
         }
 
         function applyMode() {
@@ -165,8 +199,11 @@
         function navigateToTag(tag) {
             if (!tag || tag === currentTag) return
             currentTag = tag
+            historyDepth++
+            historyMaxDepth = historyDepth  // new push truncates any forward entries
             syncUrl(true)
             applyMode()
+            updateNavButtons()
             init()
         }
 
@@ -175,18 +212,22 @@
             if (e.state) {
                 currentTag = e.state.tag || 'explore'
                 currentMode = e.state.mode || 'personal'
+                historyDepth = e.state.depth ?? 0
             } else {
                 const parts = location.pathname.replace(/\/+$/, '').split('/')
                 currentTag = parts[parts.length - 1] || 'explore'
                 currentMode = new URLSearchParams(location.search).has('community') ? 'community' : 'personal'
+                historyDepth = 0
             }
             applyMode()
+            updateNavButtons()
             init()
         })
 
         // Apply initial state and stamp the initial history entry so popstate fires on back
         applyMode()
         syncUrl(false)
+        updateNavButtons()
 
         // ── Favicon renderer ──────────────────────────────────────────────────
         function makeFallbackIcon(letter) {
