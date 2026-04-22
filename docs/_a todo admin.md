@@ -1,4 +1,15 @@
-# Admin user
+
+# admin.html
+- admin landing page
+- show some site statistics
+-- number of bookmarks
+-- number of handles/users
+-- number of api tokens
+-- number of rss feeds
+- buttons for handle/user admin, api token admin, rss feeds admin
+
+
+# Admin user 
 
 - add a new column is_admin to the user table
 - wrangler sql update to handle = 'doug' and set to true

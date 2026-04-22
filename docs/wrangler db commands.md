@@ -7,3 +7,9 @@ echo "Y" | bun wrangler d1 execute d11-db --remote --command "INSERT OR IGNORE I
 
 # List current feeds
 echo "Y" | bun wrangler d1 execute d11-db --remote --command "SELECT id, name, url, is_active, last_fetched_at FROM rss_feeds;"
+
+
+# List current api tokens
+
+echo "Y" | bun wrangler d1 execute d11-db --remote --command "SELECT * FROM api_tokens;"
+
