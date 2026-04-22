@@ -564,7 +564,7 @@
                     return
                 }
                 const grid = qs('#card-grid')
-                grid.className = 'flex flex-col gap-2 max-w-2xl'
+                grid.className = 'flex flex-col gap-2 max-w-2xl mx-auto w-full'
                 grid.removeAttribute('style')
                 grid.innerHTML = items.map(renderFeedItem).join('')
                 const si = qs('#search-input')
