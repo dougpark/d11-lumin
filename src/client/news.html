@@ -114,6 +114,13 @@
                     class="w-full pl-8 pr-4 py-1.5 text-sm border border-g-border rounded-full focus:outline-none focus:border-g-blue bg-[#FAFAFA] transition-colors"
                     placeholder="Filter topics" oninput="filterCards(this.value)">
             </div>
+            <!-- Feed / Topics toggle (desktop) -->
+            <div class="hidden sm:flex items-center gap-0.5 bg-[#F0F2F5] rounded-full p-0.5 flex-shrink-0">
+                <button id="view-feed-btn" onclick="setView('feed')"
+                    class="px-3 py-1 rounded-full text-xs font-semibold bg-white text-g-black shadow-sm transition-all">Feed</button>
+                <button id="view-topics-btn" onclick="setView('topics')"
+                    class="px-3 py-1 rounded-full text-xs font-medium text-g-gray transition-all hover:text-g-black">Topics</button>
+            </div>
             <!-- Explore link (desktop) -->
             <a href="/e" title="Explore community bookmarks"
                 class="hidden sm:flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors flex-shrink-0">
@@ -161,7 +168,21 @@
             </button>
         </div>
         <div class="px-4 pb-10 flex flex-col gap-1">
-            <button onclick="navigateToTop(); closeSheet()"
+            <button onclick="setView('feed')"
+                class="flex items-center gap-4 px-4 py-3 rounded-[12px] hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition-colors text-left w-full">
+                <div
+                    class="w-10 h-10 rounded-[10px] bg-blue-50 flex items-center justify-center text-g-blue flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h12" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-medium text-sm text-g-black">Feed</p>
+                    <p class="text-xs text-g-gray">Latest articles by time</p>
+                </div>
+            </button>
+            <button onclick="setView('topics')"
                 class="flex items-center gap-4 px-4 py-3 rounded-[12px] hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition-colors text-left w-full">
                 <div
                     class="w-10 h-10 rounded-[10px] bg-blue-50 flex items-center justify-center text-g-blue flex-shrink-0">
@@ -171,8 +192,8 @@
                     </svg>
                 </div>
                 <div>
-                    <p class="font-medium text-sm text-g-black">All Topics</p>
-                    <p class="text-xs text-g-gray">Browse all news topics</p>
+                    <p class="font-medium text-sm text-g-black">Topics</p>
+                    <p class="text-xs text-g-gray">Browse by news topic</p>
                 </div>
             </button>
             <a href="/e"
@@ -268,7 +289,7 @@
             return (Date.now() - new Date(isoStr).getTime()) < 86400000  // < 24h
         }
 
-        // ── URL / tag state ───────────────────────────────────────────────────
+        // ── URL / view / tag state ────────────────────────────────────────────
         let currentTag = (() => {
             const path = location.pathname.replace(/\/+$/, '')
             if (path === '/n') return ''
@@ -276,6 +297,9 @@
             const last = parts[parts.length - 1]
             return last === 'n' ? '' : (last || '')
         })()
+
+        // 'feed' = chronological article list (default); 'topics' = tag pill/tag view
+        let currentView = currentTag ? 'topics' : 'feed'
 
         let historyDepth = 0
         let historyMaxDepth = 0
@@ -292,66 +316,107 @@
 
         function syncUrl(push = false) {
             const url = currentTag ? '/n/' + encodeURIComponent(currentTag) : '/n'
-            if (push) history.pushState({ tag: currentTag, depth: historyDepth }, '', url)
-            else history.replaceState({ tag: currentTag, depth: historyDepth }, '', url)
+            if (push) history.pushState({ tag: currentTag, depth: historyDepth, view: currentView }, '', url)
+            else history.replaceState({ tag: currentTag, depth: historyDepth, view: currentView }, '', url)
         }
 
         function applyTitle() {
-            const isLanding = currentTag === ''
-            document.title = isLanding ? 'News — Lumin' : (currentTag.charAt(0).toUpperCase() + currentTag.slice(1)) + ' · News — Lumin'
-            qs('#page-title').textContent = isLanding ? 'News' : '#' + currentTag
             const si = qs('#search-input')
-            if (si) si.placeholder = isLanding ? 'Filter topics' : 'Filter in #' + currentTag
             const topBtn = qs('#nav-top')
+            const inTag = currentView === 'topics' && currentTag !== ''
+            if (currentView === 'feed') {
+                document.title = 'News — Lumin'
+                qs('#page-title').textContent = 'News'
+                if (si) si.placeholder = 'Filter articles'
+            } else if (!currentTag) {
+                document.title = 'News — Lumin'
+                qs('#page-title').textContent = 'Topics'
+                if (si) si.placeholder = 'Filter topics'
+            } else {
+                document.title = (currentTag.charAt(0).toUpperCase() + currentTag.slice(1)) + ' · News — Lumin'
+                qs('#page-title').textContent = '#' + currentTag
+                if (si) si.placeholder = 'Filter in #' + currentTag
+            }
             if (topBtn) {
-                topBtn.disabled = isLanding
-                topBtn.className = isLanding
-                    ? 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
-                    : 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+                topBtn.disabled = !inTag
+                topBtn.className = inTag
+                    ? 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+                    : 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
             }
         }
 
         function navigateToTag(tag) {
-            if (!tag || tag === currentTag) return
+            if (!tag || (tag === currentTag && currentView === 'topics')) return
             currentTag = tag
+            currentView = 'topics'
             historyDepth++
             historyMaxDepth = historyDepth
             syncUrl(true)
             applyTitle()
             updateNavButtons()
+            updateViewButtons()
             init()
         }
 
         function navigateToTop() {
-            if (currentTag === '') return
+            if (currentView === 'topics' && currentTag === '') return
+            currentTag = ''
+            currentView = 'topics'
+            historyDepth++
+            historyMaxDepth = historyDepth
+            syncUrl(true)
+            applyTitle()
+            updateNavButtons()
+            updateViewButtons()
+            init()
+        }
+
+        function setView(v) {
+            if (currentView === v && currentTag === '') return
+            currentView = v
             currentTag = ''
             historyDepth++
             historyMaxDepth = historyDepth
             syncUrl(true)
             applyTitle()
             updateNavButtons()
+            updateViewButtons()
+            closeSheet()
             init()
+        }
+
+        function updateViewButtons() {
+            const feedBtn = qs('#view-feed-btn')
+            const topicsBtn = qs('#view-topics-btn')
+            const active = 'px-3 py-1 rounded-full text-xs font-semibold bg-white text-g-black shadow-sm transition-all'
+            const inactive = 'px-3 py-1 rounded-full text-xs font-medium text-g-gray transition-all hover:text-g-black'
+            if (feedBtn) feedBtn.className = currentView === 'feed' ? active : inactive
+            if (topicsBtn) topicsBtn.className = currentView !== 'feed' ? active : inactive
         }
 
         window.addEventListener('popstate', (e) => {
             if (e.state) {
                 currentTag = e.state.tag ?? ''
                 historyDepth = e.state.depth ?? 0
+                currentView = e.state.view ?? (e.state.tag ? 'topics' : 'feed')
             } else {
                 const path = location.pathname.replace(/\/+$/, '')
                 const parts = path.split('/')
                 const last = parts[parts.length - 1]
                 currentTag = last === 'n' ? '' : (last || '')
                 historyDepth = 0
+                currentView = currentTag ? 'topics' : 'feed'
             }
             applyTitle()
             updateNavButtons()
+            updateViewButtons()
             init()
         })
 
         applyTitle()
         syncUrl(false)
         updateNavButtons()
+        updateViewButtons()
 
         // ── Clip helpers (reused from explore) ────────────────────────────────
         const CLIP_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m-2-2h4"/></svg>`
@@ -477,8 +542,78 @@
 
         // ── Init ──────────────────────────────────────────────────────────────
         async function init() {
-            if (currentTag === '') await initLanding()
+            if (currentView === 'feed') await initFeed()
+            else if (currentTag === '') await initLanding()
             else await initTag()
+        }
+
+        // ── Chronological feed view ───────────────────────────────────────────
+        async function initFeed() {
+            hideEl('grid')
+            hideEl('empty')
+            showEl('loading')
+            try {
+                const res = await fetch('/api/n/recent')
+                hideEl('loading')
+                if (!res.ok) { showEl('empty'); return }
+                const { items } = await res.json()
+                if (!items || items.length === 0) {
+                    qs('#empty-headline').textContent = 'No news yet'
+                    qs('#empty-sub').textContent = 'RSS feeds are ingested every 30 minutes — check back soon.'
+                    showEl('empty')
+                    return
+                }
+                const grid = qs('#card-grid')
+                grid.className = 'flex flex-col gap-2 max-w-2xl'
+                grid.removeAttribute('style')
+                grid.innerHTML = items.map(renderFeedItem).join('')
+                const si = qs('#search-input')
+                if (si) si.value = ''
+                showEl('grid')
+                markAlreadyClipped()
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        function renderFeedItem(item) {
+            const fresh = isFresh(item.published_at)
+            const relTime = relativeTime(item.published_at)
+            const freshBadge = fresh
+                ? `<span class="text-[9px] font-bold bg-blue-500 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">NEW</span>`
+                : ''
+            const feedLabel = item.feed_name
+                ? `<span class="text-[10px] text-g-gray/60 flex-shrink-0">${escHtml(item.feed_name)}</span>`
+                : ''
+            const tagsArr = (() => { try { return JSON.parse(item.tag_list || '[]') } catch { return [] } })()
+            const primaryTags = [...new Set(tagsArr.map(t => t.split(':')[0].toLowerCase()))].slice(0, 5)
+            const tagPills = primaryTags.map(tag =>
+                `<button class="tag-nav-btn text-[10px] font-medium text-g-blue/80 bg-blue-50 hover:bg-blue-100 hover:text-g-blue px-2 py-0.5 rounded-full transition-colors flex-shrink-0"
+                    data-tag="${escHtml(tag)}">#${escHtml(tag)}</button>`
+            ).join('')
+            const clipBtn = `<button class="clip-btn flex-shrink-0 p-1 opacity-0 group-hover:opacity-100 text-g-gray hover:text-g-blue transition-all rounded"
+                data-url="${escHtml(item.url)}"
+                data-title="${escHtml(item.title || '')}"
+                data-tags="${escHtml(JSON.stringify(tagsArr))}"
+                title="Clip to mine">${CLIP_SVG}</button>`
+            return `
+            <div class="link-row group flex flex-col gap-1.5 px-4 py-3 bg-white border border-g-border rounded-[12px] hover:border-g-blue/40 card-glow transition-colors">
+                <div class="flex items-start gap-2">
+                    <a href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer"
+                       class="flex-1 text-sm text-g-black group-hover:text-g-blue transition-colors leading-snug font-medium min-w-0">
+                        ${escHtml(item.title || item.url)}
+                    </a>
+                    ${clipBtn}
+                </div>
+                ${item.summary ? `<p class="text-xs text-g-gray leading-relaxed line-clamp-2">${escHtml(item.summary)}</p>` : ''}
+                <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                    ${freshBadge}
+                    ${relTime ? `<span class="text-[10px] text-g-gray/70">${escHtml(relTime)}</span>` : ''}
+                    ${feedLabel}
+                    ${tagPills ? `<span class="text-g-border/60 text-[10px] select-none">·</span>${tagPills}` : ''}
+                </div>
+            </div>`
         }
 
         // ── Landing: top-30 topic pills ───────────────────────────────────────
@@ -550,6 +685,21 @@
         function filterCards(query) {
             const q = query.trim().toLowerCase()
             let noMatch = qs('#search-no-match')
+
+            if (currentView === 'feed') {
+                const rows = document.querySelectorAll('#card-grid .link-row')
+                let anyVisible = false
+                rows.forEach(row => {
+                    const show = !q || q.split(/\s+/).every(t => (row.textContent || '').toLowerCase().includes(t))
+                    row.style.display = show ? '' : 'none'
+                    if (show) anyVisible = true
+                })
+                if (!anyVisible && q) {
+                    if (!noMatch) { noMatch = document.createElement('p'); noMatch.id = 'search-no-match'; noMatch.className = 'text-center text-sm text-g-gray py-8'; qs('#card-grid').appendChild(noMatch) }
+                    noMatch.textContent = 'No articles matching \u201c' + query.trim() + '\u201d'
+                } else if (noMatch) noMatch.remove()
+                return
+            }
 
             if (currentTag === '') {
                 const pills = document.querySelectorAll('#card-grid .tag-nav-btn')

@@ -398,6 +398,20 @@ app.get('/api/n', async (c) => {
   return c.json({ tags: top })
 })
 
+// ─── News API: GET /api/n/recent — chronological article feed ────────────────
+app.get('/api/n/recent', async (c) => {
+  const now = new Date().toISOString()
+  const result = await c.env.DB.prepare(
+    `SELECT r.id, r.url, r.title, r.summary, r.tag_list, r.published_at, f.name AS feed_name
+       FROM rss_items r
+       JOIN rss_feeds f ON f.id = r.feed_id
+      WHERE r.expires_at > ?
+      ORDER BY r.published_at DESC
+      LIMIT 100`
+  ).bind(now).all()
+  return c.json({ items: result.results })
+})
+
 // ─── News API: GET /api/n/:tag — items matching tag, grouped by secondary tags
 app.get('/api/n/:tag', async (c) => {
   const rawTag = c.req.param('tag').toLowerCase()
