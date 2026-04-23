@@ -491,26 +491,26 @@ curl -X DELETE \
 
 ---
 
-### Python client example
+### Bun.js client example
 
-```python
-import httpx
-import os
+```js
+// client.js — run with: bun client.js
+const BASE = "https://d11.me/api/v1"
+const headers = { "Authorization": `Bearer ${process.env.D11_API_TOKEN}` }
 
-BASE = "https://d11.me/api/v1"
-headers = {"Authorization": f"Bearer {os.environ['D11_API_TOKEN']}"}
+// Check for updates before fetching all posts
+const { updated_at } = await fetch(`${BASE}/posts/updated`, { headers }).then(r => r.json())
+console.log(`Last update: ${updated_at}`)
 
-# Check for updates before fetching all posts
-sentinel = httpx.get(f"{BASE}/posts/updated", headers=headers).json()["updated_at"]
-print(f"Last update: {sentinel}")
+// Fetch all bookmarks tagged "link"
+const { data: posts } = await fetch(
+  `${BASE}/posts?tag=link&limit=1000`, { headers }
+).then(r => r.json())
+console.log(`Found ${posts.length} bookmarks`)
 
-# Fetch all bookmarks tagged "link"
-r = httpx.get(f"{BASE}/posts", params={"tag": "link", "limit": 1000}, headers=headers)
-posts = r.json()["data"]
-print(f"Found {len(posts)} bookmarks")
-
-for post in posts:
-    print(f"  {post['title']} — {post['url']}")
+for (const post of posts) {
+  console.log(`  ${post.title} — ${post.url}`)
+}
 ```
 
 ---
@@ -660,36 +660,43 @@ Once `ai_summary` or `ai_tags` are written back, `news.html` will immediately pr
 
 ---
 
-### Python daemon example
+### Bun.js daemon example
 
-```python
-import httpx, time, os, json
+```js
+// daemon.js — run with: bun daemon.js
+const BASE    = "https://d11.me/api/ai"
+const HEADERS = {
+  "Authorization": `Bearer ${process.env.D11_AI_TOKEN}`,
+  "Content-Type": "application/json",
+}
 
-BASE    = "https://d11.me/api/ai"
-HEADERS = {"Authorization": f"Bearer {os.environ['D11_AI_TOKEN']}"}
+/** Replace with your actual LLM call. */
+function processItem(item) {
+  return {
+    id: item.id,
+    ai_tags: ["example", "tag"],
+    ai_summary: `AI summary of: ${item.title}`,
+  }
+}
 
-def process_item(item: dict) -> dict:
-    """Replace with your actual LLM call."""
-    return {
-        "id": item["id"],
-        "ai_tags": ["example", "tag"],
-        "ai_summary": f"AI summary of: {item['title']}",
-    }
+while (true) {
+  const data = await fetch(`${BASE}/queue?limit=20`, { headers: HEADERS }).then(r => r.json())
 
-while True:
-    r = httpx.get(f"{BASE}/queue", params={"limit": 20}, headers=HEADERS, timeout=30)
-    r.raise_for_status()
-    data = r.json()
+  if (data.count === 0) {
+    await Bun.sleep(60_000)
+    continue
+  }
 
-    if data["count"] == 0:
-        time.sleep(60)
-        continue
+  const results = data.items.map(processItem)
 
-    results = [process_item(item) for item in data["items"]]
+  const { updated } = await fetch(`${BASE}/items`, {
+    method: "PATCH",
+    headers: HEADERS,
+    body: JSON.stringify(results),
+  }).then(r => r.json())
 
-    patch = httpx.patch(f"{BASE}/items", json=results, headers=HEADERS, timeout=30)
-    patch.raise_for_status()
-    print(f"Updated {patch.json()['updated']} items")
+  console.log(`Updated ${updated} items`)
+}
 ```
 
 ---
