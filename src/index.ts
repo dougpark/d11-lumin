@@ -447,14 +447,16 @@ app.get('/api/e/:dashboardTag', async (c) => {
 // ─── News API: GET /api/n — top tags from active rss_items ──────────────────
 app.get('/api/n', async (c) => {
   const result = await c.env.DB.prepare(
-    `SELECT tag_list FROM rss_items WHERE expires_at > ?`
+    `SELECT tag_list, ai_tags FROM rss_items WHERE expires_at > ?`
   ).bind(new Date().toISOString()).all()
 
   const counts = new Map<string, number>()
-  for (const row of (result.results as { tag_list: string }[])) {
+  for (const row of (result.results as { tag_list: string; ai_tags: string | null }[])) {
     let tags: string[] = []
     try { tags = JSON.parse(row.tag_list || '[]') } catch { /* skip */ }
-    for (const t of tags) {
+    let aiTags: string[] = []
+    try { aiTags = JSON.parse(row.ai_tags || '[]') } catch { /* skip */ }
+    for (const t of [...tags, ...aiTags]) {
       const name = t.split(':')[0].toLowerCase()
       counts.set(name, (counts.get(name) ?? 0) + 1)
     }
@@ -500,9 +502,9 @@ app.get('/api/n/:tag', async (c) => {
             f.name AS feed_name
        FROM rss_items r
        JOIN rss_feeds f ON f.id = r.feed_id
-      WHERE r.expires_at > ? AND r.tag_list LIKE ?
+      WHERE r.expires_at > ? AND (r.tag_list LIKE ? OR r.ai_tags LIKE ?)
       ORDER BY r.published_at DESC`
-  ).bind(now, likePattern).all()
+  ).bind(now, likePattern, likePattern).all()
 
   type Group = { name: string; items: unknown[] }
   const groupMap = new Map<string, Group>()
@@ -510,8 +512,16 @@ app.get('/api/n/:tag', async (c) => {
   for (const row of (result.results as Record<string, unknown>[])) {
     let tags: string[] = []
     try { tags = JSON.parse((row.tag_list as string) || '[]') } catch { /* skip */ }
+    let aiTags: string[] = []
+    try { aiTags = JSON.parse((row.ai_tags as string) || '[]') } catch { /* skip */ }
 
-    const secondaryTags = tags.filter(t => t.toLowerCase() !== rawTag)
+    // Combine original and AI tags, normalise to base tag (strip colon suffix)
+    const allTagNames = [...new Set([
+      ...tags.map(t => t.split(':')[0].toLowerCase()),
+      ...aiTags.map(t => t.split(':')[0].toLowerCase()),
+    ])]
+
+    const secondaryTags = allTagNames.filter(t => t !== rawTag)
     const groupTags = secondaryTags.length > 0 ? secondaryTags : ['misc']
 
     for (const gTag of groupTags) {
