@@ -638,9 +638,20 @@ app.get('/api/n/:tag', async (c) => {
 })
 
 // ─── Admin API ────────────────────────────────────────────────────────────────
+// All admin routes require a valid session + is_admin = 1.
+
+function requireAdmin(c: Parameters<typeof authMiddleware>[0]): Response | null {
+  const user = c.var.user as User
+  if (!user || user.is_admin !== 1) {
+    return c.json({ error: 'Forbidden' }, 403) as Response
+  }
+  return null
+}
+
 // GET /api/admin/stats — site-wide stats for the admin dashboard.
-// Requires a valid session cookie (authMiddleware). No admin-role check in v1.
 app.get('/api/admin/stats', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
   const now = new Date().toISOString()
 
   const [bm, users, tokens, feeds, rssItems, bmPublic, bmAi, bm7d, bm30d, topTags] =
@@ -672,31 +683,81 @@ app.get('/api/admin/stats', authMiddleware, async (c) => {
     .slice(0, 10)
     .map(([tag, count]) => ({ tag, count }))
 
-  const bmRow  = bm.results[0]  as { cnt: number }
+  const bmRow = bm.results[0] as { cnt: number }
   const usrRow = users.results[0] as { cnt: number }
   const tokRow = tokens.results[0] as { cnt: number }
   const feedRow = feeds.results[0] as { total: number; active: number }
-  const rssRow  = rssItems.results[0] as { cnt: number }
-  const pubRow  = bmPublic.results[0] as { cnt: number }
-  const aiRow   = bmAi.results[0]    as { cnt: number }
-  const w7Row   = bm7d.results[0]    as { cnt: number }
-  const w30Row  = bm30d.results[0]   as { cnt: number }
+  const rssRow = rssItems.results[0] as { cnt: number }
+  const pubRow = bmPublic.results[0] as { cnt: number }
+  const aiRow = bmAi.results[0] as { cnt: number }
+  const w7Row = bm7d.results[0] as { cnt: number }
+  const w30Row = bm30d.results[0] as { cnt: number }
 
   return c.json({
     bookmarks: {
-      total:     bmRow.cnt,
-      public:    pubRow.cnt,
-      private:   bmRow.cnt - pubRow.cnt,
+      total: bmRow.cnt,
+      public: pubRow.cnt,
+      private: bmRow.cnt - pubRow.cnt,
       ai_processed: aiRow.cnt,
-      new_7d:    w7Row.cnt,
-      new_30d:   w30Row.cnt,
+      new_7d: w7Row.cnt,
+      new_30d: w30Row.cnt,
     },
-    users:      usrRow.cnt,
+    users: usrRow.cnt,
     api_tokens: tokRow.cnt,
-    rss_feeds:  { total: feedRow.total, active: feedRow.active },
-    rss_items:  rssRow.cnt,
-    top_tags:   top10Tags,
+    rss_feeds: { total: feedRow.total, active: feedRow.active },
+    rss_items: rssRow.cnt,
+    top_tags: top10Tags,
   })
+})
+
+// GET /api/admin/users — list all users (admin only)
+app.get('/api/admin/users', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const result = await c.env.DB.prepare(
+    `SELECT id, slug_prefix, full_name, email, created_at, is_admin
+       FROM users
+       ORDER BY id ASC`
+  ).all()
+
+  return c.json({ users: result.results })
+})
+
+// PATCH /api/admin/users/:id — toggle is_admin for a user (admin only)
+// Body: { is_admin: boolean }
+// Prevents self-demotion.
+app.patch('/api/admin/users/:id', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const targetId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(targetId) || targetId < 1) {
+    return c.json({ error: 'Invalid user id' }, 400)
+  }
+
+  const currentUser = c.var.user as User
+  if (targetId === currentUser.id) {
+    return c.json({ error: 'You cannot change your own admin status' }, 400)
+  }
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  if (typeof body !== 'object' || body === null || !('is_admin' in body)) {
+    return c.json({ error: 'Body must include is_admin (boolean)' }, 400)
+  }
+  const newIsAdmin = (body as Record<string, unknown>).is_admin
+  if (newIsAdmin !== true && newIsAdmin !== false) {
+    return c.json({ error: 'is_admin must be true or false' }, 400)
+  }
+
+  const result = await c.env.DB.prepare(
+    `UPDATE users SET is_admin = ? WHERE id = ?`
+  ).bind(newIsAdmin ? 1 : 0, targetId).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'User not found' }, 404)
+
+  return c.json({ ok: true, id: targetId, is_admin: newIsAdmin ? 1 : 0 })
 })
 
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────

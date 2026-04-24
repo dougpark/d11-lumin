@@ -855,8 +855,8 @@
                             <button onclick="copyLoginLink()"
                                 class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Copy
                                 Login Link</button>
-                            <a href="/admin"
-                                class="block w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
+                            <a id="desktop-admin-link" href="/admin"
+                                class="hidden block w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
                             <button onclick="doLogout()"
                                 class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">Sign
                                 Out</button>
@@ -1047,8 +1047,8 @@
                 <button onclick="copyLoginLink(); toggleMobileUserMenu()"
                     class="w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Copy
                     Login Link</button>
-                <a href="/admin"
-                    class="block w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
+                <a id="mobile-admin-link" href="/admin"
+                    class="hidden block w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
                 <button onclick="doLogout()"
                     class="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">Sign
                     Out</button>
@@ -1474,6 +1474,12 @@
             if (mobName) mobName.textContent = name
             const mobPrefix = qs('#mobile-menu-prefix')
             if (mobPrefix) mobPrefix.textContent = prefix
+            // Admin links — only visible to admins
+            const isAdmin = S.user.is_admin === 1
+            const desktopAdminLink = qs('#desktop-admin-link')
+            const mobileAdminLink = qs('#mobile-admin-link')
+            if (desktopAdminLink) desktopAdminLink.classList.toggle('hidden', !isAdmin)
+            if (mobileAdminLink) mobileAdminLink.classList.toggle('hidden', !isAdmin)
         }
 
         function setAuthCookie(token) {

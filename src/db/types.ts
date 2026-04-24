@@ -10,6 +10,7 @@ export type User = {
     created_at: string
     updated_at: string
     ai_allow_private: number  // 0 = public bookmarks only, 1 = all bookmarks
+    is_admin: number          // 0 = regular user, 1 = admin
 }
 
 export type Bookmark = {

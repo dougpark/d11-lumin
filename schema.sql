@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
   -- AI enrichment privacy gate: 0 = public bookmarks only, 1 = all bookmarks
-  ai_allow_private INTEGER NOT NULL DEFAULT 0 CHECK (ai_allow_private IN (0, 1))
+  ai_allow_private INTEGER NOT NULL DEFAULT 0 CHECK (ai_allow_private IN (0, 1)),
+
+  -- Admin flag: 1 = admin, 0 = regular user
+  is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1))
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_token_hash   ON users (token_hash);

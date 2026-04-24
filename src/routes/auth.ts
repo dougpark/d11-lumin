@@ -80,6 +80,7 @@ auth.get('/me', async (c) => {
         email: user.email,
         phone: user.phone,
         created_at: user.created_at,
+        is_admin: user.is_admin,
     })
 })
 
