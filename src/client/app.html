@@ -1859,6 +1859,9 @@
             const tags = (Array.isArray(b.tag_list) ? b.tag_list : []).map(t =>
                 `<button onclick="filterByTag('${escAttr(t)}')" class="bg-[#F3F4F6] text-g-gray text-xs px-2 py-0.5 rounded-full hover:bg-g-blue hover:text-white transition-colors">#${escHtml(t)}</button>`
             ).join('')
+            const aiTagsHtml = (Array.isArray(b.ai_tags) ? b.ai_tags : []).map(t =>
+                `<span class="bg-purple-50 text-purple-600 text-xs px-2 py-0.5 rounded-full border border-purple-100">✦ ${escHtml(t)}</span>`
+            ).join('')
 
             const pubBadge = b.is_public
                 ? `<span class="bg-green-50 text-green-600 text-xs font-medium px-2 py-0.5 rounded-full border border-green-100">Public</span>`
@@ -1940,7 +1943,8 @@
       <p id="desc-${b.id}" class="text-xs text-g-gray leading-relaxed ${S.expandDescs ? '' : 'line-clamp-2'}">${escHtml(b.short_description)}</p>
       <button onclick="toggleDesc(${b.id}, this)" class="text-xs text-g-blue hover:underline mt-0.5" data-expanded="${S.expandDescs}">${S.expandDescs ? 'show less' : 'show more'}</button>
     </div>` : ''}
-    ${tags ? `<div class="flex flex-wrap gap-1 mt-2 pl-8">${tags}</div>` : ''}
+    ${b.ai_summary ? `<div class="mt-1.5 pl-8"><p class="text-xs text-purple-600 leading-relaxed italic">${escHtml(b.ai_summary)}</p></div>` : ''}
+    ${(tags || aiTagsHtml) ? `<div class="flex flex-wrap gap-1 mt-2 pl-8">${tags}${aiTagsHtml}</div>` : ''}
   </div>`
         }
 
@@ -2053,6 +2057,9 @@
             const tags = (Array.isArray(b.tag_list) ? b.tag_list : []).map(t =>
                 `<button onclick="filterByTag('${escAttr(t)}')" class="bg-[#F3F4F6] text-g-gray text-xs px-2 py-0.5 rounded-full hover:bg-g-blue hover:text-white transition-colors">#${escHtml(t)}</button>`
             ).join('')
+            const aiTagsHtml = (Array.isArray(b.ai_tags) ? b.ai_tags : []).map(t =>
+                `<span class="bg-purple-50 text-purple-600 text-xs px-2 py-0.5 rounded-full border border-purple-100">✦ ${escHtml(t)}</span>`
+            ).join('')
 
             const favicon = b.favicon_url
                 ? `<img src="${escAttr(b.favicon_url)}" class="w-8 h-8 rounded-[6px] object-contain flex-shrink-0" onerror="this.style.display='none'" loading="lazy">`
@@ -2087,7 +2094,8 @@
         <p class="text-xs text-g-gray leading-relaxed transition-all ${S.expandDescs ? '' : 'line-clamp-2'}">${escHtml(b.short_description)}</p>
         <div class="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white to-transparent pointer-events-none desc-fade${S.expandDescs ? ' hidden' : ''}"></div>
       </div>` : ''}
-      ${tags ? `<div class="flex flex-wrap gap-1 mt-1.5">${tags}</div>` : ''}
+      ${b.ai_summary ? `<div class="mt-1"><p class="text-xs text-purple-600 leading-relaxed italic">${escHtml(b.ai_summary)}</p></div>` : ''}
+      ${(tags || aiTagsHtml) ? `<div class="flex flex-wrap gap-1 mt-1.5">${tags}${aiTagsHtml}</div>` : ''}
     </div>
   </div>`
         }

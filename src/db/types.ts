@@ -9,6 +9,7 @@ export type User = {
     phone: string | null
     created_at: string
     updated_at: string
+    ai_allow_private: number  // 0 = public bookmarks only, 1 = all bookmarks
 }
 
 export type Bookmark = {
@@ -28,6 +29,9 @@ export type Bookmark = {
     expires_at: string | null
     created_at: string
     updated_at: string
+    ai_tags: string | null          // JSON array string, additive — never overwrites tag_list
+    ai_summary: string | null       // AI-generated summary, separate from short_description
+    ai_processed_at: string | null  // NULL = not yet processed by AI
 }
 
 export type ClickEvent = {

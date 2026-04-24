@@ -14,7 +14,10 @@ CREATE TABLE IF NOT EXISTS users (
   email        TEXT    UNIQUE,
   phone        TEXT,
   created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  updated_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  updated_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+  -- AI enrichment privacy gate: 0 = public bookmarks only, 1 = all bookmarks
+  ai_allow_private INTEGER NOT NULL DEFAULT 0 CHECK (ai_allow_private IN (0, 1))
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_token_hash   ON users (token_hash);
@@ -51,15 +54,21 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
+  -- AI enrichment (populated by external daemon via /api/ai/*)
+  ai_tags         TEXT    DEFAULT NULL,   -- JSON array, additive — never overwrites tag_list
+  ai_summary      TEXT    DEFAULT NULL,   -- AI-generated summary, separate from short_description
+  ai_processed_at TEXT    DEFAULT NULL,   -- NULL = not yet processed by AI
+
   -- A slug must be unique per user (namespace approach)
   UNIQUE (user_id, slug)
 );
 
 -- Fast lookup for the redirect route GET /l/:prefix/:slug
-CREATE INDEX IF NOT EXISTS idx_bookmarks_slug       ON bookmarks (slug);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id    ON bookmarks (user_id);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks (created_at);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_is_public  ON bookmarks (is_public);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_slug             ON bookmarks (slug);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id          ON bookmarks (user_id);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at       ON bookmarks (created_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_is_public        ON bookmarks (is_public);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_ai_processed_at  ON bookmarks (ai_processed_at);
 
 -- ─── Click analytics (optional, for per-click referrer / heatmap data) ────────
 CREATE TABLE IF NOT EXISTS click_events (
