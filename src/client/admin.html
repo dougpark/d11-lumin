@@ -311,18 +311,24 @@
                 const adminBadge = u.is_admin
                     ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Admin</span>`
                     : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-g-gray">User</span>`
-                const btn = isSelf
+                const adminBtn = isSelf
                     ? `<span class="text-xs text-g-gray italic">you</span>`
                     : u.is_admin
                         ? `<button onclick="toggleAdmin(${u.id}, false, '${escHtml(u.slug_prefix)}')" class="text-xs text-red-500 hover:text-red-700 hover:underline transition-colors">Remove admin</button>`
                         : `<button onclick="toggleAdmin(${u.id}, true, '${escHtml(u.slug_prefix)}')" class="text-xs text-g-blue hover:text-blue-700 hover:underline transition-colors">Make admin</button>`
+                const aiPrivateBtn = u.ai_allow_private
+                    ? `<button onclick="toggleAiPrivate(${u.id}, false)" class="text-xs text-purple-600 hover:text-purple-800 hover:underline transition-colors" title="AI enriches all bookmarks — click to restrict to public only">AI: all</button>`
+                    : `<button onclick="toggleAiPrivate(${u.id}, true)" class="text-xs text-g-gray hover:text-g-black hover:underline transition-colors" title="AI only enriches public bookmarks — click to allow all">AI: public only</button>`
+                const deleteBtn = isSelf ? '' :
+                    `<span class="text-g-border text-xs select-none">|</span>
+                     <button onclick="deleteUser(${u.id}, '${escHtml(u.slug_prefix)}')" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Delete</button>`
                 const statPill = (label, value, color) =>
                     `<span class="inline-flex items-center gap-1 text-[11px] text-g-gray">
                         <span class="font-medium ${color}">${value}</span>
                         <span>${label}</span>
                     </span>`
                 return `<div class="px-5 py-4 hover:bg-[#FAFAFA] transition-colors" id="user-row-${u.id}">
-                    <!-- Row 1: identity + admin control -->
+                    <!-- Row 1: identity + controls -->
                     <div class="flex items-center justify-between gap-3 mb-1.5">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="font-semibold text-g-black">@${escHtml(u.slug_prefix)}</span>
@@ -331,7 +337,10 @@
                         </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
                             ${adminBadge}
-                            ${btn}
+                            ${adminBtn}
+                            <span class="text-g-border text-xs select-none">|</span>
+                            ${aiPrivateBtn}
+                            ${deleteBtn}
                         </div>
                     </div>
                     <!-- Row 2: stats -->
@@ -354,8 +363,6 @@
             if (!confirm(`${action} @${handle}?`)) return
 
             const token = localStorage.getItem('d11_token')
-            const row = qs(`#user-row-${userId}`)
-
             try {
                 const res = await fetch(`/api/admin/users/${userId}`, {
                     method: 'PATCH',
@@ -367,7 +374,44 @@
                     alert('Error: ' + (err.error ?? 'Unknown error'))
                     return
                 }
-                // Reload users table to reflect new state
+                loadUsers(token)
+            } catch (e) {
+                alert('Request failed: ' + String(e))
+            }
+        }
+
+        async function toggleAiPrivate(userId, newVal) {
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ai_allow_private: newVal }),
+                })
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}))
+                    alert('Error: ' + (err.error ?? 'Unknown error'))
+                    return
+                }
+                loadUsers(token)
+            } catch (e) {
+                alert('Request failed: ' + String(e))
+            }
+        }
+
+        async function deleteUser(userId, handle) {
+            if (!confirm(`Delete @${handle} and all their bookmarks?\n\nThis cannot be undone.`)) return
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}))
+                    alert('Error: ' + (err.error ?? 'Unknown error'))
+                    return
+                }
                 loadUsers(token)
             } catch (e) {
                 alert('Request failed: ' + String(e))

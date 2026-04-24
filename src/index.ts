@@ -716,7 +716,7 @@ app.get('/api/admin/users', authMiddleware, async (c) => {
   if (deny) return deny
 
   const result = await c.env.DB.prepare(
-    `SELECT u.id, u.slug_prefix, u.full_name, u.email, u.created_at, u.is_admin,
+    `SELECT u.id, u.slug_prefix, u.full_name, u.email, u.created_at, u.is_admin, u.ai_allow_private,
             COUNT(b.id)                                                  AS bookmark_total,
             SUM(CASE WHEN b.is_public = 1  THEN 1 ELSE 0 END)           AS bookmark_public,
             SUM(CASE WHEN b.is_public = 0  THEN 1 ELSE 0 END)           AS bookmark_private,
@@ -731,9 +731,9 @@ app.get('/api/admin/users', authMiddleware, async (c) => {
   return c.json({ users: result.results })
 })
 
-// PATCH /api/admin/users/:id — toggle is_admin for a user (admin only)
-// Body: { is_admin: boolean }
-// Prevents self-demotion.
+// PATCH /api/admin/users/:id — update is_admin and/or ai_allow_private (admin only)
+// Body: { is_admin?: boolean, ai_allow_private?: boolean }
+// Prevents self-demotion of is_admin.
 app.patch('/api/admin/users/:id', authMiddleware, async (c) => {
   const deny = requireAdmin(c)
   if (deny) return deny
@@ -744,27 +744,63 @@ app.patch('/api/admin/users/:id', authMiddleware, async (c) => {
   }
 
   const currentUser = c.var.user as User
-  if (targetId === currentUser.id) {
-    return c.json({ error: 'You cannot change your own admin status' }, 400)
-  }
 
   let body: unknown
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
-  if (typeof body !== 'object' || body === null || !('is_admin' in body)) {
-    return c.json({ error: 'Body must include is_admin (boolean)' }, 400)
-  }
-  const newIsAdmin = (body as Record<string, unknown>).is_admin
-  if (newIsAdmin !== true && newIsAdmin !== false) {
-    return c.json({ error: 'is_admin must be true or false' }, 400)
+  if (typeof body !== 'object' || body === null) return c.json({ error: 'Invalid body' }, 400)
+
+  const patch = body as Record<string, unknown>
+  const setClauses: string[] = []
+  const bindings: (number)[] = []
+
+  if ('is_admin' in patch) {
+    if (targetId === currentUser.id) return c.json({ error: 'You cannot change your own admin status' }, 400)
+    if (patch.is_admin !== true && patch.is_admin !== false) return c.json({ error: 'is_admin must be true or false' }, 400)
+    setClauses.push('is_admin = ?')
+    bindings.push(patch.is_admin ? 1 : 0)
   }
 
+  if ('ai_allow_private' in patch) {
+    if (patch.ai_allow_private !== true && patch.ai_allow_private !== false) return c.json({ error: 'ai_allow_private must be true or false' }, 400)
+    setClauses.push('ai_allow_private = ?')
+    bindings.push(patch.ai_allow_private ? 1 : 0)
+  }
+
+  if (setClauses.length === 0) return c.json({ error: 'No valid fields to update' }, 400)
+
+  bindings.push(targetId)
   const result = await c.env.DB.prepare(
-    `UPDATE users SET is_admin = ? WHERE id = ?`
-  ).bind(newIsAdmin ? 1 : 0, targetId).run()
+    `UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`
+  ).bind(...bindings).run()
 
   if (result.meta.changes === 0) return c.json({ error: 'User not found' }, 404)
 
-  return c.json({ ok: true, id: targetId, is_admin: newIsAdmin ? 1 : 0 })
+  return c.json({ ok: true, id: targetId })
+})
+
+// DELETE /api/admin/users/:id — delete a user and all their data (admin only)
+// Prevents self-delete. Bookmarks cascade via FK.
+app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const targetId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(targetId) || targetId < 1) {
+    return c.json({ error: 'Invalid user id' }, 400)
+  }
+
+  const currentUser = c.var.user as User
+  if (targetId === currentUser.id) {
+    return c.json({ error: 'You cannot delete your own account' }, 400)
+  }
+
+  const result = await c.env.DB.prepare(
+    `DELETE FROM users WHERE id = ?`
+  ).bind(targetId).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'User not found' }, 404)
+
+  return c.json({ ok: true, id: targetId })
 })
 
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
