@@ -5,7 +5,7 @@
 -- number of bookmarks
 -- number of handles/users
 -- number of api tokens
--- number of rss feeds
+-- number of rss feeds 
 - buttons for handle/user admin, api token admin, rss feeds admin
 
 
