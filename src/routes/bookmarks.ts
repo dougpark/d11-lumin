@@ -179,7 +179,7 @@ bookmarks.post('/import', async (c) => {
 
         stmts.push(
             c.env.DB
-                .prepare(`INSERT INTO bookmarks (user_id, url, slug, title, short_description, favicon_url, is_public, is_archived, tag_list, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                .prepare(`INSERT INTO bookmarks (user_id, url, slug, title, short_description, favicon_url, is_public, is_archived, tag_list, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
                 .bind(
                     user.id, url, slug,
                     typeof bm.title === 'string' ? bm.title : null,
@@ -189,6 +189,7 @@ bookmarks.post('/import', async (c) => {
                     bm.is_archived ? 1 : 0,
                     JSON.stringify(Array.isArray(bm.tag_list) ? bm.tag_list.filter(t => typeof t === 'string') : []),
                     typeof bm.expires_at === 'string' ? bm.expires_at : null,
+                    typeof bm.created_at === 'string' && bm.created_at ? bm.created_at : new Date().toISOString(),
                 )
         )
         existingUrls.add(url)

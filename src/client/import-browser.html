@@ -370,7 +370,7 @@
         //   folder path     → tag_list (each ancestor folder = one slugified tag)
         //   "Reading List" H3 / READING_LIST attr → "reading-list" tag
         //   ICON (data URI) → skipped (too large)
-        //   ADD_DATE        → skipped (server sets created_at)
+        //   ADD_DATE        → created_at (Unix seconds → ISO 8601)
         //
         // Why we walk UP instead of DOWN:
         //   Chrome/Firefox's HTML5 parser places the sub-<DL> for a folder
@@ -418,6 +418,11 @@
                         .filter(t => t.length > 0 && !SKIP_TAGS.has(t))
                 )]
 
+                const addDate = a.getAttribute('add_date')
+                const created_at = addDate && /^\d+$/.test(addDate)
+                    ? new Date(parseInt(addDate, 10) * 1000).toISOString()
+                    : undefined
+
                 result.push({
                     url,
                     slug: undefined,
@@ -428,6 +433,7 @@
                     is_archived: false,
                     tag_list,
                     expires_at: null,
+                    created_at,
                 })
             }
 

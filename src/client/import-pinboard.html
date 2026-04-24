@@ -371,8 +371,7 @@
                 is_archived: false,
                 tag_list,
                 expires_at: null,
-                // preserve created_at by passing via the import route if we ever support it
-                // (current schema sets created_at server-side, acceptable tradeoff)
+                created_at: typeof p.time === 'string' && p.time ? p.time : undefined,
             }
         }
 
