@@ -1,6 +1,13 @@
-# d11.me — Lumin:Bookmark + Link Shortener
+# d11.me — Lumin:Bookmark + AI Enrichment API
 
-A personal bookmark manager with short links, built on **Cloudflare Workers + Hono + D1**.
+# Lumin & Gopher
+![Vibe Coding](https://img.shields.io/badge/Vibe-Coding-blueviolet)
+![Design: Human](https://img.shields.io/badge/Design-Doug%20Park-orange)
+![Code: AI](https://img.shields.io/badge/Code-Gemma%204%20(Ollama)-blue)
+
+A personal bookmark manager with AI Enrichment API, built on **Cloudflare Workers + Hono + D1**.
+
+See the partner Gopher project for an AI powered backend that can consume Lumin's API to auto-tag and summarize bookmarks and RSS items.
 
 - Save bookmarks with a short slug: `d11.me/l/cowboys`
 - One-click bookmarklet for any page
