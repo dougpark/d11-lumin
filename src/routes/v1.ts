@@ -204,6 +204,14 @@ v1.post('/tokens', async (c) => {
         if (d <= new Date()) return c.json({ error: 'expires_at must be in the future' }, 400)
     }
 
+    // Enforce per-user token limit (admins are exempt)
+    if (!user.is_admin) {
+        const { count } = await c.env.DB.prepare(
+            'SELECT COUNT(*) AS count FROM api_tokens WHERE user_id = ?'
+        ).bind(user.id).first<{ count: number }>() ?? { count: 0 }
+        if (count >= 10) return c.json({ error: 'Token limit reached — maximum 10 tokens per account. Revoke one before creating another.' }, 403)
+    }
+
     const rawToken = generateToken()
     const tokenHash = await hashToken(rawToken)
 
@@ -216,6 +224,50 @@ v1.post('/tokens', async (c) => {
     })
 
     // Return the raw token ONCE — it will never be retrievable again
+    return c.json({
+        token: rawToken,
+        id: created.id,
+        name: created.name,
+        scopes,
+        expires_at: created.expires_at,
+        created_at: created.created_at,
+        notice: 'Save this token now — it will not be shown again.',
+    }, 201)
+})
+
+// ─── POST /api/v1/tokens/:id/rotate ───────────────────────────────────────────
+// Revokes an existing token and mints a new one with the same name, scopes, and
+// expiry. The new raw token is returned once. Scoped to the authenticated user.
+v1.post('/tokens/:id/rotate', async (c) => {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id'), 10)
+    if (isNaN(id)) return c.json({ error: 'invalid token id' }, 400)
+
+    // Load the existing token to copy its fields
+    const existing = await c.env.DB.prepare(
+        'SELECT * FROM api_tokens WHERE id = ? AND user_id = ?'
+    ).bind(id, user.id).first<{ id: number; name: string; scopes: string; expires_at: string | null }>()
+
+    if (!existing) return c.json({ error: 'token not found' }, 404)
+
+    // Delete the old token
+    await deleteApiToken(c.env.DB, id, user.id)
+
+    // Create a replacement with the same fields
+    let scopes: string[] = ['posts:read', 'tags:read']
+    try { scopes = JSON.parse(existing.scopes) } catch { /* use default */ }
+
+    const rawToken = generateToken()
+    const tokenHash = await hashToken(rawToken)
+
+    const created = await createApiToken(c.env.DB, {
+        user_id: user.id,
+        name: existing.name,
+        token_hash: tokenHash,
+        scopes,
+        expires_at: existing.expires_at ?? undefined,
+    })
+
     return c.json({
         token: rawToken,
         id: created.id,

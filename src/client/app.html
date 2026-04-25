@@ -720,6 +720,104 @@
     <!-- hidden file input for import -->
     <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="handleImportFile(event)">
 
+    <!-- ── Token drawer ───────────────────────────────────────────────────── -->
+    <div id="token-drawer"
+        class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
+        <div
+            class="bg-white w-full sm:max-w-xl sm:rounded-[24px] rounded-t-[24px] shadow-soft fade-in flex flex-col max-h-[92vh]">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-6 py-5 border-b border-g-border flex-shrink-0">
+                <h3 class="text-lg font-semibold text-g-black">API Tokens</h3>
+                <button onclick="closeTokenDrawer()"
+                    class="text-g-gray hover:text-g-black transition-colors text-xl leading-none">&times;</button>
+            </div>
+            <!-- Token list -->
+            <div class="overflow-y-auto flex-1 px-6 py-4 space-y-3" id="token-drawer-list">
+                <div id="token-drawer-loading" class="flex items-center justify-center py-8">
+                    <div class="spinner"></div>
+                </div>
+                <div id="token-drawer-empty" class="hidden text-center py-8 text-sm text-g-gray">No tokens yet.</div>
+                <div id="token-drawer-error" class="hidden text-center py-8 text-sm text-red-500">Could not load tokens.
+                </div>
+            </div>
+            <!-- Create form -->
+            <div class="border-t border-g-border px-6 py-5 flex-shrink-0 space-y-4">
+                <p class="text-xs font-semibold text-g-gray uppercase tracking-wide">Create new token</p>
+                <input id="new-token-name" type="text" placeholder="e.g. my python script" maxlength="100"
+                    class="w-full border border-g-border rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
+                <!-- Scopes -->
+                <div class="space-y-2">
+                    <p class="text-xs font-medium text-g-gray">Scopes</p>
+                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                        <input type="checkbox" id="scope-posts-read" checked class="accent-g-blue"> Read bookmarks
+                        <span class="text-[10px] text-g-gray font-mono ml-auto">posts:read</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                        <input type="checkbox" id="scope-tags-read" checked class="accent-g-blue"> Read tags
+                        <span class="text-[10px] text-g-gray font-mono ml-auto">tags:read</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-g-gray cursor-not-allowed">
+                        <input type="checkbox" disabled class="accent-g-blue"> Write bookmarks
+                        <span class="text-[10px] text-g-gray font-mono ml-auto">posts:write</span>
+                        <span class="text-[10px] text-g-gray italic">coming soon</span>
+                    </label>
+                    <div id="scope-ai-group" class="hidden space-y-2">
+                        <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                            <input type="checkbox" id="scope-ai-rss" class="accent-g-blue"> AI: RSS processing
+                            <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:rss</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                            <input type="checkbox" id="scope-ai-bm" class="accent-g-blue"> AI: Bookmark processing
+                            <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:bookmarks</span>
+                        </label>
+                    </div>
+                </div>
+                <!-- Expiry -->
+                <div class="flex items-center gap-3">
+                    <label class="text-xs font-medium text-g-gray whitespace-nowrap">Expires</label>
+                    <select id="new-token-expiry"
+                        class="flex-1 border border-g-border rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-g-blue bg-white">
+                        <option value="">Never</option>
+                        <option value="30d">30 days</option>
+                        <option value="90d">90 days</option>
+                        <option value="1y">1 year</option>
+                    </select>
+                    <button onclick="doCreateToken()"
+                        class="bg-g-blue text-white text-sm font-semibold px-5 py-2 rounded-[10px] hover:bg-blue-600 transition-colors whitespace-nowrap">
+                        Create Token
+                    </button>
+                </div>
+                <div id="token-create-error"
+                    class="hidden text-xs text-red-500 bg-red-50 border border-red-100 rounded-[8px] px-3 py-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Token reveal modal (shown once after create/rotate) ───────────────── -->
+    <div id="token-reveal-modal"
+        class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center px-4">
+        <div class="bg-white rounded-[24px] p-8 max-w-md w-full shadow-soft fade-in">
+            <div class="w-12 h-12 bg-amber-50 rounded-[12px] flex items-center justify-center mb-4">
+                <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-g-black mb-1">Save your token</h3>
+            <p class="text-g-gray text-sm mb-4 leading-relaxed">This is the only time this token will be shown. Copy it
+                now and store it somewhere safe.</p>
+            <div class="bg-[#F3F4F6] rounded-[10px] px-4 py-3 font-mono text-xs break-all text-g-black mb-4 select-all"
+                id="reveal-token-text"></div>
+            <div class="flex gap-3">
+                <button onclick="copyRevealToken()"
+                    class="flex-1 border border-g-border text-g-black font-medium py-2.5 rounded-full hover:border-g-blue hover:text-g-blue transition-all text-sm">Copy
+                    Token</button>
+                <button onclick="closeTokenReveal()"
+                    class="flex-1 bg-g-blue text-white font-semibold py-2.5 rounded-full hover:bg-blue-600 transition-all text-sm">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Rename Tag modal -->
     <div id="rename-tag-modal"
         class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center px-4">
@@ -852,6 +950,9 @@
                             <a href="/import/browser"
                                 class="block w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Import
                                 from Browser</a>
+                            <button onclick="openTokenDrawer(); toggleUserMenu()"
+                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">API
+                                Tokens</button>
                             <button onclick="copyLoginLink()"
                                 class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Copy
                                 Login Link</button>
@@ -1044,6 +1145,9 @@
                 <a href="/import/browser"
                     class="block w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Import
                     from Browser</a>
+                <button onclick="openTokenDrawer(); toggleMobileUserMenu()"
+                    class="w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">API
+                    Tokens</button>
                 <button onclick="copyLoginLink(); toggleMobileUserMenu()"
                     class="w-full text-left px-4 py-2.5 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Copy
                     Login Link</button>
@@ -1522,6 +1626,154 @@
         function openImportFile() {
             qs('#import-file-input').value = ''
             qs('#import-file-input').click()
+        }
+
+        // ── API Token Drawer ──────────────────────────────────────────────────────────
+
+        function openTokenDrawer() {
+            showEl('token-drawer')
+            loadTokenList()
+            // Show AI scopes for admins
+            if (S.user?.is_admin) showEl('scope-ai-group')
+        }
+
+        function closeTokenDrawer() {
+            hideEl('token-drawer')
+        }
+
+        async function loadTokenList() {
+            const listEl = qs('#token-drawer-list')
+            qs('#token-drawer-loading').classList.remove('hidden')
+            qs('#token-drawer-empty').classList.add('hidden')
+            qs('#token-drawer-error').classList.add('hidden')
+            // Remove existing token cards (keep loading/empty/error divs)
+            listEl.querySelectorAll('.token-card').forEach(el => el.remove())
+
+            try {
+                const res = await api('GET', '/api/v1/tokens')
+                if (!res.ok) throw new Error()
+                const data = await res.json()
+                qs('#token-drawer-loading').classList.add('hidden')
+                const tokens = data.data ?? []
+                if (tokens.length === 0) {
+                    qs('#token-drawer-empty').classList.remove('hidden')
+                    return
+                }
+                tokens.forEach(t => {
+                    const card = document.createElement('div')
+                    card.className = 'token-card bg-[#FAFAFA] border border-g-border rounded-[12px] p-4'
+                    const scopes = (t.scopes ?? []).map(s =>
+                        `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white border border-g-border text-g-gray font-mono">${escHtml(s)}</span>`
+                    ).join('')
+                    const lastUsed = t.last_used_at ? relTimestamp(t.last_used_at) : 'never used'
+                    const expires = t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'never'
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <span class="font-semibold text-sm text-g-black">${escHtml(t.name)}</span>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <button onclick="doRotateToken(${t.id})" class="text-xs text-g-blue hover:underline transition-colors">Rotate</button>
+                                <button onclick="doRevokeToken(${t.id})" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Revoke</button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1 mb-2">${scopes}</div>
+                        <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-g-gray">
+                            <span>Last used: <span class="text-g-black">${lastUsed}</span></span>
+                            <span>Expires: <span class="text-g-black">${expires}</span></span>
+                        </div>`
+                    listEl.appendChild(card)
+                })
+            } catch {
+                qs('#token-drawer-loading').classList.add('hidden')
+                qs('#token-drawer-error').classList.remove('hidden')
+            }
+        }
+
+        function relTimestamp(dateStr) {
+            if (!dateStr) return 'never'
+            const diff = Date.now() - new Date(dateStr).getTime()
+            const mins = Math.floor(diff / 60000)
+            if (mins < 2) return 'just now'
+            if (mins < 60) return `${mins}m ago`
+            const hrs = Math.floor(mins / 60)
+            if (hrs < 24) return `${hrs}h ago`
+            const days = Math.floor(hrs / 24)
+            if (days < 30) return `${days}d ago`
+            return new Date(dateStr).toLocaleDateString()
+        }
+
+        function expiryToIso(val) {
+            if (!val) return undefined
+            const now = new Date()
+            if (val === '30d') { now.setDate(now.getDate() + 30); return now.toISOString() }
+            if (val === '90d') { now.setDate(now.getDate() + 90); return now.toISOString() }
+            if (val === '1y') { now.setFullYear(now.getFullYear() + 1); return now.toISOString() }
+            return undefined
+        }
+
+        async function doCreateToken() {
+            const name = qs('#new-token-name').value.trim()
+            const errEl = qs('#token-create-error')
+            errEl.classList.add('hidden')
+            if (!name) { errEl.textContent = 'Name is required.'; errEl.classList.remove('hidden'); return }
+
+            const scopes = []
+            if (qs('#scope-posts-read').checked) scopes.push('posts:read')
+            if (qs('#scope-tags-read').checked) scopes.push('tags:read')
+            if (S.user?.is_admin) {
+                if (qs('#scope-ai-rss')?.checked) scopes.push('ai:process:rss')
+                if (qs('#scope-ai-bm')?.checked) scopes.push('ai:process:bookmarks')
+            }
+            if (scopes.length === 0) { errEl.textContent = 'Select at least one scope.'; errEl.classList.remove('hidden'); return }
+
+            const expiryVal = qs('#new-token-expiry').value
+            const body = { name, scopes, expires_at: expiryToIso(expiryVal) }
+            if (!body.expires_at) delete body.expires_at
+
+            try {
+                const res = await api('POST', '/api/v1/tokens', body)
+                const data = await res.json()
+                if (!res.ok) { errEl.textContent = data.error ?? 'Unknown error'; errEl.classList.remove('hidden'); return }
+                qs('#new-token-name').value = ''
+                qs('#new-token-expiry').value = ''
+                showTokenReveal(data.token)
+                loadTokenList()
+            } catch (e) {
+                errEl.textContent = 'Request failed: ' + String(e)
+                errEl.classList.remove('hidden')
+            }
+        }
+
+        async function doRevokeToken(id) {
+            if (!confirm('Revoke this token? Any scripts using it will stop working immediately.')) return
+            try {
+                const res = await api('DELETE', `/api/v1/tokens/${id}`)
+                if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.error ?? 'Could not revoke token.', 'error'); return }
+                loadTokenList()
+            } catch { toast('Request failed.', 'error') }
+        }
+
+        async function doRotateToken(id) {
+            try {
+                const res = await api('POST', `/api/v1/tokens/${id}/rotate`)
+                const data = await res.json()
+                if (!res.ok) { toast(data.error ?? 'Could not rotate token.', 'error'); return }
+                showTokenReveal(data.token)
+                loadTokenList()
+            } catch { toast('Request failed.', 'error') }
+        }
+
+        function showTokenReveal(rawToken) {
+            qs('#reveal-token-text').textContent = rawToken
+            showEl('token-reveal-modal')
+        }
+
+        function closeTokenReveal() {
+            hideEl('token-reveal-modal')
+        }
+
+        function copyRevealToken() {
+            navigator.clipboard.writeText(qs('#reveal-token-text').textContent)
+            toast('Token copied to clipboard!')
         }
 
         async function handleImportFile(e) {

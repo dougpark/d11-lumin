@@ -974,6 +974,40 @@ app.post('/api/admin/feeds/:id/fetch', authMiddleware, async (c) => {
   }
 })
 
+// ─── Admin API Tokens ─────────────────────────────────────────────────────────
+
+// GET /api/admin/tokens — list all tokens across all users with owner handle
+app.get('/api/admin/tokens', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const rows = await c.env.DB.prepare(`
+    SELECT t.id, t.name, t.scopes, t.last_used_at, t.expires_at, t.created_at,
+           u.id AS user_id, u.slug_prefix
+    FROM api_tokens t
+    JOIN users u ON u.id = t.user_id
+    ORDER BY t.created_at DESC
+  `).all()
+
+  return c.json({ tokens: rows.results })
+})
+
+// DELETE /api/admin/tokens/:id — admin force-revoke any user's token
+app.delete('/api/admin/tokens/:id', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const tokenId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(tokenId) || tokenId < 1) return c.json({ error: 'Invalid token id' }, 400)
+
+  const result = await c.env.DB.prepare(
+    `DELETE FROM api_tokens WHERE id = ?`
+  ).bind(tokenId).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'Token not found' }, 404)
+  return c.json({ ok: true, id: tokenId })
+})
+
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
 app.get('/', (c) => c.html(appHtml as string))
 app.get('/add', (c) => c.html(appHtml as string))

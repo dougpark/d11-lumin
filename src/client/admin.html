@@ -212,6 +212,27 @@
             </div>
         </section>
 
+        <!-- Section: API Tokens (lazy-loaded) -->
+        <section>
+            <button onclick="toggleSection('tokens')"
+                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
+                <h2 class="text-sm font-semibold text-g-black">API Tokens</h2>
+                <svg id="chevron-tokens"
+                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200 -rotate-90"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div id="body-tokens" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
+                <div id="tokens-loading" class="flex items-center justify-center py-10">
+                    <div class="spinner"></div>
+                </div>
+                <div id="tokens-error" class="hidden text-center py-10 text-sm text-g-gray">Could not load tokens.</div>
+                <div id="tokens-list" class="hidden divide-y divide-g-border"></div>
+                <div id="tokens-empty" class="hidden text-center py-10 text-sm text-g-gray">No API tokens found.</div>
+            </div>
+        </section>
+
         <!-- Section: Users (lazy-loaded) -->
         <section>
             <button onclick="toggleSection('users')"
@@ -320,6 +341,7 @@
                 const token = localStorage.getItem('d11_token')
                 if (name === 'users') loadUsers(token)
                 if (name === 'feeds') loadFeeds(token)
+                if (name === 'tokens') loadAdminTokens(token)
             }
         }
 
@@ -649,6 +671,78 @@
                 })
                 if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
                 loadFeeds(token)
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        // ── Admin API Tokens ──────────────────────────────────────────────────
+
+        async function loadAdminTokens(token) {
+            qs('#tokens-loading').classList.remove('hidden')
+            qs('#tokens-error').classList.add('hidden')
+            qs('#tokens-list').classList.add('hidden')
+            qs('#tokens-empty').classList.add('hidden')
+            try {
+                const res = await fetch('/api/admin/tokens', { headers: { 'Authorization': 'Bearer ' + token } })
+                if (!res.ok) throw new Error('HTTP ' + res.status)
+                const data = await res.json()
+                renderAdminTokens(data.tokens)
+            } catch {
+                qs('#tokens-loading').classList.add('hidden')
+                qs('#tokens-error').classList.remove('hidden')
+            }
+        }
+
+        function renderAdminTokens(tokens) {
+            qs('#tokens-loading').classList.add('hidden')
+            if (!tokens || tokens.length === 0) {
+                qs('#tokens-empty').classList.remove('hidden')
+                return
+            }
+            const statPill = (label, value, color) =>
+                `<span class="inline-flex items-center gap-1 text-[11px] text-g-gray">
+                    <span class="font-medium ${color}">${value}</span>
+                    <span>${label}</span>
+                </span>`
+            qs('#tokens-list').innerHTML = tokens.map(t => {
+                let scopes = []
+                try { scopes = JSON.parse(t.scopes) } catch { }
+                const scopePills = scopes.map(s =>
+                    `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#F3F4F6] text-g-gray font-mono">${escHtml(s)}</span>`
+                ).join('')
+                const expires = t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'never'
+                const created = t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'
+                return `<div class="px-5 py-4 hover:bg-[#FAFAFA] transition-colors">
+                    <!-- Row 1 -->
+                    <div class="flex items-center justify-between gap-3 mb-1.5">
+                        <div class="flex items-center gap-2 flex-wrap min-w-0">
+                            <span class="font-semibold text-g-black">${escHtml(t.name)}</span>
+                            <span class="text-xs text-g-blue font-medium">@${escHtml(t.slug_prefix)}</span>
+                            <div class="flex flex-wrap gap-1">${scopePills}</div>
+                        </div>
+                        <button onclick="adminRevokeToken(${t.id}, '${escHtml(t.name)}', '${escHtml(t.slug_prefix)}')"
+                            class="flex-shrink-0 text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Revoke</button>
+                    </div>
+                    <!-- Row 2: stats -->
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        ${statPill('last used', relativeTime(t.last_used_at), 'text-g-black')}
+                        ${statPill('expires', expires, t.expires_at && new Date(t.expires_at) < new Date() ? 'text-red-500' : 'text-g-black')}
+                        ${statPill('created', created, 'text-g-black')}
+                    </div>
+                </div>`
+            }).join('')
+            qs('#tokens-list').classList.remove('hidden')
+        }
+
+        async function adminRevokeToken(tokenId, name, handle) {
+            if (!confirm(`Revoke token "${name}" for @${handle}?\n\nAny scripts or processes using it will stop working immediately.`)) return
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/tokens/${tokenId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                loadAdminTokens(token)
             } catch (e) { alert('Request failed: ' + String(e)) }
         }
 
