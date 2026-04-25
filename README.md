@@ -1,9 +1,9 @@
 # d11.me — Lumin:Bookmark + AI Enrichment API
 
-# Lumin & Gopher
+# Lumin 
 ![Vibe Coding](https://img.shields.io/badge/Vibe-Coding-blueviolet)
 ![Design: Human](https://img.shields.io/badge/Design-Doug%20Park-orange)
-![Code: AI](https://img.shields.io/badge/Code-Gemma%204%20(Ollama)-blue)
+![Code: AI](https://img.shields.io/badge/Code-Claude%20Sonnet%204.6-blue)
 
 A personal bookmark manager with AI Enrichment API, built on **Cloudflare Workers + Hono + D1**.
 
