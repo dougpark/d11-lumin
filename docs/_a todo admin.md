@@ -23,6 +23,23 @@ No code needed to seed feeds via wrangler commands anymore.
 
 **5. Admin API Tokens BREAD**
 
+### API Token Thoughts:
+- some are global like RSS and bookmarks
+
+- some are per user like the personal API tokens for accessing private bookmarks via the API or a CLI tool.
+
+- scope definitions - how to select on create or do we just have a list of possbiel scopes and then assign them to tokens?
+
+- should users be able to create their own API tokens? what scopes - read only, read/write, etc. - what UI would they use to manage them?
+
+- global api tokens can do rss, bookmarks or all
+
+- do we keep tokens so can reuse them or help users with their tokens?
+
+- what does rotate really mean? do we just create a new token and delete the old one? or do we update the token value in place?
+
+### UI
+
 List all tokens across all users (useful for the daemon token scenario we just discussed). Revoke any token. 
 - set token scope
 

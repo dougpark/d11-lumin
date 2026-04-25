@@ -803,6 +803,177 @@ app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
   return c.json({ ok: true, id: targetId })
 })
 
+// ─── Admin RSS Feeds BREAD ────────────────────────────────────────────────────
+
+// GET /api/admin/feeds — list all feeds with per-feed stats
+app.get('/api/admin/feeds', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const rows = await c.env.DB.prepare(`
+    SELECT
+      f.id, f.url, f.name, f.is_active, f.last_fetched_at, f.created_at,
+      COUNT(r.id)                                            AS item_count,
+      SUM(CASE WHEN r.ai_processed_at IS NULL THEN 1 ELSE 0 END) AS ai_pending
+    FROM rss_feeds f
+    LEFT JOIN rss_items r ON r.feed_id = f.id
+    GROUP BY f.id
+    ORDER BY f.name ASC
+  `).all()
+
+  return c.json({ feeds: rows.results })
+})
+
+// POST /api/admin/feeds/test — validate a URL (no DB write)
+app.post('/api/admin/feeds/test', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  if (typeof body !== 'object' || body === null) return c.json({ error: 'Invalid body' }, 400)
+  const { url } = body as Record<string, unknown>
+  if (typeof url !== 'string' || !url.startsWith('http')) return c.json({ error: 'url must be an http/https string' }, 400)
+
+  try {
+    const items = await fetchFeed(url)
+    if (items.length === 0) return c.json({ error: 'Feed parsed but contained no items' }, 422)
+
+    // Extract channel title from the raw XML — fetchFeed only returns items, so re-fetch for the title
+    const xmlRes = await fetch(url, { headers: { 'User-Agent': 'Lumin-RSS/1.0' } })
+    const xml = await xmlRes.text()
+
+    const channelTitleMatch = xml.match(/<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/is)
+    const feedTitle = channelTitleMatch ? channelTitleMatch[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>') : ''
+
+    const newest = items[0]
+    return c.json({
+      ok: true,
+      feed_title: feedTitle,
+      item_count: items.length,
+      newest_item: { title: newest.title, published_at: newest.publishedAt },
+    })
+  } catch (err) {
+    return c.json({ error: (err as Error).message ?? 'Failed to fetch feed' }, 422)
+  }
+})
+
+// POST /api/admin/feeds — add a new feed
+app.post('/api/admin/feeds', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  if (typeof body !== 'object' || body === null) return c.json({ error: 'Invalid body' }, 400)
+
+  const { url, name } = body as Record<string, unknown>
+  if (typeof url !== 'string' || !url.startsWith('http')) return c.json({ error: 'url must be an http/https string' }, 400)
+  if (typeof name !== 'string' || name.trim().length === 0) return c.json({ error: 'name is required' }, 400)
+
+  try {
+    const result = await c.env.DB.prepare(
+      `INSERT INTO rss_feeds (url, name) VALUES (?, ?)`
+    ).bind(url.trim(), name.trim()).run()
+    return c.json({ ok: true, id: result.meta.last_row_id }, 201)
+  } catch (err) {
+    const msg = (err as Error).message ?? ''
+    if (msg.includes('UNIQUE')) return c.json({ error: 'A feed with that URL already exists' }, 409)
+    throw err
+  }
+})
+
+// PATCH /api/admin/feeds/:id — update name and/or is_active
+app.patch('/api/admin/feeds/:id', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const feedId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(feedId) || feedId < 1) return c.json({ error: 'Invalid feed id' }, 400)
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  if (typeof body !== 'object' || body === null) return c.json({ error: 'Invalid body' }, 400)
+
+  const patch = body as Record<string, unknown>
+  const setClauses: string[] = []
+  const bindings: (string | number)[] = []
+
+  if ('name' in patch) {
+    if (typeof patch.name !== 'string' || patch.name.trim().length === 0) return c.json({ error: 'name must be a non-empty string' }, 400)
+    setClauses.push('name = ?')
+    bindings.push(patch.name.trim())
+  }
+  if ('is_active' in patch) {
+    if (patch.is_active !== true && patch.is_active !== false) return c.json({ error: 'is_active must be true or false' }, 400)
+    setClauses.push('is_active = ?')
+    bindings.push(patch.is_active ? 1 : 0)
+  }
+
+  if (setClauses.length === 0) return c.json({ error: 'No valid fields to update' }, 400)
+
+  bindings.push(feedId)
+  const result = await c.env.DB.prepare(
+    `UPDATE rss_feeds SET ${setClauses.join(', ')} WHERE id = ?`
+  ).bind(...bindings).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'Feed not found' }, 404)
+  return c.json({ ok: true, id: feedId })
+})
+
+// DELETE /api/admin/feeds/:id — delete feed + cascade rss_items
+app.delete('/api/admin/feeds/:id', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const feedId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(feedId) || feedId < 1) return c.json({ error: 'Invalid feed id' }, 400)
+
+  const result = await c.env.DB.prepare(
+    `DELETE FROM rss_feeds WHERE id = ?`
+  ).bind(feedId).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'Feed not found' }, 404)
+  return c.json({ ok: true, id: feedId })
+})
+
+// POST /api/admin/feeds/:id/fetch — trigger a manual ingest for one feed
+app.post('/api/admin/feeds/:id/fetch', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const feedId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(feedId) || feedId < 1) return c.json({ error: 'Invalid feed id' }, 400)
+
+  const feedRow = await c.env.DB.prepare(
+    `SELECT id, url, name FROM rss_feeds WHERE id = ?`
+  ).bind(feedId).first() as { id: number; url: string; name: string } | null
+
+  if (!feedRow) return c.json({ error: 'Feed not found' }, 404)
+
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  try {
+    const items = await fetchFeed(feedRow.url)
+    let inserted = 0
+    for (const item of items) {
+      const keywords = extractKeywords(item.title)
+      const tagList = buildTagList(item.categories, keywords)
+      const res = await c.env.DB.prepare(`
+        INSERT OR IGNORE INTO rss_items
+          (feed_id, guid, url, title, summary, tag_list, published_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(feedRow.id, item.guid, item.url, item.title, item.summary, tagList, item.publishedAt, expiresAt).run()
+      if (res.meta.changes > 0) inserted++
+    }
+    await c.env.DB.prepare(`UPDATE rss_feeds SET last_fetched_at = ? WHERE id = ?`).bind(now.toISOString(), feedRow.id).run()
+    return c.json({ ok: true, fetched: items.length, inserted, last_fetched_at: now.toISOString() })
+  } catch (err) {
+    return c.json({ error: (err as Error).message ?? 'Fetch failed' }, 502)
+  }
+})
+
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
 app.get('/', (c) => c.html(appHtml as string))
 app.get('/add', (c) => c.html(appHtml as string))

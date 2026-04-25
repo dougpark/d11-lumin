@@ -170,6 +170,48 @@
             </div>
         </section>
 
+        <!-- Section: RSS Feeds (lazy-loaded) -->
+        <section>
+            <button onclick="toggleSection('feeds')"
+                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
+                <h2 class="text-sm font-semibold text-g-black">RSS Feeds</h2>
+                <svg id="chevron-feeds"
+                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200 -rotate-90"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div id="body-feeds" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
+                <!-- Add feed form -->
+                <div class="px-5 py-4 border-b border-g-border bg-[#FAFAFA]">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input id="feed-url-input" type="url" placeholder="https://example.com/feed.xml"
+                            class="flex-1 text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                            oninput="clearFeedTestResult()" />
+                        <input id="feed-name-input" type="text" placeholder="Feed name"
+                            class="w-full sm:w-44 text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
+                        <button onclick="testFeed()"
+                            class="text-sm font-medium text-g-blue border border-g-blue rounded-[10px] px-4 py-2 hover:bg-g-blue hover:text-white transition-colors whitespace-nowrap">
+                            Test
+                        </button>
+                        <button onclick="addFeed()"
+                            class="text-sm font-medium bg-g-blue text-white rounded-[10px] px-4 py-2 hover:bg-blue-600 transition-colors whitespace-nowrap">
+                            Add Feed
+                        </button>
+                    </div>
+                    <div id="feed-test-result" class="hidden mt-2 text-xs rounded-[8px] px-3 py-2"></div>
+                </div>
+                <!-- Feed list -->
+                <div id="feeds-loading" class="flex items-center justify-center py-10">
+                    <div class="spinner"></div>
+                </div>
+                <div id="feeds-error" class="hidden text-center py-10 text-sm text-g-gray">Could not load feeds.</div>
+                <div id="feeds-list" class="hidden divide-y divide-g-border"></div>
+                <div id="feeds-empty" class="hidden text-center py-10 text-sm text-g-gray">No feeds yet. Add one above.
+                </div>
+            </div>
+        </section>
+
         <!-- Section: Users (lazy-loaded) -->
         <section>
             <button onclick="toggleSection('users')"
@@ -277,6 +319,7 @@
                 sectionLoaded[name] = true
                 const token = localStorage.getItem('d11_token')
                 if (name === 'users') loadUsers(token)
+                if (name === 'feeds') loadFeeds(token)
             }
         }
 
@@ -416,6 +459,197 @@
             } catch (e) {
                 alert('Request failed: ' + String(e))
             }
+        }
+
+        // ── RSS Feeds ─────────────────────────────────────────────────────────
+
+        function relativeTime(dateStr) {
+            if (!dateStr) return 'never'
+            const diff = Date.now() - new Date(dateStr).getTime()
+            const mins = Math.floor(diff / 60000)
+            if (mins < 2) return 'just now'
+            if (mins < 60) return `${mins}m ago`
+            const hrs = Math.floor(mins / 60)
+            if (hrs < 24) return `${hrs}h ago`
+            const days = Math.floor(hrs / 24)
+            if (days < 30) return `${days}d ago`
+            return new Date(dateStr).toLocaleDateString()
+        }
+
+        async function loadFeeds(token) {
+            qs('#feeds-loading').classList.remove('hidden')
+            qs('#feeds-error').classList.add('hidden')
+            qs('#feeds-list').classList.add('hidden')
+            qs('#feeds-empty').classList.add('hidden')
+            try {
+                const res = await fetch('/api/admin/feeds', { headers: { 'Authorization': 'Bearer ' + token } })
+                if (!res.ok) throw new Error('HTTP ' + res.status)
+                const data = await res.json()
+                renderFeeds(data.feeds)
+            } catch {
+                qs('#feeds-loading').classList.add('hidden')
+                qs('#feeds-error').classList.remove('hidden')
+            }
+        }
+
+        function renderFeeds(feeds) {
+            qs('#feeds-loading').classList.add('hidden')
+            if (!feeds || feeds.length === 0) {
+                qs('#feeds-empty').classList.remove('hidden')
+                return
+            }
+            const statPill = (label, value, color) =>
+                `<span class="inline-flex items-center gap-1 text-[11px] text-g-gray">
+                    <span class="font-medium ${color}">${value}</span>
+                    <span>${label}</span>
+                </span>`
+            qs('#feeds-list').innerHTML = feeds.map(f => {
+                const activeBadge = f.is_active
+                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
+                    : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-g-gray">Paused</span>`
+                const toggleBtn = f.is_active
+                    ? `<button onclick="toggleFeedActive(${f.id}, false)" class="text-xs text-g-gray hover:text-g-black hover:underline transition-colors">Pause</button>`
+                    : `<button onclick="toggleFeedActive(${f.id}, true)" class="text-xs text-green-600 hover:text-green-800 hover:underline transition-colors">Resume</button>`
+                const added = f.created_at ? new Date(f.created_at).toLocaleDateString() : '—'
+                return `<div class="px-5 py-4 hover:bg-[#FAFAFA] transition-colors" id="feed-row-${f.id}">
+                    <!-- Row 1 -->
+                    <div class="flex items-center justify-between gap-3 mb-1.5">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="font-semibold text-g-black">${escHtml(f.name)}</span>
+                            <a href="${escHtml(f.url)}" target="_blank" rel="noopener"
+                                class="text-xs text-g-gray hover:text-g-blue truncate max-w-[220px] hidden sm:inline transition-colors"
+                                title="${escHtml(f.url)}">${escHtml(f.url)}</a>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            ${activeBadge}
+                            ${toggleBtn}
+                            <span class="text-g-border text-xs select-none">|</span>
+                            <button onclick="fetchFeedNow(${f.id})" class="text-xs text-g-blue hover:text-blue-700 hover:underline transition-colors">Fetch now</button>
+                            <span class="text-g-border text-xs select-none">|</span>
+                            <button onclick="deleteFeed(${f.id}, '${escHtml(f.name)}', ${f.item_count ?? 0})" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Delete</button>
+                        </div>
+                    </div>
+                    <!-- Row 2: stats -->
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        ${statPill('items', fmt(f.item_count ?? 0), 'text-g-black')}
+                        ${statPill('AI pending', fmt(f.ai_pending ?? 0), 'text-purple-600')}
+                        ${statPill('last fetched', relativeTime(f.last_fetched_at), 'text-g-black')}
+                        ${statPill('added', added, 'text-g-black')}
+                    </div>
+                </div>`
+            }).join('')
+            qs('#feeds-list').classList.remove('hidden')
+        }
+
+        function clearFeedTestResult() {
+            const el = qs('#feed-test-result')
+            el.classList.add('hidden')
+            el.className = 'hidden mt-2 text-xs rounded-[8px] px-3 py-2'
+        }
+
+        async function testFeed() {
+            const url = qs('#feed-url-input').value.trim()
+            if (!url) { alert('Enter a feed URL first.'); return }
+            const resultEl = qs('#feed-test-result')
+            resultEl.className = 'mt-2 text-xs rounded-[8px] px-3 py-2 bg-[#F3F4F6] text-g-gray'
+            resultEl.textContent = 'Testing…'
+            resultEl.classList.remove('hidden')
+
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch('/api/admin/feeds/test', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                })
+                const data = await res.json()
+                if (!res.ok || data.error) {
+                    resultEl.className = 'mt-2 text-xs rounded-[8px] px-3 py-2 bg-red-50 text-red-700'
+                    resultEl.textContent = '✗ ' + (data.error ?? 'Unknown error')
+                    return
+                }
+                resultEl.className = 'mt-2 text-xs rounded-[8px] px-3 py-2 bg-green-50 text-green-800'
+                resultEl.textContent = `✓ "${data.feed_title}" — ${data.item_count} items, newest: "${data.newest_item?.title ?? '?'}"`
+                // Auto-populate name field if empty
+                const nameInput = qs('#feed-name-input')
+                if (!nameInput.value.trim() && data.feed_title) {
+                    nameInput.value = data.feed_title
+                }
+            } catch (e) {
+                resultEl.className = 'mt-2 text-xs rounded-[8px] px-3 py-2 bg-red-50 text-red-700'
+                resultEl.textContent = '✗ Request failed: ' + String(e)
+            }
+        }
+
+        async function addFeed() {
+            const url = qs('#feed-url-input').value.trim()
+            const name = qs('#feed-name-input').value.trim()
+            if (!url) { alert('Enter a feed URL.'); return }
+            if (!name) { alert('Enter a feed name (or use Test to auto-populate it).'); return }
+
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch('/api/admin/feeds', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, name }),
+                })
+                const data = await res.json()
+                if (!res.ok) { alert('Error: ' + (data.error ?? 'Unknown error')); return }
+                qs('#feed-url-input').value = ''
+                qs('#feed-name-input').value = ''
+                clearFeedTestResult()
+                sectionLoaded['feeds'] = false  // force reload
+                loadFeeds(token)
+            } catch (e) {
+                alert('Request failed: ' + String(e))
+            }
+        }
+
+        async function toggleFeedActive(feedId, newVal) {
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/feeds/${feedId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: newVal }),
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                loadFeeds(token)
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        async function fetchFeedNow(feedId) {
+            const token = localStorage.getItem('d11_token')
+            const row = qs(`#feed-row-${feedId}`)
+            if (row) row.style.opacity = '0.5'
+            try {
+                const res = await fetch(`/api/admin/feeds/${feedId}/fetch`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                const data = await res.json()
+                if (!res.ok) { alert('Error: ' + (data.error ?? 'Unknown error')); return }
+                alert(`Fetched ${data.fetched} items — ${data.inserted} new.`)
+                loadFeeds(token)
+            } catch (e) {
+                alert('Request failed: ' + String(e))
+            } finally {
+                if (row) row.style.opacity = ''
+            }
+        }
+
+        async function deleteFeed(feedId, name, itemCount) {
+            if (!confirm(`Delete "${name}" and all ${itemCount} of its items?\n\nThis cannot be undone.`)) return
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/feeds/${feedId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                loadFeeds(token)
+            } catch (e) { alert('Request failed: ' + String(e)) }
         }
 
         boot()
