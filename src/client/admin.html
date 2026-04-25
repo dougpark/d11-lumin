@@ -154,33 +154,35 @@
             </div>
         </section>
 
-        <!-- Section: Top Tags -->
-        <section>
-            <button onclick="toggleSection('tags')"
-                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
-                <h2 class="text-sm font-semibold text-g-black">Top Tags (all users)</h2>
-                <svg id="chevron-tags"
-                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
+        <!-- ── Tabs: Tags / Feeds / Tokens / Users ──────────────────────────── -->
+        <div>
+
+            <!-- Tab bar -->
+            <div class="flex bg-white border border-g-border rounded-[16px] p-1 gap-1 mb-4 overflow-x-auto">
+                <button id="tab-btn-tags" onclick="switchTab('tags')"
+                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap bg-[#F0F2F5] text-g-black">
+                    Top Tags
+                </button>
+                <button id="tab-btn-feeds" onclick="switchTab('feeds')"
+                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap text-g-gray hover:text-g-black">
+                    RSS Feeds
+                </button>
+                <button id="tab-btn-tokens" onclick="switchTab('tokens')"
+                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap text-g-gray hover:text-g-black">
+                    API Tokens
+                </button>
+                <button id="tab-btn-users" onclick="switchTab('users')"
+                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap text-g-gray hover:text-g-black">
+                    Users
+                </button>
+            </div>
+
+            <!-- Tab: Top Tags -->
             <div id="body-tags" class="bg-white border border-g-border rounded-[16px] p-5">
                 <div id="top-tags" class="flex flex-wrap gap-2"></div>
             </div>
-        </section>
 
-        <!-- Section: RSS Feeds (lazy-loaded) -->
-        <section>
-            <button onclick="toggleSection('feeds')"
-                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
-                <h2 class="text-sm font-semibold text-g-black">RSS Feeds</h2>
-                <svg id="chevron-feeds"
-                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200 -rotate-90"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
+            <!-- Tab: RSS Feeds (lazy-loaded) -->
             <div id="body-feeds" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
                 <!-- Add feed form -->
                 <div class="px-5 py-4 border-b border-g-border bg-[#FAFAFA]">
@@ -210,19 +212,8 @@
                 <div id="feeds-empty" class="hidden text-center py-10 text-sm text-g-gray">No feeds yet. Add one above.
                 </div>
             </div>
-        </section>
 
-        <!-- Section: API Tokens (lazy-loaded) -->
-        <section>
-            <button onclick="toggleSection('tokens')"
-                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
-                <h2 class="text-sm font-semibold text-g-black">API Tokens</h2>
-                <svg id="chevron-tokens"
-                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200 -rotate-90"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
+            <!-- Tab: API Tokens (lazy-loaded) -->
             <div id="body-tokens" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
                 <div id="tokens-loading" class="flex items-center justify-center py-10">
                     <div class="spinner"></div>
@@ -231,19 +222,8 @@
                 <div id="tokens-list" class="hidden divide-y divide-g-border"></div>
                 <div id="tokens-empty" class="hidden text-center py-10 text-sm text-g-gray">No API tokens found.</div>
             </div>
-        </section>
 
-        <!-- Section: Users (lazy-loaded) -->
-        <section>
-            <button onclick="toggleSection('users')"
-                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
-                <h2 class="text-sm font-semibold text-g-black">Users</h2>
-                <svg id="chevron-users"
-                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200 -rotate-90"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
+            <!-- Tab: Users (lazy-loaded) -->
             <div id="body-users" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
                 <div id="users-loading" class="flex items-center justify-center py-10">
                     <div class="spinner"></div>
@@ -251,7 +231,8 @@
                 <div id="users-error" class="hidden text-center py-10 text-sm text-g-gray">Could not load users.</div>
                 <div id="users-list" class="hidden divide-y divide-g-border"></div>
             </div>
-        </section>
+
+        </div><!-- end tabs -->
 
     </main>
 
@@ -325,18 +306,23 @@
             qs('#content').classList.remove('hidden')
         }
 
-        // ── Section toggle ────────────────────────────────────────────────────
+        // ── Tabs ──────────────────────────────────────────────────────────────
         const sectionLoaded = {}
+        const TABS = ['tags', 'feeds', 'tokens', 'users']
 
-        function toggleSection(name) {
-            const body = qs(`#body-${name}`)
-            const chevron = qs(`#chevron-${name}`)
-            const isHidden = body.classList.contains('hidden')
-            body.classList.toggle('hidden', !isHidden)
-            chevron.classList.toggle('-rotate-90', !isHidden)
-
-            // Lazy-load on first open
-            if (isHidden && !sectionLoaded[name]) {
+        function switchTab(name) {
+            TABS.forEach(t => {
+                qs(`#body-${t}`).classList.toggle('hidden', t !== name)
+                const btn = qs(`#tab-btn-${t}`)
+                if (t === name) {
+                    btn.classList.add('bg-[#F0F2F5]', 'text-g-black')
+                    btn.classList.remove('text-g-gray')
+                } else {
+                    btn.classList.remove('bg-[#F0F2F5]', 'text-g-black')
+                    btn.classList.add('text-g-gray')
+                }
+            })
+            if (!sectionLoaded[name]) {
                 sectionLoaded[name] = true
                 const token = localStorage.getItem('d11_token')
                 if (name === 'users') loadUsers(token)
