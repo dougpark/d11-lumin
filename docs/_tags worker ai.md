@@ -1,5 +1,14 @@
 # Cloudflare Workers AI: A Perfect Fit for Lumin's Real-Time Bookmark Enrichment
 
+## Add new bookmark and Bookmarket
+- use URL, Title, Short Description 
+- send to Cloudflare Worker AI
+- get up to 5 tags and summary
+- add to bookmark ai_tags and ai_summary
+
+- manual bookmark add needs button to initiate AI Enrinchment
+- bookmarklet can initiate before add page is shown
+
 Read [](file:///Users/dougpark/Projects/d11-lumin/docs/_tags%20worker%20ai.md)
 
 Good — I've read the full proposal. Here's my design analysis:

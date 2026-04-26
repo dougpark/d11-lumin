@@ -10,11 +10,17 @@ binding = "DB"
 database_name = "d11-db"
 database_id = "394823da-d08b-496d-963d-298729aee84d"
 
+# ─── Workers AI binding ─────────────────────────────────────────────────────
+[ai]
+binding = "AI"
+
 # ─── Environment variables ───────────────────────────────────────────────────
 # Set TOKEN_SECRET with: wrangler secret put TOKEN_SECRET
 # (used to sign/verify API tokens – keep it out of source control)
 [vars]
 ENVIRONMENT = "production"
+# Model used for real-time bookmark enrichment (fast/cheap 1B model)
+AI_BOOKMARK_MODEL = "@cf/meta/llama-3.2-1b-instruct"
 
 # ─── Custom domain routing ───────────────────────────────────────────────────
 # Uncomment and fill in after adding d11.me to your Cloudflare account.

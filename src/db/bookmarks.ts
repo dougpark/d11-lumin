@@ -184,14 +184,16 @@ export async function createBookmark(
         is_public = false,
         tag_list = [],
         expires_at = null,
+        ai_summary = null,
+        ai_tags,
     } = input
 
     const result = await db
         .prepare(
             `INSERT INTO bookmarks
          (user_id, url, slug, title, short_description, favicon_url,
-          is_public, tag_list, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          is_public, tag_list, expires_at, ai_summary, ai_tags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
         )
         .bind(
@@ -204,6 +206,8 @@ export async function createBookmark(
             is_public ? 1 : 0,
             JSON.stringify(tag_list),
             expires_at,
+            ai_summary,
+            ai_tags !== undefined ? JSON.stringify(ai_tags) : null,
         )
         .first<Bookmark>()
 

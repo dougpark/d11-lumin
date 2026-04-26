@@ -33,6 +33,8 @@ export type Env = {
   DB: D1Database
   TOKEN_SECRET: string
   ENVIRONMENT: string
+  AI: Ai
+  AI_BOOKMARK_MODEL: string
 }
 
 // ─── Context variables set by middleware ──────────────────────────────────────
@@ -176,6 +178,46 @@ app.use('/api/v1/tokens', authMiddleware)
 app.use('/api/v1/tokens/*', authMiddleware)
 
 app.route('/api/v1', v1Routes)
+
+// ─── AI Enrichment — real-time suggestions for new bookmarks ──────────────────────
+// Authenticated via session token. Returns suggestions only — does NOT write to DB.
+app.post('/api/ai/enrich', authMiddleware, async (c) => {
+  let body: { url?: string; title?: string; short_description?: string; selected_text?: string }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON' }, 400) }
+
+  const { url = '', title = '', short_description = '', selected_text = '' } = body
+  if (!url && !title) return c.json({ ai_summary: null, ai_tags: [] })
+
+  const model = c.env.AI_BOOKMARK_MODEL || '@cf/meta/llama-3.2-1b-instruct'
+  const snippet = (selected_text || short_description).slice(0, 600)
+
+  const messages = [{
+    role: 'user' as const,
+    content: `You are a bookmark tagger. Given this webpage:\nTitle: ${title}\nURL: ${url}\nText: ${snippet}\n\nReturn only valid JSON with no markdown:\n{"summary":"one sentence, max 160 chars","tags":["tag1","tag2","tag3"]}\n\nTags: lowercase, 1-2 words, topical, max 5.`,
+  }]
+
+  try {
+    type AiResult = { response?: string }
+    const result = await Promise.race([
+      c.env.AI.run(model, { messages }) as Promise<AiResult>,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+    ])
+    const raw = (result as AiResult).response ?? ''
+    let parsed: { summary?: unknown; tags?: unknown } = {}
+    try { parsed = JSON.parse(raw) } catch {
+      const m = raw.match(/\{[\s\S]*?\}/)
+      if (m) try { parsed = JSON.parse(m[0]) } catch { /* discard */ }
+    }
+    return c.json({
+      ai_summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 160) : null,
+      ai_tags: Array.isArray(parsed.tags)
+        ? parsed.tags.filter((t): t is string => typeof t === 'string').slice(0, 5)
+        : [],
+    })
+  } catch {
+    return c.json({ ai_summary: null, ai_tags: [] })
+  }
+})
 
 // ─── AI Daemon API ────────────────────────────────────────────────────────────
 // Requires a named API token with one or more ai:process:* scopes.

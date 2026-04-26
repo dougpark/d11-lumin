@@ -66,6 +66,8 @@ export type CreateBookmarkInput = {
     is_public?: boolean
     tag_list?: string[]
     expires_at?: string
+    ai_summary?: string
+    ai_tags?: string[]
 }
 
 export type UpdateBookmarkInput = Partial<{

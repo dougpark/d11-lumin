@@ -73,6 +73,8 @@ bookmarks.post('/', async (c) => {
         is_public?: boolean
         tag_list?: string[]
         expires_at?: string
+        ai_summary?: string
+        ai_tags?: string[]
     }>()
 
     if (!body.url) return c.json({ error: 'url is required' }, 400)
@@ -98,6 +100,8 @@ bookmarks.post('/', async (c) => {
         is_public: body.is_public ?? true,
         tag_list: body.tag_list ?? [],
         expires_at: body.expires_at,
+        ai_summary: body.ai_summary,
+        ai_tags: body.ai_tags,
     })
 
     return c.json({ data: parseBookmark(bookmark) }, 201)
