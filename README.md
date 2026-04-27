@@ -1,6 +1,8 @@
-# d11.me — Lumin:Bookmark + AI Enrichment API
+# Lumin:Bookmark + AI Enrichment API
+# Where Everything's a Bookmark
 
-# Lumin 
+> A personal knowledge engine and unified index. Lumin treats every piece of digital or physical data—URLs, audio files, local docs, and snippets—as a first-class "Bookmark" object.
+
 ![Vibe Coding](https://img.shields.io/badge/Vibe-Coding-blueviolet)
 ![Design: Human](https://img.shields.io/badge/Design-Doug%20Park-orange)
 ![Code: AI](https://img.shields.io/badge/Code-Claude%20Sonnet%204.6-blue)
