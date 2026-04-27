@@ -38,8 +38,8 @@ export async function listBookmarks(
     }
 
     if (tag) {
-        conditions.push(`b.tag_list LIKE ?`)
-        bindings.push(`%"${tag}"%`)
+        conditions.push(`(b.tag_list LIKE ? OR b.ai_tags LIKE ?)`)
+        bindings.push(`%"${tag}"%`, `%"${tag}"%`)
     }
 
     if (since) {
