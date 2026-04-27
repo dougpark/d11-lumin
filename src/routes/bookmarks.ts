@@ -226,6 +226,128 @@ bookmarks.post('/import', async (c) => {
     return c.json({ imported, skipped, errors: errors.slice(0, 20) })
 })
 
+// ─── GET /api/bookmarks/analytics ─────────────────────────────────────────────
+// Returns data-quality analytics for the authenticated user's bookmarks.
+// Runs all queries in a single D1 batch to minimise round-trips.
+// NOTE: must be registered BEFORE /:id so the literal segment wins.
+bookmarks.get('/analytics', async (c) => {
+    const user = c.get('user')
+    const uid = user.id
+
+    // Uses GROUP BY 1 (positional) instead of GROUP BY <alias> — D1's SQLite
+    // version may not support column aliases in GROUP BY.
+    const lenBucketSql = (col: string) => `
+        SELECT CASE
+            WHEN ${col} IS NULL OR ${col} = '' THEN 'empty'
+            WHEN LENGTH(${col}) <= 25  THEN '1-25'
+            WHEN LENGTH(${col}) <= 50  THEN '26-50'
+            WHEN LENGTH(${col}) <= 100 THEN '51-100'
+            WHEN LENGTH(${col}) <= 200 THEN '101-200'
+            WHEN LENGTH(${col}) <= 500 THEN '201-500'
+            ELSE '500+'
+        END AS bucket, COUNT(*) AS count
+        FROM bookmarks WHERE user_id = ?
+        GROUP BY 1`
+
+    try {
+        const [
+            summaryResult,
+            descLenResult,
+            aiLenResult,
+            tagCountResult,
+            monthlyResult,
+            hitsResult,
+            domainsResult,
+        ] = await c.env.DB.batch([
+            // 1. Summary / completeness counters
+            c.env.DB.prepare(`
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(CASE WHEN title IS NOT NULL AND title != '' THEN 1 END) AS has_title,
+                    COUNT(CASE WHEN short_description IS NOT NULL AND short_description != '' THEN 1 END) AS has_desc,
+                    COUNT(CASE WHEN tag_list != '[]' THEN 1 END) AS has_tags,
+                    COUNT(CASE WHEN ai_processed_at IS NOT NULL THEN 1 END) AS ai_processed,
+                    COUNT(CASE WHEN hit_count > 0 THEN 1 END) AS has_clicks,
+                    COUNT(CASE WHEN is_public = 1 AND is_archived = 0 THEN 1 END) AS active_public,
+                    COUNT(CASE WHEN is_public = 0 AND is_archived = 0 THEN 1 END) AS active_private,
+                    COUNT(CASE WHEN is_archived = 1 THEN 1 END) AS archived_count,
+                    ROUND(COALESCE(AVG(NULLIF(hit_count, 0)), 0), 1) AS avg_hits_nonzero,
+                    ROUND(COALESCE(AVG(CASE WHEN tag_list != '[]' THEN json_array_length(tag_list) END), 0), 1) AS avg_tags,
+                    MIN(created_at) AS oldest_at
+                FROM bookmarks WHERE user_id = ?`).bind(uid),
+
+            // 2. Description length distribution
+            c.env.DB.prepare(lenBucketSql('short_description')).bind(uid),
+
+            // 3. AI summary length distribution
+            c.env.DB.prepare(lenBucketSql('ai_summary')).bind(uid),
+
+            // 4. Tag count per bookmark (use COALESCE to guard against NULL tag_list)
+            c.env.DB.prepare(`
+                SELECT CASE
+                    WHEN tag_list IS NULL OR tag_list = '[]' THEN '0'
+                    WHEN json_array_length(tag_list) = 1 THEN '1'
+                    WHEN json_array_length(tag_list) = 2 THEN '2'
+                    WHEN json_array_length(tag_list) = 3 THEN '3'
+                    WHEN json_array_length(tag_list) = 4 THEN '4'
+                    ELSE '5+'
+                END AS bucket, COUNT(*) AS count
+                FROM bookmarks WHERE user_id = ? AND is_archived = 0
+                GROUP BY 1`).bind(uid),
+
+            // 5. Monthly save velocity
+            c.env.DB.prepare(`
+                SELECT strftime('%Y-%m', created_at) AS month, COUNT(*) AS count
+                FROM bookmarks WHERE user_id = ?
+                GROUP BY 1 ORDER BY 1 ASC`).bind(uid),
+
+            // 6. Hit count distribution
+            c.env.DB.prepare(`
+                SELECT CASE
+                    WHEN hit_count = 0    THEN '0'
+                    WHEN hit_count <= 5   THEN '1-5'
+                    WHEN hit_count <= 20  THEN '6-20'
+                    WHEN hit_count <= 100 THEN '21-100'
+                    ELSE '100+'
+                END AS bucket, COUNT(*) AS count
+                FROM bookmarks WHERE user_id = ?
+                GROUP BY 1`).bind(uid),
+
+            // 7. Top domains (extract host from URL via SQLite string ops)
+            c.env.DB.prepare(`
+                SELECT
+                    LOWER(SUBSTR(url,
+                        INSTR(url, '://') + 3,
+                        CASE
+                            WHEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') > 0
+                            THEN INSTR(SUBSTR(url, INSTR(url, '://') + 3), '/') - 1
+                            ELSE LENGTH(SUBSTR(url, INSTR(url, '://') + 3))
+                        END
+                    )) AS domain,
+                    COUNT(*) AS count
+                FROM bookmarks WHERE user_id = ? AND is_archived = 0
+                GROUP BY 1 ORDER BY count DESC LIMIT 15`).bind(uid),
+        ])
+
+        type BucketRow = { bucket: string; count: number }
+        type MonthRow = { month: string; count: number }
+        type DomainRow = { domain: string; count: number }
+
+        return c.json({
+            summary: summaryResult.results[0] ?? null,
+            desc_len: (descLenResult.results as BucketRow[]),
+            ai_len: (aiLenResult.results as BucketRow[]),
+            tag_count: (tagCountResult.results as BucketRow[]),
+            monthly: (monthlyResult.results as MonthRow[]),
+            hits: (hitsResult.results as BucketRow[]),
+            domains: (domainsResult.results as DomainRow[]),
+        })
+    } catch (err) {
+        console.error('[analytics]', err)
+        return c.json({ error: 'analytics query failed', detail: (err as Error).message }, 500)
+    }
+})
+
 // ─── GET /api/bookmarks/:id ───────────────────────────────────────────────────
 bookmarks.get('/:id', async (c) => {
     const user = c.get('user')
