@@ -27,6 +27,8 @@ import importBrowserHtml from './client/import-browser.html'
 import newsHtml from './client/news.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import adminHtml from './client/admin.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import analyticsHtml from './client/analytics.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -1061,6 +1063,7 @@ app.get('/n/:tag', (c) => c.html(newsHtml as string))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))
 app.get('/admin', (c) => c.html(adminHtml as string))
+app.get('/analytics', (c) => c.html(analyticsHtml as string))
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not Found' }, 404))
