@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   url             TEXT    NOT NULL,
   slug            TEXT    NOT NULL,         -- user-chosen short-link name
   title           TEXT,                     -- fetched <title> or user-provided
-  short_description TEXT,                   -- user note or AI summary
+  short_description TEXT,                   -- user note 
   full_text       TEXT,                     -- reserved: cleaned full page text
   favicon_url     TEXT,                     -- https://…/favicon.ico
 
