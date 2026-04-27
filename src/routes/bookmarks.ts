@@ -37,7 +37,7 @@ bookmarks.get('/', async (c) => {
         user_id: user.id,
         sort: (q.sort as 'created_at' | 'title' | 'hit_count' | 'last_accessed') ?? 'created_at',
         order: q.order === 'ASC' ? 'ASC' : 'DESC',
-        tag: q.tag,
+        tags: q.tags ? q.tags.split(',').map(t => t.trim()).filter(Boolean) : (q.tag ? [q.tag] : []),
         search: cleanQuery || undefined,
         since,
         before,

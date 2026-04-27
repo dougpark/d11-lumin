@@ -88,7 +88,8 @@ export type ListBookmarksOptions = {
     user_id: number
     sort?: 'created_at' | 'title' | 'hit_count' | 'last_accessed'
     order?: 'ASC' | 'DESC'
-    tag?: string          // filter by a single tag (LIKE search inside JSON)
+    tag?: string          // single-tag shorthand (still accepted, treated as tags: [tag])
+    tags?: string[]       // multi-tag AND filter — each tag must appear in tag_list or ai_tags
     search?: string       // FTS5 full-text search across title, description, tags, url
     since?: string        // ISO 8601 lower bound on created_at (inclusive)
     before?: string       // ISO 8601 upper bound on created_at (inclusive, end-of-day)

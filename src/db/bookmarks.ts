@@ -15,6 +15,7 @@ export async function listBookmarks(
         sort = 'created_at',
         order = 'DESC',
         tag,
+        tags: tagsOpt,
         search,
         since,
         before,
@@ -23,6 +24,11 @@ export async function listBookmarks(
         page = 1,
         per_page = 25,
     } = opts
+
+    // Normalise: prefer tags[] over legacy tag string
+    const activeTags: string[] = tagsOpt && tagsOpt.length > 0
+        ? tagsOpt
+        : tag ? [tag] : []
 
     // Allowlist sort columns to prevent injection
     const safeSort = (['created_at', 'title', 'hit_count', 'last_accessed'] as const).includes(sort)
@@ -37,9 +43,9 @@ export async function listBookmarks(
         conditions.push('b.is_archived = 0')
     }
 
-    if (tag) {
+    for (const t of activeTags) {
         conditions.push(`(b.tag_list LIKE ? OR b.ai_tags LIKE ?)`)
-        bindings.push(`%"${tag}"%`, `%"${tag}"%`)
+        bindings.push(`%"${t}"%`, `%"${t}"%`)
     }
 
     if (since) {

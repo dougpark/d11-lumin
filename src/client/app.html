@@ -1028,17 +1028,11 @@
             <!-- Main content -->
             <main class="flex-1 min-w-0">
                 <!-- Toolbar row -->
-                <div class="sticky top-14 z-30 flex items-center justify-between -mx-6 px-6 py-2 mb-2 gap-4 bg-white/90 backdrop-blur-sm border-b border-g-border">
-                    <div class="flex items-center gap-2">
+                <div
+                    class="sticky top-14 z-30 flex items-center justify-between -mx-6 px-6 py-2 mb-2 gap-4 bg-white/90 backdrop-blur-sm border-b border-g-border">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span id="total-count" class="text-sm text-g-gray"></span>
-                        <span id="active-tag-badge"
-                            class="hidden bg-blue-50 text-g-blue text-xs font-medium px-3 py-1 rounded-full border border-blue-100 items-center gap-1.5">
-                            <span id="active-tag-label"></span>
-                            <span class="opacity-30">·</span>
-                            <a id="active-tag-explore-link" href="#" class="hover:underline">Explore ↗</a>
-                            <button onclick="filterByTag(null)"
-                                class="ml-0.5 opacity-60 hover:opacity-100">&times;</button>
-                        </span>
+                        <div id="active-tag-badge-area" class="flex items-center gap-1.5 flex-wrap"></div>
                     </div>
                     <div class="flex items-center gap-2">
                         <select id="sort-select" onchange="loadBookmarks()"
@@ -1193,7 +1187,8 @@
             <span class="text-xs text-g-blue font-medium flex-1" id="mobile-active-tag-label"></span>
             <a id="mobile-active-tag-explore-link" href="#"
                 class="text-xs font-semibold text-g-blue hover:underline">Explore ↗</a>
-            <button onclick="filterByTag(null)" class="text-xs font-semibold text-blue-400 px-2">✕ clear</button>
+            <button id="mobile-active-tag-clear" onclick="filterByTag(null)"
+                class="text-xs font-semibold text-blue-400 px-2">✕ clear</button>
         </div>
 
         <!-- Scrollable area -->
@@ -1521,7 +1516,7 @@
             perPage: 25,
             total: 0,
             sort: 'created_at',
-            activeTag: null,
+            activeTags: [],      // array of active tag strings — AND filtered
             searchQuery: '',
             searchTimer: null,
             confirmCb: null,
@@ -1529,8 +1524,7 @@
             isMobile: false,     // set in boot() — true when viewport < 768px
             expandDescs: false,  // global expand-all descriptions toggle
             unreadOnly: false,   // filter to bookmarks never clicked (hit_count=0)
-            filterHistory: [],   // stack of {activeTag, searchQuery, scrollY} for back navigation
-            _lastScrollY: 0,     // scroll position before last filter change
+            filterHistory: [],   // stack of {activeTags, searchQuery, scrollY} for back navigation
         }
 
         // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -2004,7 +1998,7 @@
                 per_page: String(S.perPage),
                 archived: qs('#' + p + 'show-archived')?.checked ? '1' : '0',
             })
-            if (S.activeTag) params.set('tag', S.activeTag)
+            if (S.activeTags.length) params.set('tags', S.activeTags.join(','))
             if (S.searchQuery) params.set('search', S.searchQuery)
             if (S.unreadOnly) params.set('unread', '1')
 
@@ -2019,7 +2013,24 @@
             const countEl = qs('#' + p + 'total-count')
             if (countEl) countEl.textContent = `${meta.total} bookmark${meta.total !== 1 ? 's' : ''}`
 
-            if (data.length === 0) { showEl(p + 'list-empty'); return }
+            if (data.length === 0) {
+                // Show contextual empty state when tag filters produce no results
+                const emptyEl = qs('#' + p + 'list-empty')
+                if (emptyEl && S.activeTags.length > 0) {
+                    emptyEl.innerHTML = `
+                        <div class="w-16 h-16 bg-blue-50 rounded-[16px] flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 014-4z"/>
+                            </svg>
+                        </div>
+                        <p class="font-semibold text-g-black mb-1">No bookmarks match all tags</p>
+                        <p class="text-sm text-g-gray mb-5">${S.activeTags.map(t => `<span class="inline-block bg-blue-50 text-g-blue text-xs font-medium px-2 py-0.5 rounded-full border border-blue-100 mr-1">#${escHtml(t)}</span>`).join('')}</p>
+                        <button onclick="filterBack()" class="text-sm text-g-blue hover:underline">← Remove last tag</button>
+                    `
+                }
+                showEl(p + 'list-empty')
+                return
+            }
 
             showEl(p + 'bookmark-list')
             qs('#' + p + 'bookmark-list').innerHTML = data.map(S.isMobile ? renderMobileBookmarkRow : renderBookmarkRow).join('')
@@ -2100,9 +2111,9 @@
             const tags = JSON.parse(container.dataset.tags || '[]')
             container.innerHTML = buildTagFilterHTML(tags, inputEl.value)
             // Re-apply active highlight
-            if (S.activeTag) {
+            if (S.activeTags.length) {
                 container.querySelectorAll('[data-tag]').forEach(el => {
-                    if (el.dataset.tag === S.activeTag)
+                    if (S.activeTags.includes(el.dataset.tag))
                         el.className = 'w-full text-left text-sm px-3 py-2 rounded-[8px] font-medium bg-g-blue text-white transition-colors flex items-center justify-between gap-1'
                 })
             }
@@ -2131,60 +2142,88 @@
                 })
             // Restore tag filter without pushing to history again
             S._restoringHistory = true
-            filterByTag(prev.activeTag)
+            S.activeTags = prev.activeTags
+            updateFilterUI()
             S._restoringHistory = false
             // Restore scroll after render
             S._pendingScrollRestore = prev.scrollY
+            updateFilterBackBtn()
+            loadBookmarks()
         }
 
         function filterByTag(tag) {
             if (!S._restoringHistory) {
-                S.filterHistory.push({ activeTag: S.activeTag, searchQuery: S.searchQuery, scrollY: window.scrollY })
+                S.filterHistory.push({ activeTags: [...S.activeTags], searchQuery: S.searchQuery, scrollY: window.scrollY })
             }
-            updateFilterBackBtn()
-            S.activeTag = tag
+            if (tag === null) {
+                // Clear all
+                S.activeTags = []
+            } else if (S.activeTags.includes(tag)) {
+                // Toggle off
+                S.activeTags = S.activeTags.filter(t => t !== tag)
+            } else {
+                // Add to set
+                S.activeTags = [...S.activeTags, tag]
+            }
             S.page = 1
+            updateFilterBackBtn()
+            updateFilterUI()
+            loadBookmarks()
+        }
 
-            // Update sidebar highlight (shared data-tag buttons cover both desktop + mobile lists)
+        function updateFilterUI() {
+            const tags = S.activeTags
+
+            // Sidebar highlight — all active tags get blue, inactive get default
             const activeClass = 'w-full text-left text-sm px-3 py-2 rounded-[8px] font-medium bg-g-blue text-white transition-colors flex items-center justify-between gap-1'
             const inactiveClass = 'w-full text-left text-sm px-3 py-2 rounded-[8px] font-medium text-g-gray hover:bg-[#F3F4F6] transition-colors flex items-center justify-between gap-1'
                 ;[qs('#tag-all'), qs('#mobile-tag-all')].forEach(el => {
-                    if (el) el.className = tag === null ? activeClass : inactiveClass
+                    if (el) el.className = tags.length === 0 ? activeClass : inactiveClass
                 })
             document.querySelectorAll('[data-tag]').forEach(el => {
-                el.className = el.dataset.tag === tag ? activeClass
+                el.className = tags.includes(el.dataset.tag) ? activeClass
                     : 'w-full text-left text-sm px-3 py-2 rounded-[8px] text-g-gray hover:bg-[#F3F4F6] transition-colors font-medium'
             })
 
-            // Desktop active badge
-            if (tag) {
-                qs('#active-tag-label').textContent = '#' + tag
-                qs('#active-tag-badge').classList.remove('hidden')
-                qs('#active-tag-badge').classList.add('inline-flex')
-            } else {
-                qs('#active-tag-badge').classList.add('hidden')
-                qs('#active-tag-badge').classList.remove('inline-flex')
+            // Desktop breadcrumb pills
+            const badgeArea = qs('#active-tag-badge-area')
+            if (badgeArea) {
+                if (tags.length === 0) {
+                    badgeArea.innerHTML = ''
+                } else {
+                    badgeArea.innerHTML = tags.map((t, i) =>
+                        `<span class="inline-flex items-center gap-1 bg-blue-50 text-g-blue text-xs font-medium px-2.5 py-1 rounded-full border border-blue-100">
+                            <span>#${escHtml(t)}</span>
+                            ${tags.length === 1 ? `<span class="opacity-30 mx-0.5">·</span><a href="/e/${encodeURIComponent(t)}?community" class="hover:underline text-xs">Explore ↗</a>` : ''}
+                            <button onclick="filterByTag('${escAttr(t)}')" class="ml-0.5 opacity-60 hover:opacity-100 leading-none">&times;</button>
+                        </span>`
+                    ).join('') + (tags.length > 1
+                        ? `<button onclick="filterByTag(null)" class="text-xs text-blue-400 hover:text-g-blue font-medium px-1">✕ clear all</button>`
+                        : '')
+                }
             }
+
             // Mobile active tag row
             const mRow = qs('#mobile-active-tag-row')
             const mLabel = qs('#mobile-active-tag-label')
             if (mRow) {
-                if (tag) {
-                    if (mLabel) mLabel.textContent = '#' + tag
+                if (tags.length > 0) {
+                    if (mLabel) mLabel.textContent = tags.map(t => '#' + t).join(' + ')
                     mRow.classList.remove('hidden')
-                    if (S.isMobile) switchMobileTab('bookmarks')
+                    if (S.isMobile && !S._restoringHistory) switchMobileTab('bookmarks')
                 } else {
                     mRow.classList.add('hidden')
                 }
             }
-
-            // Explore links: update hrefs when tag changes
-            const exploreLink = qs('#active-tag-explore-link')
-            if (exploreLink) exploreLink.href = tag ? '/e/' + encodeURIComponent(tag) + '?community' : '#'
+            // Mobile explore link: only show when exactly 1 tag
             const mExploreLink = qs('#mobile-active-tag-explore-link')
-            if (mExploreLink) mExploreLink.href = tag ? '/e/' + encodeURIComponent(tag) + '?community' : '#'
-
-            loadBookmarks()
+            if (mExploreLink) {
+                mExploreLink.href = tags.length === 1 ? '/e/' + encodeURIComponent(tags[0]) + '?community' : '#'
+                mExploreLink.classList.toggle('hidden', tags.length !== 1)
+            }
+            // Mobile clear button label
+            const mClearBtn = qs('#mobile-active-tag-clear')
+            if (mClearBtn) mClearBtn.textContent = tags.length > 1 ? '✕ clear all' : '✕ clear'
         }
 
         function debounceSearch(val) {
