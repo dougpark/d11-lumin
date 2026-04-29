@@ -875,109 +875,7 @@
 ═══════════════════════════════════════════════════════════════════════════ -->
     <div id="view-dashboard" class="hidden min-h-screen flex flex-col">
 
-        <!-- ── Top nav ── -->
-        <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-g-border">
-            <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
-                <a href="/" class="flex-shrink-0">
-                    <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
-                </a>
-                <button id="filter-back-btn" onclick="filterBack()" title="Back to previous filter"
-                    class="hidden flex-shrink-0 flex items-center gap-1 text-xs text-g-gray hover:text-g-blue border border-g-border hover:border-g-blue rounded-full px-2.5 py-1 transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Back
-                </button>
-                <!-- Search -->
-                <div class="flex-1 max-w-lg relative">
-                    <svg class="w-4 h-4 text-g-gray absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input id="search-input" type="text" placeholder='Search… or “since april 2023”'
-                        class="w-full pl-10 pr-8 py-2 text-sm border border-g-border rounded-full focus:outline-none focus:border-g-blue transition-colors bg-[#FAFAFA]"
-                        oninput="debounceSearch(this.value)">
-                    <button id="search-clear" onclick="clearSearch()" title="Clear search"
-                        class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-g-gray hover:text-g-black transition-colors text-base leading-none">
-                        &times;
-                    </button>
-                </div>
-                <!-- Nav links (desktop) -->
-                <div class="hidden lg:flex items-center gap-4 flex-shrink-0">
-                    <a href="/e"
-                        class="flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                        Explore
-                    </a>
-                    <a href="/n"
-                        class="flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h6m-6-4h.01" />
-                        </svg>
-                        News
-                    </a>
-                </div>
-                <!-- User + actions -->
-                <div class="flex items-center gap-3 flex-shrink-0">
-                    <button onclick="openAddModal()"
-                        class="bg-g-blue text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-blue-600 transition-all flex items-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add
-                    </button>
-                    <div class="relative">
-                        <button onclick="toggleUserMenu()"
-                            class="flex items-center gap-2 text-sm text-g-gray hover:text-g-black transition-colors">
-                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-g-blue font-bold text-xs"
-                                id="user-avatar">?</div>
-                            <span id="user-handle"
-                                class="hidden sm:block text-xs font-semibold text-g-gray max-w-[96px] truncate"></span>
-                        </button>
-                        <div id="user-menu"
-                            class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-soft w-48 py-1 z-50 fade-in">
-                            <div class="px-4 py-2 border-b border-g-border">
-                                <p class="text-xs font-semibold text-g-black truncate" id="menu-name">—</p>
-                                <p class="text-xs text-g-gray truncate" id="menu-prefix">—</p>
-                            </div>
-                            <button onclick="window.location.href='/analytics'"
-                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Analytics</button>
-                            <button onclick="openRenameTagModal(); toggleUserMenu()"
-                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Rename
-                                Tag</button>
-                            <button onclick="doExportBookmarks(); toggleUserMenu()"
-                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Export
-                                Bookmarks</button>
-                            <button onclick="openImportFile(); toggleUserMenu()"
-                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Import
-                                Bookmarks</button>
-                            <a href="/import/pinboard"
-                                class="block w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Import
-                                from Pinboard</a>
-                            <a href="/import/browser"
-                                class="block w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Import
-                                from Browser</a>
-                            <button onclick="openTokenDrawer(); toggleUserMenu()"
-                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">API
-                                Tokens</button>
-                            <button onclick="copyLoginLink()"
-                                class="w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Copy
-                                Login Link</button>
-                            <a id="desktop-admin-link" href="/admin"
-                                class="hidden block w-full text-left px-4 py-2 text-sm text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
-                            <button onclick="doLogout()"
-                                class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">Sign
-                                Out</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
+        %%HEADER%%
 
         <!-- ── Body: sidebar + main ── -->
         <div class="flex-1 max-w-7xl mx-auto w-full px-6 py-6 flex gap-6">
@@ -1111,12 +1009,17 @@
                 <a href="/" class="flex-shrink-0">
                     <img src="/lumin_navbar_650.png" alt="Lumin" class="h-8 w-auto">
                 </a>
-                <button id="mobile-filter-back-btn" onclick="filterBack()" title="Back to previous filter"
-                    class="hidden flex items-center gap-1 text-xs text-g-gray hover:text-g-blue border border-g-border hover:border-g-blue rounded-full px-2.5 py-1 transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button id="mobile-nav-back" onclick="history.back()" title="Back"
+                    class="p-1.5 rounded-full text-g-gray opacity-50 hover:opacity-100 hover:text-g-blue hover:bg-blue-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
-                    Back
+                </button>
+                <button id="mobile-nav-forward" onclick="history.forward()" title="Forward" disabled
+                    class="p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                 </button>
             </span>
             <button onclick="toggleMobileSearch()" class="p-2 text-g-gray" title="Search">
@@ -1531,7 +1434,6 @@
             isMobile: false,     // set in boot() — true when viewport < 768px
             expandDescs: false,  // global expand-all descriptions toggle
             unreadOnly: false,   // filter to bookmarks never clicked (hit_count=0)
-            filterHistory: [],   // stack of {activeTags, searchQuery, scrollY} for back navigation
         }
 
         // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -2034,7 +1936,7 @@
                         </div>
                         <p class="font-semibold text-g-black mb-1">No bookmarks match all tags</p>
                         <p class="text-sm text-g-gray mb-5">${S.activeTags.map(t => `<span class="inline-block bg-blue-50 text-g-blue text-xs font-medium px-2 py-0.5 rounded-full border border-blue-100 mr-1">#${escHtml(t)}</span>`).join('')}</p>
-                        <button onclick="filterBack()" class="text-sm text-g-blue hover:underline">← Remove last tag</button>
+                        <button onclick="history.back()" class="text-sm text-g-blue hover:underline">← Remove last tag</button>
                     `
                 }
                 showEl(p + 'list-empty')
@@ -2128,42 +2030,17 @@
             }
         }
 
-        function updateFilterBackBtn() {
-            const visible = S.filterHistory.length > 0
-                ;['filter-back-btn', 'mobile-filter-back-btn'].forEach(id => {
-                    const el = qs('#' + id)
-                    if (el) el.classList.toggle('hidden', !visible)
-                })
-        }
-
-        function filterBack() {
-            if (!S.filterHistory.length) return
-            const prev = S.filterHistory.pop()
-            // Restore search input
-            S.searchQuery = prev.searchQuery
-                ;['#search-input', '#mobile-search-input'].forEach(sel => {
-                    const el = qs(sel)
-                    if (el) el.value = prev.searchQuery
-                })
-                ;['#search-clear'].forEach(sel => {
-                    const el = qs(sel)
-                    if (el) el.classList.toggle('hidden', !prev.searchQuery)
-                })
-            // Restore tag filter without pushing to history again
-            S._restoringHistory = true
-            S.activeTags = prev.activeTags
-            updateFilterUI()
-            S._restoringHistory = false
-            // Restore scroll after render
-            S._pendingScrollRestore = prev.scrollY
-            updateFilterBackBtn()
-            loadBookmarks()
+        function updateMobileNavButtons() {
+            var backBtn = qs('#mobile-nav-back')
+            var fwdBtn = qs('#mobile-nav-forward')
+            var enabled = 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            var exit = 'p-1.5 rounded-full text-g-gray opacity-50 hover:opacity-100 hover:text-g-blue hover:bg-blue-50 transition-colors'
+            var disabled = 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+            if (backBtn) { backBtn.disabled = false; backBtn.className = historyDepth === 0 ? exit : enabled }
+            if (fwdBtn) { fwdBtn.disabled = historyDepth >= historyMaxDepth; fwdBtn.className = historyDepth >= historyMaxDepth ? disabled : enabled }
         }
 
         function filterByTag(tag) {
-            if (!S._restoringHistory) {
-                S.filterHistory.push({ activeTags: [...S.activeTags], searchQuery: S.searchQuery, scrollY: window.scrollY })
-            }
             if (tag === null) {
                 // Clear all
                 S.activeTags = []
@@ -2174,11 +2051,44 @@
                 // Add to set
                 S.activeTags = [...S.activeTags, tag]
             }
+            history.pushState({ activeTags: [...S.activeTags], searchQuery: S.searchQuery, scrollY: window.scrollY, depth: ++historyDepth }, '', location.pathname)
+            historyMaxDepth = historyDepth
             S.page = 1
-            updateFilterBackBtn()
+            updateNavButtons()
+            updateMobileNavButtons()
             updateFilterUI()
             loadBookmarks()
         }
+
+        function navigateToTop() { filterByTag(null) }
+
+        function headerSearch(value) { debounceSearch(value) }
+
+        window.addEventListener('popstate', (e) => {
+            if (e.state) {
+                historyDepth = e.state.depth ?? 0
+                S.activeTags = e.state.activeTags ?? []
+                S.searchQuery = e.state.searchQuery ?? ''
+                S._pendingScrollRestore = e.state.scrollY ?? null
+            } else {
+                historyDepth = 0
+                S.activeTags = []
+                S.searchQuery = ''
+            }
+            ;['#search-input', '#mobile-search-input'].forEach(sel => {
+                const el = qs(sel)
+                if (el) el.value = S.searchQuery
+            })
+                ;['#search-clear'].forEach(sel => {
+                    const el = qs(sel)
+                    if (el) el.classList.toggle('hidden', !S.searchQuery)
+                })
+            S.page = 1
+            updateNavButtons()
+            updateMobileNavButtons()
+            updateFilterUI()
+            loadBookmarks()
+        })
 
         function updateFilterUI() {
             const tags = S.activeTags
@@ -2219,7 +2129,7 @@
                 if (tags.length > 0) {
                     if (mLabel) mLabel.textContent = tags.map(t => '#' + t).join(' + ')
                     mRow.classList.remove('hidden')
-                    if (S.isMobile && !S._restoringHistory) switchMobileTab('bookmarks')
+                    if (S.isMobile) switchMobileTab('bookmarks')
                 } else {
                     mRow.classList.add('hidden')
                 }
