@@ -33,6 +33,10 @@ export type Bookmark = {
     ai_tags: string | null          // JSON array string, additive — never overwrites tag_list
     ai_summary: string | null       // AI-generated summary, separate from short_description
     ai_processed_at: string | null  // NULL = not yet processed by AI
+    full_text_processed_at: string | null   // when full-text fetch last ran
+    full_text_status: string | null        // NULL | 'completed' | 'fetch_failed'
+    ai_synthesis: string | null            // AI synthesis digest (markdown)
+    ai_synthesis_processed_at: string | null
 }
 
 export type ClickEvent = {

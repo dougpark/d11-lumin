@@ -861,6 +861,14 @@
                             <input type="checkbox" id="scope-ai-bm" class="accent-g-blue"> AI: Bookmark processing
                             <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:bookmarks</span>
                         </label>
+                        <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                            <input type="checkbox" id="scope-fulltext" class="accent-g-blue"> Full-text fetching
+                            <span class="text-[10px] text-g-gray font-mono ml-auto">fulltext:process</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                            <input type="checkbox" id="scope-synthesis" class="accent-g-blue"> Synthesis digest
+                            <span class="text-[10px] text-g-gray font-mono ml-auto">synthesis:process</span>
+                        </label>
                     </div>
                 </div>
                 <!-- Expiry -->
@@ -1332,6 +1340,27 @@
         </div>
     </div>
 
+    <!-- Full-text reader modal -->
+    <div id="fulltext-modal"
+        class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center px-4 py-8 overflow-y-auto"
+        onclick="if(event.target===this)closeFullTextModal()">
+        <div class="bg-white rounded-[24px] shadow-soft fade-in w-full max-w-3xl my-auto">
+            <div
+                class="flex items-center justify-between px-8 pt-6 pb-4 border-b border-g-border sticky top-0 bg-white rounded-t-[24px]">
+                <h2 id="fulltext-modal-title" class="text-base font-semibold text-g-black truncate pr-4">Full Text</h2>
+                <button onclick="closeFullTextModal()"
+                    class="flex-shrink-0 text-g-gray hover:text-g-black transition-colors p-1 -mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="fulltext-modal-body"
+                class="md-content px-8 py-6 text-sm text-g-black leading-relaxed overflow-y-auto max-h-[70vh]"></div>
+        </div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════════════════════
      ADD / EDIT MODAL  (built in Step 6 — placeholder shown)
 ═══════════════════════════════════════════════════════════════════════════ -->
@@ -1747,6 +1776,8 @@
             if (S.user?.is_admin) {
                 if (qs('#scope-ai-rss')?.checked) scopes.push('ai:process:rss')
                 if (qs('#scope-ai-bm')?.checked) scopes.push('ai:process:bookmarks')
+                if (qs('#scope-fulltext')?.checked) scopes.push('fulltext:process')
+                if (qs('#scope-synthesis')?.checked) scopes.push('synthesis:process')
             }
             if (scopes.length === 0) { errEl.textContent = 'Select at least one scope.'; errEl.classList.remove('hidden'); return }
 
@@ -1840,6 +1871,18 @@
 
         function closeImportResultModal() {
             hideEl('import-result-modal')
+        }
+
+        function openFullTextModal(id) {
+            const b = S.bookmarks.find(x => x.id === id)
+            if (!b || !b.full_text) return
+            qs('#fulltext-modal-title').textContent = b.title || b.url || 'Full Text'
+            qs('#fulltext-modal-body').innerHTML = mdToHtml(b.full_text)
+            showEl('fulltext-modal')
+        }
+
+        function closeFullTextModal() {
+            hideEl('fulltext-modal')
         }
 
         // ── Rename Tag ────────────────────────────────────────────────────────────────
@@ -2272,6 +2315,14 @@
                 ? `<span class="bg-purple-50 text-purple-600 text-xs font-medium px-1.5 py-0.5 rounded-full border border-purple-100" title="AI enriched ${escAttr(fmtDate(b.ai_processed_at))}">✦</span>`
                 : ''
 
+            const ftBadge = b.full_text_status === 'fetch_failed'
+                ? `<span class="bg-red-50 text-red-500 text-xs font-medium px-1.5 py-0.5 rounded-full border border-red-100" title="Full-text fetch failed">ft ✕</span>`
+                : ''
+
+            const ftBtn = b.full_text_status === 'completed'
+                ? `<button onclick="openFullTextModal(${b.id})" class="text-[9px] font-mono text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-colors" title="View full text">ft</button>`
+                : ''
+
             const favicon = b.favicon_url
                 ? `<img src="${escAttr(b.favicon_url)}" class="w-5 h-5 rounded-[4px] object-contain flex-shrink-0" onerror="this.style.display='none'" loading="lazy">`
                 : `<div class="w-5 h-5 bg-blue-100 rounded-[4px] flex-shrink-0 flex items-center justify-center">
@@ -2292,7 +2343,7 @@
             class="text-sm font-semibold text-g-black hover:text-g-blue transition-colors truncate max-w-sm">
             ${escHtml(b.title || b.url)}
           </a>
-          ${pubBadge}${archBadge}${aiBadge}
+          ${pubBadge}${archBadge}${aiBadge}${ftBadge}${ftBtn}
           ${(b.short_description || tags) ? `<button onclick="toggleSrc(this)" class="text-[9px] font-mono text-amber-400 hover:text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded transition-colors" title="Show original description">src</button>` : ''}
           ${b.hit_count ? `<span class="text-g-gray text-xs">· ${b.hit_count} click${b.hit_count !== 1 ? 's' : ''}</span>` : ''}
           ${b.last_accessed ? `<span class="text-g-gray text-xs">· last ${escHtml(fmtDate(b.last_accessed))}</span>` : ''}
@@ -2338,6 +2389,7 @@
     </div>
     <!-- Full-width description + tags below the top row -->
     ${b.ai_summary ? `<div class="mt-1.5 pl-8"><p class="text-xs text-purple-600 leading-relaxed italic">${escHtml(b.ai_summary)}</p></div>` : ''}
+    ${b.ai_synthesis ? `<div class="mt-1.5 pl-8"><div class="md-content text-xs text-blue-700 leading-relaxed border-l-2 border-blue-200 pl-3"><div class="text-[9px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Synthesis</div>${mdToHtml(b.ai_synthesis)}</div></div>` : ''}
     ${aiTagsHtml ? `<div class="flex flex-wrap gap-1 mt-2 pl-8">${aiTagsHtml}</div>` : ''}
     ${(b.short_description || tags) ? `
     <div class="src-original hidden mt-1.5 pl-8 pt-1.5 border-t border-dashed border-amber-200/70">
@@ -2479,6 +2531,12 @@
                 ? `<span class="text-purple-500 text-[10px] flex-shrink-0" title="AI enriched ${escAttr(fmtDate(b.ai_processed_at))}">✦</span>`
                 : ''
 
+            const ftDot = b.full_text_status === 'fetch_failed'
+                ? `<span class="text-red-400 text-[10px] flex-shrink-0" title="Full-text fetch failed">ft✕</span>`
+                : b.full_text_status === 'completed'
+                    ? `<button onclick="openFullTextModal(${b.id})" class="text-[9px] font-mono text-blue-500 bg-blue-50 px-1 py-0.5 rounded transition-colors flex-shrink-0" title="View full text">ft</button>`
+                    : ''
+
             return `
   <div class="flex items-start gap-3 px-4 py-3 bg-white" data-id="${b.id}">
     <div class="mt-0.5 flex-shrink-0">${favicon}</div>
@@ -2491,7 +2549,7 @@
         </button>
       </div>
       <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-        ${pubDot}${aiDot}
+        ${pubDot}${aiDot}${ftDot}
         ${(b.short_description || tags) ? `<button onclick="toggleSrc(this)" class="text-[9px] font-mono text-amber-400 hover:text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded transition-colors" title="Show original description">src</button>` : ''}
         <a href="${escAttr(fullShortLink)}" target="_blank" rel="noopener noreferrer" class="text-g-gray text-xs hover:text-g-blue hover:underline transition-colors truncate" title="${escAttr(b.url)}">${escHtml(shortUrl(b.url, 45))}</a>
         ${b.hit_count ? `<span class="text-g-gray text-xs">· ${b.hit_count} click${b.hit_count !== 1 ? 's' : ''}</span>` : ''}
@@ -2499,6 +2557,7 @@
         ${b.created_at ? `<span class="text-g-gray text-xs">· ${escHtml(fmtDate(b.created_at))}</span>` : ''}
       </div>
       ${b.ai_summary ? `<div class="mt-1"><p class="text-xs text-purple-600 leading-relaxed italic">${escHtml(b.ai_summary)}</p></div>` : ''}
+      ${b.ai_synthesis ? `<div class="mt-1"><div class="md-content text-xs text-blue-700 leading-relaxed border-l-2 border-blue-200 pl-2"><div class="text-[9px] font-semibold text-blue-400 uppercase tracking-wider mb-0.5">Synthesis</div>${mdToHtml(b.ai_synthesis)}</div></div>` : ''}
       ${aiTagsHtml ? `<div class="flex flex-wrap gap-1 mt-1.5">${aiTagsHtml}</div>` : ''}
       ${(b.short_description || tags) ? `
       <div class="src-original hidden mt-1 pt-1.5 border-t border-dashed border-amber-200/70">

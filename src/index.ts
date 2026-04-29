@@ -381,6 +381,201 @@ app.patch('/api/ai/items', async (c) => {
   return c.json({ updated: items.length })
 })
 
+// ─── Full-Text Fetch API ─────────────────────────────────────────────────────
+// Two endpoints mirroring the /api/ai/* pattern.
+// Required token scope: fulltext:process
+
+app.use('/api/ft/*', apiTokenMiddleware)
+
+function hasFtScope(scopesJson: string): boolean {
+  let scopes: string[] = []
+  try { scopes = JSON.parse(scopesJson) } catch { /* leave empty */ }
+  return scopes.includes('*') || scopes.includes('fulltext:process')
+}
+
+// GET /api/ft/queue — return a batch of bookmarks that need full-text fetching
+//   Skips fetch_failed unless ?force=true
+//   ?limit=1-50 (default 20), ?offset=0, ?force=true
+app.get('/api/ft/queue', async (c) => {
+  const apiToken = c.var.apiToken
+  if (!apiToken) return c.json({ error: 'Forbidden', hint: 'Named API token with fulltext:process scope required' }, 403)
+  if (!hasFtScope(apiToken.scopes)) return c.json({ error: 'Forbidden', hint: 'Token missing fulltext:process scope' }, 403)
+
+  const limitParam = parseInt(c.req.query('limit') ?? '20', 10)
+  const offsetParam = parseInt(c.req.query('offset') ?? '0', 10)
+  const limit = Math.min(Math.max(isNaN(limitParam) ? 20 : limitParam, 1), 50)
+  const offset = Math.max(isNaN(offsetParam) ? 0 : offsetParam, 0)
+  const force = c.req.query('force') === 'true'
+
+  const notFetched = force
+    ? 'AND b.full_text IS NULL'
+    : "AND b.full_text IS NULL AND (b.full_text_status IS NULL OR b.full_text_status != 'fetch_failed')"
+
+  const [itemsResult, countResult] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT b.id, b.url, b.title
+         FROM bookmarks b
+         JOIN users u ON u.id = b.user_id
+        WHERE b.is_archived = 0
+          AND (b.is_public = 1 OR u.ai_allow_private = 1)
+          ${notFetched}
+        ORDER BY b.created_at ASC
+        LIMIT ? OFFSET ?`
+    ).bind(limit, offset),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) AS cnt
+         FROM bookmarks b
+         JOIN users u ON u.id = b.user_id
+        WHERE b.is_archived = 0
+          AND (b.is_public = 1 OR u.ai_allow_private = 1)
+          ${notFetched}`
+    ),
+  ])
+
+  type FtRow = { id: number; url: string; title: string | null }
+  const items = itemsResult.results as FtRow[]
+  const total_pending = (countResult.results[0] as { cnt: number } | undefined)?.cnt ?? 0
+
+  return c.json({ items, count: items.length, total_pending })
+})
+
+const FT_MAX_CHARS = 50_000
+
+// PATCH /api/ft/items — write full-text fetch results back for a batch of bookmarks
+//   Body: [{ id, full_text?, status }]
+//   status: 'completed' | 'fetch_failed'
+app.patch('/api/ft/items', async (c) => {
+  const apiToken = c.var.apiToken
+  if (!apiToken) return c.json({ error: 'Forbidden', hint: 'Named API token with fulltext:process scope required' }, 403)
+  if (!hasFtScope(apiToken.scopes)) return c.json({ error: 'Forbidden', hint: 'Token missing fulltext:process scope' }, 403)
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  if (!Array.isArray(body) || body.length === 0) return c.json({ error: 'Body must be a non-empty array' }, 400)
+  if (body.length > 50) return c.json({ error: 'Batch too large — max 50 items' }, 400)
+
+  type FtItem = { id: number; full_text?: string; status: 'completed' | 'fetch_failed' }
+  const items: FtItem[] = []
+
+  for (const entry of body) {
+    if (typeof entry !== 'object' || entry === null) return c.json({ error: 'Each item must be an object' }, 400)
+    const { id, full_text, status } = entry as Record<string, unknown>
+    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return c.json({ error: 'Each item must have a positive integer id' }, 400)
+    if (status !== 'completed' && status !== 'fetch_failed') return c.json({ error: "status must be 'completed' or 'fetch_failed'" }, 400)
+    if (full_text !== undefined && typeof full_text !== 'string') return c.json({ error: 'full_text must be a string' }, 400)
+    if (status === 'completed' && !full_text) return c.json({ error: "full_text is required when status is 'completed'" }, 400)
+    const text = typeof full_text === 'string' ? full_text.slice(0, FT_MAX_CHARS) : null
+    items.push({ id, full_text: text ?? undefined, status: status as 'completed' | 'fetch_failed' })
+  }
+
+  const now = new Date().toISOString()
+  const stmts = items.map(item =>
+    c.env.DB.prepare(
+      `UPDATE bookmarks
+          SET full_text = ?, full_text_status = ?, full_text_processed_at = ?
+        WHERE id = ?`
+    ).bind(item.full_text ?? null, item.status, now, item.id)
+  )
+
+  await c.env.DB.batch(stmts)
+  return c.json({ updated: items.length })
+})
+
+// ─── Synthesis Digest API ────────────────────────────────────────────────────
+// Two endpoints mirroring the /api/ai/* pattern.
+// Required token scope: synthesis:process
+
+app.use('/api/synthesis/*', apiTokenMiddleware)
+
+function hasSynthesisScope(scopesJson: string): boolean {
+  let scopes: string[] = []
+  try { scopes = JSON.parse(scopesJson) } catch { /* leave empty */ }
+  return scopes.includes('*') || scopes.includes('synthesis:process')
+}
+
+// GET /api/synthesis/queue — return a batch of bookmarks ready for synthesis
+//   Requires full_text_status = 'completed' and no existing ai_synthesis (unless ?force=true)
+//   ?limit=1-50 (default 20), ?offset=0, ?force=true
+app.get('/api/synthesis/queue', async (c) => {
+  const apiToken = c.var.apiToken
+  if (!apiToken) return c.json({ error: 'Forbidden', hint: 'Named API token with synthesis:process scope required' }, 403)
+  if (!hasSynthesisScope(apiToken.scopes)) return c.json({ error: 'Forbidden', hint: 'Token missing synthesis:process scope' }, 403)
+
+  const limitParam = parseInt(c.req.query('limit') ?? '20', 10)
+  const offsetParam = parseInt(c.req.query('offset') ?? '0', 10)
+  const limit = Math.min(Math.max(isNaN(limitParam) ? 20 : limitParam, 1), 50)
+  const offset = Math.max(isNaN(offsetParam) ? 0 : offsetParam, 0)
+  const force = c.req.query('force') === 'true'
+
+  const notProcessed = force ? '' : 'AND b.ai_synthesis IS NULL'
+
+  const [itemsResult, countResult] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT b.id, b.title, b.url, b.full_text
+         FROM bookmarks b
+         JOIN users u ON u.id = b.user_id
+        WHERE b.is_archived = 0
+          AND (b.is_public = 1 OR u.ai_allow_private = 1)
+          AND b.full_text_status = 'completed'
+          ${notProcessed}
+        ORDER BY b.full_text_processed_at ASC
+        LIMIT ? OFFSET ?`
+    ).bind(limit, offset),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) AS cnt
+         FROM bookmarks b
+         JOIN users u ON u.id = b.user_id
+        WHERE b.is_archived = 0
+          AND (b.is_public = 1 OR u.ai_allow_private = 1)
+          AND b.full_text_status = 'completed'
+          ${notProcessed}`
+    ),
+  ])
+
+  type SynthRow = { id: number; title: string | null; url: string; full_text: string }
+  const items = itemsResult.results as SynthRow[]
+  const total_pending = (countResult.results[0] as { cnt: number } | undefined)?.cnt ?? 0
+
+  return c.json({ items, count: items.length, total_pending })
+})
+
+// PATCH /api/synthesis/items — write synthesis digest results back for a batch of bookmarks
+//   Body: [{ id, ai_synthesis }]
+app.patch('/api/synthesis/items', async (c) => {
+  const apiToken = c.var.apiToken
+  if (!apiToken) return c.json({ error: 'Forbidden', hint: 'Named API token with synthesis:process scope required' }, 403)
+  if (!hasSynthesisScope(apiToken.scopes)) return c.json({ error: 'Forbidden', hint: 'Token missing synthesis:process scope' }, 403)
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  if (!Array.isArray(body) || body.length === 0) return c.json({ error: 'Body must be a non-empty array' }, 400)
+  if (body.length > 50) return c.json({ error: 'Batch too large — max 50 items' }, 400)
+
+  type SynthItem = { id: number; ai_synthesis: string }
+  const items: SynthItem[] = []
+
+  for (const entry of body) {
+    if (typeof entry !== 'object' || entry === null) return c.json({ error: 'Each item must be an object' }, 400)
+    const { id, ai_synthesis } = entry as Record<string, unknown>
+    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return c.json({ error: 'Each item must have a positive integer id' }, 400)
+    if (typeof ai_synthesis !== 'string' || ai_synthesis.trim().length === 0) return c.json({ error: 'ai_synthesis must be a non-empty string' }, 400)
+    if (ai_synthesis.length > 5000) return c.json({ error: 'ai_synthesis too long (max 5000 chars)' }, 400)
+    items.push({ id, ai_synthesis })
+  }
+
+  const now = new Date().toISOString()
+  const stmts = items.map(item =>
+    c.env.DB.prepare(
+      `UPDATE bookmarks
+          SET ai_synthesis = ?, ai_synthesis_processed_at = ?
+        WHERE id = ?`
+    ).bind(item.ai_synthesis, now, item.id)
+  )
+
+  await c.env.DB.batch(stmts)
+  return c.json({ updated: items.length })
+})
+
 // ─── Station API: GET /api/v/:dashboardTag ──────────────────────────────────
 // Optional auth. Authenticated → owner's own bookmarks. Unauthenticated → public only.
 // Bookmarks are grouped by their secondary tags (tags other than dashboardTag).

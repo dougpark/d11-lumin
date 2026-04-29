@@ -62,16 +62,26 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   ai_summary      TEXT    DEFAULT NULL,   -- AI-generated summary, separate from short_description
   ai_processed_at TEXT    DEFAULT NULL,   -- NULL = not yet processed by AI
 
+  -- Full-text fetch (populated by external daemon via /api/ft/*)
+  full_text_processed_at TEXT DEFAULT NULL,   -- NULL = not yet fetched
+  full_text_status       TEXT DEFAULT NULL,   -- NULL | 'completed' | 'fetch_failed'
+
+  -- Synthesis digest (populated by external daemon via /api/synthesis/*)
+  ai_synthesis            TEXT DEFAULT NULL,  -- AI-generated deep synthesis from full_text
+  ai_synthesis_processed_at TEXT DEFAULT NULL, -- NULL = not yet processed
+
   -- A slug must be unique per user (namespace approach)
   UNIQUE (user_id, slug)
 );
 
 -- Fast lookup for the redirect route GET /l/:prefix/:slug
-CREATE INDEX IF NOT EXISTS idx_bookmarks_slug             ON bookmarks (slug);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id          ON bookmarks (user_id);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at       ON bookmarks (created_at);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_is_public        ON bookmarks (is_public);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_ai_processed_at  ON bookmarks (ai_processed_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_slug                  ON bookmarks (slug);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id               ON bookmarks (user_id);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at            ON bookmarks (created_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_is_public             ON bookmarks (is_public);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_ai_processed_at       ON bookmarks (ai_processed_at);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_full_text_status      ON bookmarks (full_text_status);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_ai_synthesis_at       ON bookmarks (ai_synthesis_processed_at);
 
 -- ─── Click analytics (optional, for per-click referrer / heatmap data) ────────
 CREATE TABLE IF NOT EXISTS click_events (
