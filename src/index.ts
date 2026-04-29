@@ -419,7 +419,7 @@ app.get('/api/ft/queue', async (c) => {
         WHERE b.is_archived = 0
           AND (b.is_public = 1 OR u.ai_allow_private = 1)
           ${notFetched}
-        ORDER BY b.created_at ASC
+        ORDER BY b.created_at DESC
         LIMIT ? OFFSET ?`
     ).bind(limit, offset),
     c.env.DB.prepare(
@@ -518,7 +518,7 @@ app.get('/api/synthesis/queue', async (c) => {
           AND (b.is_public = 1 OR u.ai_allow_private = 1)
           AND b.full_text_status = 'completed'
           ${notProcessed}
-        ORDER BY b.full_text_processed_at ASC
+        ORDER BY b.created_at DESC
         LIMIT ? OFFSET ?`
     ).bind(limit, offset),
     c.env.DB.prepare(
