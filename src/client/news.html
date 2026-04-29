@@ -73,6 +73,18 @@
         <a href="/n" class="mt-6 inline-block text-sm text-g-blue hover:underline">← All topics</a>
     </div>
 
+    <!-- ── Feed subheading ── -->
+    <div id="feed-subheading" class="hidden sticky top-14 z-30 bg-white/90 backdrop-blur-sm border-b border-g-border">
+        <div class="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between gap-4">
+            <span id="feed-count" class="text-sm text-g-gray"></span>
+            <select id="feed-sort-select" onchange="applyFeedSort()"
+                class="text-xs border border-g-border rounded-full px-3 py-1.5 text-g-gray focus:outline-none focus:border-g-blue bg-white">
+                <option value="newest">Newest first</option>
+                <option value="website">Website</option>
+            </select>
+        </div>
+    </div>
+
     <!-- ── Card grid ── -->
     <main id="grid" class="hidden max-w-7xl mx-auto px-6 py-8">
         <div id="card-grid" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
@@ -123,6 +135,7 @@
 
         // 'feed' = chronological article list (default); 'topics' = tag pill/tag view
         let currentView = currentTag ? 'topics' : 'feed'
+        let feedItems = []
 
         function headerSearch(value) { filterCards(value) }
 
@@ -377,7 +390,21 @@
                 }
             }
         })
-
+        // ── Feed sort ───────────────────────────────────────────────────────────────────
+        function applyFeedSort() {
+            const sortVal = qs('#feed-sort-select')?.value || 'newest'
+            const sorted = [...feedItems]
+            if (sortVal === 'website') {
+                sorted.sort((a, b) => {
+                    const fa = (a.feed_name || '').toLowerCase()
+                    const fb = (b.feed_name || '').toLowerCase()
+                    if (fa !== fb) return fa < fb ? -1 : 1
+                    return new Date(b.published_at || 0) - new Date(a.published_at || 0)
+                })
+            }
+            qs('#card-grid').innerHTML = sorted.map(renderFeedItem).join('')
+            markAlreadyClipped()
+        }
         // ── Init ──────────────────────────────────────────────────────────────
         async function init() {
             if (currentView === 'feed') await initFeed()
@@ -388,6 +415,7 @@
         // ── Chronological feed view ───────────────────────────────────────────
         async function initFeed() {
             hideEl('grid')
+            hideEl('feed-subheading')
             hideEl('empty')
             showEl('loading')
             try {
@@ -401,16 +429,19 @@
                     showEl('empty')
                     return
                 }
+                feedItems = items
+                qs('#feed-count').textContent = items.length + ' article' + (items.length !== 1 ? 's' : '')
                 const grid = qs('#card-grid')
                 grid.className = 'flex flex-col gap-2 max-w-2xl mx-auto w-full'
                 grid.removeAttribute('style')
-                grid.innerHTML = items.map(renderFeedItem).join('')
+                applyFeedSort()
                 const si = qs('#search-input')
                 if (si) si.value = ''
                 showEl('grid')
-                markAlreadyClipped()
+                showEl('feed-subheading')
             } catch {
                 hideEl('loading')
+                hideEl('feed-subheading')
                 showEl('empty')
             }
         }
@@ -475,6 +506,7 @@
         // ── Landing: top-30 topic pills ───────────────────────────────────────
         async function initLanding() {
             hideEl('grid')
+            hideEl('feed-subheading')
             hideEl('empty')
             showEl('loading')
             try {
@@ -510,6 +542,7 @@
         // ── Tag view: articles for a topic ────────────────────────────────────
         async function initTag() {
             hideEl('grid')
+            hideEl('feed-subheading')
             hideEl('empty')
             showEl('loading')
             try {
