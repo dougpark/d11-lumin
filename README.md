@@ -880,3 +880,8 @@ while (true) {
 
 See [API Tokens Documentation](./docs/03-complete/_b%20api%20tokens.md) for complete details on creating, using, and managing API tokens.
 
+
+## AI Synthesis
+
+See [AI Synthesis Documentation](./docs/03-complete/_c%20ai%20synthesis.md) for complete details on the AI synthesis API, selection criteria, and batch processing.
+
