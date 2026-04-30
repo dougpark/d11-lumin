@@ -94,7 +94,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-            <div id="body-bookmarks" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div id="body-bookmarks" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
                 <div class="bg-white border border-g-border rounded-[16px] p-4 col-span-2 sm:col-span-1 lg:col-span-2">
                     <p class="text-xs text-g-gray mb-1">Total</p>
                     <p class="text-3xl font-bold text-g-black" id="bm-total">—</p>
@@ -110,6 +110,11 @@
                 <div class="bg-white border border-g-border rounded-[16px] p-4">
                     <p class="text-xs text-g-gray mb-1">AI Processed</p>
                     <p class="text-2xl font-bold text-purple-600" id="bm-ai">—</p>
+                </div>
+                <div class="bg-white border border-g-border rounded-[16px] p-4">
+                    <p class="text-xs text-g-gray mb-1">Full Text</p>
+                    <p class="text-2xl font-bold text-g-blue" id="bm-ft-completed">—</p>
+                    <p class="text-[11px] text-g-gray mt-0.5" id="bm-ft-failed"></p>
                 </div>
                 <div class="bg-white border border-g-border rounded-[16px] p-4">
                     <p class="text-xs text-g-gray mb-1">New (7d)</p>
@@ -283,6 +288,12 @@
             qs('#bm-public').textContent = fmt(data.bookmarks.public)
             qs('#bm-private').textContent = fmt(data.bookmarks.private)
             qs('#bm-ai').textContent = fmt(data.bookmarks.ai_processed)
+            const ftFailed = data.bookmarks.ft_failed ?? 0
+            const ftCompleted = data.bookmarks.ft_completed ?? 0
+            const ftTotal = ftCompleted + ftFailed
+            const ftFailPct = ftTotal > 0 ? ((ftFailed / ftTotal) * 100).toFixed(1) : '0.0'
+            qs('#bm-ft-completed').textContent = fmt(ftCompleted)
+            qs('#bm-ft-failed').textContent = `${fmt(ftFailed)} failed · ${ftFailPct}%`
             qs('#bm-7d').textContent = fmt(data.bookmarks.new_7d)
             qs('#bm-30d').textContent = fmt(data.bookmarks.new_30d)
 

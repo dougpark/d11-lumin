@@ -945,7 +945,7 @@ app.get('/api/admin/stats', authMiddleware, async (c) => {
   if (deny) return deny
   const now = new Date().toISOString()
 
-  const [bm, users, tokens, feeds, rssItems, bmPublic, bmAi, bm7d, bm30d, topTags] =
+  const [bm, users, tokens, feeds, rssItems, bmPublic, bmAi, bm7d, bm30d, topTags, ftCompleted, ftFailed] =
     await c.env.DB.batch([
       c.env.DB.prepare('SELECT COUNT(*) AS cnt FROM bookmarks'),
       c.env.DB.prepare('SELECT COUNT(*) AS cnt FROM users'),
@@ -957,6 +957,8 @@ app.get('/api/admin/stats', authMiddleware, async (c) => {
       c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM bookmarks WHERE created_at >= datetime('now','-7 days')`),
       c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM bookmarks WHERE created_at >= datetime('now','-30 days')`),
       c.env.DB.prepare('SELECT tag_list FROM bookmarks WHERE tag_list != \'[]\''),
+      c.env.DB.prepare("SELECT COUNT(*) AS cnt FROM bookmarks WHERE full_text_status = 'completed'"),
+      c.env.DB.prepare("SELECT COUNT(*) AS cnt FROM bookmarks WHERE full_text_status = 'fetch_failed'"),
     ])
 
   // Tally tag frequencies from all bookmarks
@@ -983,6 +985,8 @@ app.get('/api/admin/stats', authMiddleware, async (c) => {
   const aiRow = bmAi.results[0] as { cnt: number }
   const w7Row = bm7d.results[0] as { cnt: number }
   const w30Row = bm30d.results[0] as { cnt: number }
+  const ftCompletedRow = ftCompleted.results[0] as { cnt: number }
+  const ftFailedRow = ftFailed.results[0] as { cnt: number }
 
   return c.json({
     bookmarks: {
@@ -992,6 +996,8 @@ app.get('/api/admin/stats', authMiddleware, async (c) => {
       ai_processed: aiRow.cnt,
       new_7d: w7Row.cnt,
       new_30d: w30Row.cnt,
+      ft_completed: ftCompletedRow.cnt,
+      ft_failed: ftFailedRow.cnt,
     },
     users: usrRow.cnt,
     api_tokens: tokRow.cnt,
