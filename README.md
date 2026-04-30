@@ -875,3 +875,8 @@ while (true) {
 - Token management endpoints (`POST /api/v1/tokens`, `DELETE /api/v1/tokens/:id`) require the session token — an API token cannot mint or revoke other tokens.
 - Public bookmarks are readable by anyone via the redirect endpoint; private bookmarks return 404 to unauthenticated callers.
 - AI daemon tokens should use `ai:process:rss` and/or `ai:process:bookmarks` scopes — do not grant `*` scope to automated processes.
+
+## API Tokens
+
+See [API Tokens Documentation](./docs/03-complete/_b%20api%20tokens.md) for complete details on creating, using, and managing API tokens.
+
