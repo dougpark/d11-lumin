@@ -30,6 +30,8 @@ import newsHtml from './client/news.html'
 import adminHtml from './client/admin.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import analyticsHtml from './client/analytics.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import homepageHtml from './client/homepage.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -593,10 +595,13 @@ app.get('/api/v/:dashboardTag', async (c) => {
   // ?community forces the public-all-users query regardless of auth
   const community = c.req.query('community') !== undefined
 
-  // Optional auth via cookie (skipped in community mode)
+  // Optional auth via Bearer token or cookie (skipped in community mode)
   let userId: number | undefined
   if (!community) {
-    const rawToken = getCookie(c, 'd11_auth')
+    const authHeader = c.req.header('Authorization')
+    const bearerToken = authHeader?.replace(/^Bearer\s+/i, '').trim()
+    const cookieToken = getCookie(c, 'd11_auth')
+    const rawToken = bearerToken || cookieToken
     if (rawToken) {
       const tokenHash = await hashToken(decodeURIComponent(rawToken))
       const user = await getUserByTokenHash(c.env.DB, tokenHash)
@@ -718,12 +723,15 @@ app.get('/api/e/:dashboardTag', async (c) => {
   // ?community forces the public-all-users query regardless of auth
   const community = c.req.query('community') !== undefined
 
-  // Optional auth via cookie (skipped in community mode)
+  // Optional auth via Bearer token or cookie (skipped in community mode)
   let userId: number | undefined
   if (!community) {
-    const rawToken = getCookie(c, 'd11_auth')
+    const authHeader = c.req.header('Authorization')
+    const bearerToken = authHeader?.replace(/^Bearer\s+/i, '').trim() || ''
+    const cookieToken = getCookie(c, 'd11_auth')
+    const rawToken = bearerToken || (cookieToken ? decodeURIComponent(cookieToken) : '')
     if (rawToken) {
-      const tokenHash = await hashToken(decodeURIComponent(rawToken))
+      const tokenHash = await hashToken(rawToken)
       const user = await getUserByTokenHash(c.env.DB, tokenHash)
       userId = user?.id
     }
@@ -784,6 +792,99 @@ app.get('/api/e/:dashboardTag', async (c) => {
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
 
   return c.json({ dashboardTag: rawTag, groups, authenticated: !!userId, community: community && !userId })
+})
+
+// ─── Homepage API: GET /api/homepage/:bookmarkId ───────────────────────────
+// Flat bookmark list for extension clients.
+// Optional auth. Authenticated → owner's own bookmarks. Unauthenticated → public only.
+// Returns tag_list as an array so clients can group by included tags.
+app.get('/api/homepage/:bookmarkId', async (c) => {
+  const bookmarkId = c.req.param('bookmarkId').toLowerCase()
+
+  // Only allow safe tag characters
+  if (!/^[a-z0-9_-]{1,64}$/.test(bookmarkId)) {
+    return c.json({ error: 'Invalid bookmark id' }, 400)
+  }
+
+  // ?community forces the public-all-users query regardless of auth
+  const community = c.req.query('community') !== undefined
+
+  // Optional auth via Bearer token or cookie (skipped in community mode)
+  let userId: number | undefined
+  if (!community) {
+    const authHeader = c.req.header('Authorization')
+    const bearerToken = authHeader?.replace(/^Bearer\s+/i, '').trim() || ''
+    const cookieToken = getCookie(c, 'd11_auth')
+    const rawToken = bearerToken || (cookieToken ? decodeURIComponent(cookieToken) : '')
+    if (rawToken) {
+      const tokenHash = await hashToken(rawToken)
+      const user = await getUserByTokenHash(c.env.DB, tokenHash)
+      userId = user?.id
+    }
+  }
+
+  // The LIKE pattern safely bound as a parameter — not interpolated into SQL
+  const likePattern = `%"${bookmarkId}"%`
+
+  const result = userId
+    ? await c.env.DB.prepare(
+      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+         FROM bookmarks
+         WHERE user_id = ? AND is_archived = 0 AND tag_list LIKE ?
+         ORDER BY created_at ASC`
+    ).bind(userId, likePattern).all()
+    : await c.env.DB.prepare(
+      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+         FROM bookmarks
+         WHERE is_public = 1 AND is_archived = 0 AND tag_list LIKE ?
+         ORDER BY created_at ASC`
+    ).bind(likePattern).all()
+
+  type HomepageItem = {
+    id: unknown
+    url: unknown
+    title: unknown
+    short_description: unknown
+    favicon_url: unknown
+    hit_count: unknown
+    tag_list: string[]
+    ai_summary: unknown
+    ai_tags: unknown
+    created_at: unknown
+  }
+
+  const bookmarks: HomepageItem[] = (result.results as Record<string, unknown>[]).map((row) => {
+    let tags: string[] = []
+    try {
+      const parsed = JSON.parse((row.tag_list as string) || '[]')
+      if (Array.isArray(parsed)) {
+        tags = parsed.filter((t): t is string => typeof t === 'string')
+      }
+    } catch {
+      // Keep empty tags when tag_list is malformed.
+    }
+
+    return {
+      id: row.id,
+      url: row.url,
+      title: row.title,
+      short_description: row.short_description,
+      favicon_url: row.favicon_url,
+      hit_count: row.hit_count,
+      tag_list: tags,
+      ai_summary: row.ai_summary,
+      ai_tags: row.ai_tags,
+      created_at: row.created_at,
+    }
+  })
+
+  return c.json({
+    bookmarkId,
+    bookmarks,
+    count: bookmarks.length,
+    authenticated: !!userId,
+    community: community && !userId,
+  })
 })
 
 // ─── News API: GET /api/n — top tags from active rss_items ──────────────────
@@ -1318,6 +1419,7 @@ app.get('/add', (c) => c.html((appHtml as string).replace('%%HEADER%%', appHeade
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
 app.get('/e', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
 app.get('/e/:dashboardTag', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
+app.get('/homepage/:bookmarkId', (c) => c.html(homepageHtml as string))
 app.get('/n', (c) => c.html((newsHtml as string).replace('%%HEADER%%', newsHeader)))
 app.get('/n/:tag', (c) => c.html((newsHtml as string).replace('%%HEADER%%', newsHeader)))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
