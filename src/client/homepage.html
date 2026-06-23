@@ -50,6 +50,14 @@
             gap: 12px;
         }
 
+        .page-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
         .page-user {
             display: flex;
             align-items: center;
@@ -58,7 +66,6 @@
         }
 
         .page-dashboard {
-            margin-left: auto;
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -151,7 +158,7 @@
         }
 
         .meta {
-            margin: 0 0 8px;
+            margin: 0 0 16px;
             color: var(--muted);
             font-size: 12px;
         }
@@ -159,21 +166,23 @@
         .search-wrap {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
             justify-content: center;
-            margin: 0 0 10px;
+            margin: 0;
+            flex: 1 1 auto;
+            min-width: 0;
         }
 
         .search-input {
-            flex: 1 1 auto;
-            width: auto;
+            flex: 0 1 480px;
+            width: min(480px, 100%);
             border: 1px solid rgba(66, 133, 244, 0.35);
             background: var(--surface);
             color: var(--text);
             border-radius: 999px;
-            padding: 10px 14px;
+            padding: 5px 7px;
             font: inherit;
-            font-size: 13px;
+            font-size: 12px;
             line-height: 1.2;
             box-shadow: 0 1px 0 rgba(66, 133, 244, 0.08);
         }
@@ -185,6 +194,24 @@
         .search-input:focus-visible {
             outline: 2px solid var(--lumin-blue);
             outline-offset: 1px;
+        }
+
+        @media (max-width: 760px) {
+            .page-head {
+                flex-wrap: wrap;
+                row-gap: 8px;
+            }
+
+            .search-wrap {
+                order: 3;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .search-input {
+                flex: 1 1 auto;
+                width: auto;
+            }
         }
 
         .state {
@@ -544,30 +571,35 @@
 <body>
     <main class="wrap">
         <div class="page-head">
-            <h1>Homepage</h1>
-            <a href="/" class="page-dashboard" title="Dashboard">
-                <svg class="page-dashboard-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <span>Dashboard</span>
-            </a>
-            <div id="page-user" class="page-user hidden" aria-live="polite">
-                <div id="page-user-badge" class="page-user-badge">?</div>
-                <div class="page-user-text">
-                    <div id="page-user-name" class="page-user-name"></div>
-                    <div id="page-user-handle" class="page-user-handle"></div>
+            <h1>Lumin</h1>
+            <div class="search-wrap">
+                <input id="bookmark-search" class="search-input" type="search"
+                    placeholder="Search bookmarks by title, URL, tags, or description" autocomplete="off"
+                    spellcheck="false" />
+                <button id="toggle-all" class="page-button hidden" type="button" aria-label="Expand all groups"
+                    title="Expand all">
+                    ⊞
+                </button>
+            </div>
+            <div class="page-right">
+                <a href="/" class="page-dashboard" title="Dashboard">
+                    <svg class="page-dashboard-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <div id="page-user" class="page-user hidden" aria-live="polite">
+                    <div id="page-user-badge" class="page-user-badge">?</div>
+                    <div class="page-user-text">
+                        <div id="page-user-name" class="page-user-name"></div>
+                        <div id="page-user-handle" class="page-user-handle"></div>
+                    </div>
                 </div>
             </div>
         </div>
         <p class="meta" id="meta"></p>
-        <div class="search-wrap">
-            <input id="bookmark-search" class="search-input" type="search"
-                placeholder="Search bookmarks by title, URL, tags, or description" autocomplete="off"
-                spellcheck="false" />
-            <button id="toggle-all" class="page-button hidden" type="button">Expand all</button>
-        </div>
         <p id="loading" class="state">Loading bookmarks...</p>
         <p id="empty" class="state hidden">No bookmarks found for this bookmarkId.</p>
         <p id="error" class="state hidden">Could not load bookmarks.</p>
