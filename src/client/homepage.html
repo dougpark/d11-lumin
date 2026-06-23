@@ -432,6 +432,47 @@
             outline-offset: 1px;
         }
 
+        .row-action-buttons {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+            margin-top: 1px;
+        }
+
+        .row-edit-button {
+            appearance: none;
+            border: 1px solid rgba(66, 133, 244, 0.35);
+            background: #ffffff;
+            color: var(--lumin-blue);
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            display: inline-grid;
+            place-items: center;
+            padding: 0;
+            line-height: 1;
+            flex: 0 0 auto;
+            transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+        }
+
+        .row-edit-button svg {
+            width: 8px;
+            height: 8px;
+        }
+
+        .row-edit-button:hover {
+            background: var(--lumin-blue);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .row-edit-button:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: 1px;
+        }
+
         .row-details {
             display: none;
             padding: 0 6px 8px 46px;
@@ -614,6 +655,9 @@
         let allBookmarks = []
         let activeBookmarkId = ''
         let activeToken = ''
+        let editOverlayPopup = null
+        let overlayClosePollTimer = null
+        let overlayRefreshTimer = null
 
         function escHtml(value) {
             return String(value ?? '')
@@ -846,7 +890,7 @@
 
         function infoButtonHtml(bookmark) {
             const detailsId = bookmarkDetailsId(bookmark)
-            return `<button class="row-info-button" type="button" aria-expanded="false" aria-controls="${detailsId}" data-details-id="${detailsId}" title="Show details">i</button>`
+            return `<span class="row-action-buttons"><button class="row-info-button" type="button" aria-expanded="false" aria-controls="${detailsId}" data-details-id="${detailsId}" title="Show details">i</button><button class="row-edit-button" type="button" data-edit-id="${bookmark.id}" title="Edit bookmark" aria-label="Edit bookmark"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button></span>`
         }
 
         function bindInfoButtons() {
@@ -872,6 +916,75 @@
                         button.setAttribute('aria-expanded', 'true')
                     }
                 })
+            }
+        }
+
+        function openEditOverlay(bookmarkId) {
+            const id = Number.parseInt(String(bookmarkId), 10)
+            if (!Number.isFinite(id) || id < 1) return
+
+            const targetUrl = `/add?editId=${encodeURIComponent(String(id))}&source=homepage&popup=1`
+            const popup = window.open(targetUrl, '_blank', 'width=540,height=700,resizable=yes')
+
+            if (!popup) {
+                window.location.href = targetUrl
+                return
+            }
+
+            editOverlayPopup = popup
+            if (overlayClosePollTimer) window.clearInterval(overlayClosePollTimer)
+            overlayClosePollTimer = window.setInterval(() => {
+                if (!editOverlayPopup || editOverlayPopup.closed) {
+                    window.clearInterval(overlayClosePollTimer)
+                    overlayClosePollTimer = null
+                    editOverlayPopup = null
+                    scheduleOverlayRefresh()
+                }
+            }, 500)
+        }
+
+        function bindEditButtons() {
+            const buttons = document.querySelectorAll('[data-edit-id]')
+            for (const button of buttons) {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    const bookmarkId = button.getAttribute('data-edit-id')
+                    if (!bookmarkId) return
+                    openEditOverlay(bookmarkId)
+                })
+            }
+        }
+
+        async function fetchHomepageBookmarks(bookmarkId) {
+            const response = await fetch(`/api/homepage/${encodeURIComponent(bookmarkId)}`, {
+                headers: authHeaders(),
+            })
+            if (!response.ok) throw new Error(`Request failed (${response.status})`)
+            const payload = await response.json()
+            return Array.isArray(payload?.bookmarks) ? payload.bookmarks : []
+        }
+
+        function scheduleOverlayRefresh() {
+            if (overlayRefreshTimer) window.clearTimeout(overlayRefreshTimer)
+            overlayRefreshTimer = window.setTimeout(() => {
+                overlayRefreshTimer = null
+                refreshHomepageBookmarks()
+            }, 120)
+        }
+
+        async function refreshHomepageBookmarks() {
+            if (!activeBookmarkId) return
+            try {
+                const bookmarks = await fetchHomepageBookmarks(activeBookmarkId)
+                allBookmarks = bookmarks
+                if (bookmarks.length === 0) {
+                    setState('empty')
+                    return
+                }
+                renderSearchResults()
+            } catch {
+                // Keep the current page state if refresh fails.
             }
         }
 
@@ -971,6 +1084,7 @@
             bindGroupState(bookmarkId)
             bindToggleAll(bookmarkId)
             bindInfoButtons()
+            bindEditButtons()
         }
 
         async function init() {
@@ -996,13 +1110,7 @@
             setState('loading')
 
             try {
-                const response = await fetch(`/api/homepage/${encodeURIComponent(bookmarkId)}`, {
-                    headers: authHeaders(),
-                })
-                if (!response.ok) throw new Error(`Request failed (${response.status})`)
-
-                const payload = await response.json()
-                const bookmarks = Array.isArray(payload?.bookmarks) ? payload.bookmarks : []
+                const bookmarks = await fetchHomepageBookmarks(bookmarkId)
                 allBookmarks = bookmarks
 
                 if (bookmarks.length === 0) {
@@ -1014,6 +1122,17 @@
             } catch {
                 setState('error')
             }
+
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) return
+                const data = event.data
+                if (!data || typeof data !== 'object') return
+                if (data.source !== 'lumin-app-overlay') return
+                if (data.overlaySource !== 'homepage') return
+                if (data.type === 'bookmark-updated' || data.type === 'modal-closed') {
+                    scheduleOverlayRefresh()
+                }
+            })
         }
 
         init()

@@ -1551,6 +1551,9 @@
             isMobile: false,     // set in boot() — true when viewport < 768px
             expandDescs: false,  // global expand-all descriptions toggle
             unreadOnly: false,   // filter to bookmarks never clicked (hit_count=0)
+            bookmarkletMode: false,
+            popupMode: false,
+            overlaySource: null,
         }
 
         // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -1579,6 +1582,11 @@
             const preTitle = params.get('title')
             const preDesc = params.get('desc')
             const preText = params.get('text')
+            const editIdParam = params.get('editId')
+            const editId = editIdParam ? Number.parseInt(editIdParam, 10) : null
+            const sourceParam = params.get('source')
+            S.overlaySource = sourceParam || null
+            S.popupMode = params.get('popup') === '1'
 
             if (!S.token) {
                 goTo(preUrl ? 'login' : 'landing')
@@ -1594,7 +1602,14 @@
             initMobile()
             await Promise.all([loadBookmarks(), loadTags()])
 
-            if (preUrl) {
+            if (editId && Number.isFinite(editId) && editId > 0) {
+                const record = await fetchBookmarkById(editId)
+                if (record) {
+                    openEditModalFromRecord(record)
+                } else {
+                    toast('Could not load that bookmark.', 'error')
+                }
+            } else if (preUrl) {
                 S.bookmarkletMode = true
                 openAddModal(preUrl, preTitle, preDesc, preText)
             }
@@ -2659,6 +2674,48 @@
             navigator.clipboard.writeText(buildBookmarkletHref())
             toast('Bookmarklet snippet copied!')
         }
+
+        async function fetchBookmarkById(id) {
+            try {
+                const res = await api('GET', `/api/bookmarks/${id}`)
+                if (!res.ok) return null
+                const data = await res.json()
+                return data?.data || null
+            } catch {
+                return null
+            }
+        }
+
+        function openEditModalFromRecord(b) {
+            M.mode = 'edit'
+            M.editId = b.id
+            M.isPublic = !!b.is_public
+            M.tags = Array.isArray(b.tag_list) ? [...b.tag_list] : []
+            M.slugOk = true   // existing slug is always valid for its owner
+            qs('#modal-title').textContent = 'Edit Bookmark'
+            qs('#m-submit-text').textContent = 'Save Changes'
+            qs('#m-url').value = b.url
+            qs('#m-slug').value = b.slug
+            qs('#m-title').value = decodeHtml(b.title || '')
+            qs('#m-desc').value = decodeHtml(b.short_description || '')
+            qs('#m-expires').value = b.expires_at ? b.expires_at.slice(0, 10) : ''
+            qs('#m-url-error').classList.add('hidden')
+            qs('#m-slug-error').classList.add('hidden')
+            qs('#m-form-error').classList.add('hidden')
+            qs('#slug-prefix-hint').textContent = S.user?.slug_prefix || ''
+            qs('#slug-live').textContent = b.slug
+            qs('#slug-status').textContent = ''
+            setModalPublicUI(M.isPublic)
+            populateTagDatalist()
+            M.aiSummary = b.ai_summary || null
+            M.aiTags = Array.isArray(b.ai_tags) ? [...b.ai_tags] : []
+            M.selectedText = ''
+            renderAiSummary()
+            renderTagChips()
+            showEl('bookmark-modal')
+            setTimeout(() => qs('#m-url').focus(), 50)
+        }
+
         function openAddModal(preUrl, preTitle, preDesc, preText) {
             M.mode = 'add'
             M.isPublic = true
@@ -2694,38 +2751,28 @@
         function openEditModal(id) {
             const b = S.bookmarks.find(x => x.id === id)
             if (!b) return
-            M.mode = 'edit'
-            M.editId = b.id
-            M.isPublic = !!b.is_public
-            M.tags = Array.isArray(b.tag_list) ? [...b.tag_list] : []
-            M.slugOk = true   // existing slug is always valid for its owner
-            qs('#modal-title').textContent = 'Edit Bookmark'
-            qs('#m-submit-text').textContent = 'Save Changes'
-            qs('#m-url').value = b.url
-            qs('#m-slug').value = b.slug
-            qs('#m-title').value = decodeHtml(b.title || '')
-            qs('#m-desc').value = decodeHtml(b.short_description || '')
-            qs('#m-expires').value = b.expires_at ? b.expires_at.slice(0, 10) : ''
-            qs('#m-url-error').classList.add('hidden')
-            qs('#m-slug-error').classList.add('hidden')
-            qs('#m-form-error').classList.add('hidden')
-            qs('#slug-prefix-hint').textContent = S.user?.slug_prefix || ''
-            qs('#slug-live').textContent = b.slug
-            qs('#slug-status').textContent = ''
-            setModalPublicUI(M.isPublic)
-            populateTagDatalist()
-            M.aiSummary = b.ai_summary || null
-            M.aiTags = Array.isArray(b.ai_tags) ? [...b.ai_tags] : []
-            M.selectedText = ''
-            renderAiSummary()
-            renderTagChips()
-            showEl('bookmark-modal')
-            setTimeout(() => qs('#m-url').focus(), 50)
+            openEditModalFromRecord(b)
+        }
+
+        function notifyOverlay(type, payload) {
+            if (S.overlaySource !== 'homepage') return
+            if (!window.opener || window.opener.closed) return
+            try {
+                window.opener.postMessage({
+                    source: 'lumin-app-overlay',
+                    overlaySource: S.overlaySource,
+                    type,
+                    ...(payload || {}),
+                }, location.origin)
+            } catch {
+                // Ignore opener messaging errors.
+            }
         }
 
         function closeModal() {
             hideEl('bookmark-modal')
-            if (S.bookmarkletMode) window.close()
+            notifyOverlay('modal-closed')
+            if (S.bookmarkletMode || S.popupMode) window.close()
         }
 
         function handleModalBackdrop(e) {
@@ -3199,6 +3246,10 @@
                     setModalBusy(false)
                     return
                 }
+
+                const result = await res.json()
+                const updatedId = result?.data?.id || M.editId
+                notifyOverlay('bookmark-updated', { bookmarkId: updatedId })
 
                 closeModal()
                 await Promise.all([loadBookmarks(M.mode === 'add' ? 1 : S.page), loadTags()])
