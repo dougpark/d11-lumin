@@ -614,13 +614,13 @@ app.get('/api/v/:dashboardTag', async (c) => {
 
   const result = userId
     ? await c.env.DB.prepare(
-      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+      `SELECT id, url, title, short_description, favicon_url, hit_count, is_public, tag_list, ai_summary, ai_tags, created_at
          FROM bookmarks
          WHERE user_id = ? AND is_archived = 0 AND tag_list LIKE ?
          ORDER BY created_at ASC`
     ).bind(userId, likePattern).all()
     : await c.env.DB.prepare(
-      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+      `SELECT id, url, title, short_description, favicon_url, hit_count, is_public, tag_list, ai_summary, ai_tags, created_at
          FROM bookmarks
          WHERE is_public = 1 AND is_archived = 0 AND tag_list LIKE ?
          ORDER BY created_at ASC`
@@ -742,13 +742,13 @@ app.get('/api/e/:dashboardTag', async (c) => {
 
   const result = userId
     ? await c.env.DB.prepare(
-      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+      `SELECT id, url, title, short_description, favicon_url, hit_count, is_public, tag_list, ai_summary, ai_tags, created_at
          FROM bookmarks
          WHERE user_id = ? AND is_archived = 0 AND tag_list LIKE ?
          ORDER BY created_at ASC`
     ).bind(userId, likePattern).all()
     : await c.env.DB.prepare(
-      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+      `SELECT id, url, title, short_description, favicon_url, hit_count, is_public, tag_list, ai_summary, ai_tags, created_at
          FROM bookmarks
          WHERE is_public = 1 AND is_archived = 0 AND tag_list LIKE ?
          ORDER BY created_at ASC`
@@ -828,13 +828,13 @@ app.get('/api/homepage/:bookmarkId', async (c) => {
 
   const result = userId
     ? await c.env.DB.prepare(
-      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+      `SELECT id, url, title, short_description, favicon_url, hit_count, is_public, tag_list, ai_summary, ai_tags, created_at
          FROM bookmarks
          WHERE user_id = ? AND is_archived = 0 AND tag_list LIKE ?
          ORDER BY created_at ASC`
     ).bind(userId, likePattern).all()
     : await c.env.DB.prepare(
-      `SELECT id, url, title, short_description, favicon_url, hit_count, tag_list, ai_summary, ai_tags, created_at
+      `SELECT id, url, title, short_description, favicon_url, hit_count, is_public, tag_list, ai_summary, ai_tags, created_at
          FROM bookmarks
          WHERE is_public = 1 AND is_archived = 0 AND tag_list LIKE ?
          ORDER BY created_at ASC`
@@ -847,6 +847,7 @@ app.get('/api/homepage/:bookmarkId', async (c) => {
     short_description: unknown
     favicon_url: unknown
     hit_count: unknown
+    is_public: unknown
     tag_list: string[]
     ai_summary: unknown
     ai_tags: unknown
@@ -871,6 +872,7 @@ app.get('/api/homepage/:bookmarkId', async (c) => {
       short_description: row.short_description,
       favicon_url: row.favicon_url,
       hit_count: row.hit_count,
+      is_public: row.is_public,
       tag_list: tags,
       ai_summary: row.ai_summary,
       ai_tags: row.ai_tags,

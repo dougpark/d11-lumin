@@ -397,7 +397,7 @@
         .row-info-button {
             appearance: none;
             border: 1px solid rgba(66, 133, 244, 0.35);
-            background: var(--lumin-blue-soft);
+            background: #ffffff;
             color: var(--lumin-blue);
             cursor: pointer;
             width: 14px;
@@ -584,6 +584,36 @@
             font-weight: 400;
             color: var(--text);
             min-width: 0;
+        }
+
+        .visibility-icon {
+            display: inline-grid;
+            place-items: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #f7f7f7;
+            color: var(--muted);
+            flex: 0 0 auto;
+            margin-left: 2px;
+        }
+
+        .visibility-icon svg {
+            width: 9px;
+            height: 9px;
+        }
+
+        .visibility-icon.is-public {
+            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.08);
+            color: #0f766e;
+        }
+
+        .visibility-icon.is-private {
+            border-color: rgba(100, 116, 139, 0.35);
+            background: rgba(100, 116, 139, 0.08);
+            color: #475569;
         }
 
         .item-desc {
@@ -893,6 +923,20 @@
             return `<span class="row-action-buttons"><button class="row-info-button" type="button" aria-expanded="false" aria-controls="${detailsId}" data-details-id="${detailsId}" title="Show details">i</button><button class="row-edit-button" type="button" data-edit-id="${bookmark.id}" title="Edit bookmark" aria-label="Edit bookmark"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button></span>`
         }
 
+        function visibilityIconHtml(bookmark) {
+            const rawVisibility = bookmark?.is_public
+            const hasVisibility = !(rawVisibility === undefined || rawVisibility === null || rawVisibility === '')
+            const isPublic = hasVisibility
+                ? (rawVisibility === true || String(rawVisibility) === '1')
+                : true
+
+            if (isPublic) {
+                return `<span class="visibility-icon is-public" title="Public" aria-label="Public"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h18M12 3c2.5 2.5 4 5.8 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.8-4-9s1.5-6.5 4-9z"/></svg></span>`
+            }
+
+            return `<span class="visibility-icon is-private" title="Private" aria-label="Private"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.657 0 3 1.343 3 3v3H9v-3c0-1.657 1.343-3 3-3z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V8a4 4 0 118 0v3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 11h12v8H6z"/></svg></span>`
+        }
+
         function bindInfoButtons() {
             const buttons = document.querySelectorAll('[data-details-id]')
             for (const button of buttons) {
@@ -995,12 +1039,13 @@
             return `
           <li class="item">
                         <div class="item-row">
-                        <span class="item-icon">•</span>
+                        <span class="item-icon"></span>
                         ${infoButtonHtml(bookmark)}
                         <a class="item-link-wrap" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escHtml(url)}">
                             <span class="item-text">
                                     <span class="item-main">
                                         <h2 class="item-title">${escHtml(title)}</h2>
+                                        ${visibilityIconHtml(bookmark)}
                                     </span>
                             </span>
                         </a>
@@ -1016,12 +1061,13 @@
 
             return `
                 <div class="bookmark-row">
-            <span class="bookmark-row-icon">•</span>
+            <span class="bookmark-row-icon"></span>
             ${infoButtonHtml(bookmark)}
                 <a class="bookmark-link" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escHtml(url)}">
                         <span class="bookmark-row-text">
                                 <span class="bookmark-row-main">
-                                        <span class="bookmark-row-title">${escHtml(title)}</span>
+                                    <span class="bookmark-row-title">${escHtml(title)}</span>
+                                    ${visibilityIconHtml(bookmark)}
                                 </span>
             </span>
           </a>
