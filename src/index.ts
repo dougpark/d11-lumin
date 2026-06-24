@@ -32,6 +32,8 @@ import adminHtml from './client/admin.html'
 import analyticsHtml from './client/analytics.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import homepageHtml from './client/homepage.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import mobileHtml from './client/m.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -1422,6 +1424,7 @@ app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
 app.get('/e', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
 app.get('/e/:dashboardTag', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
 app.get('/h/:bookmarkId', (c) => c.html(homepageHtml as string))
+app.get('/m/:bookmarkId', (c) => c.html(mobileHtml as string))
 app.get('/n', (c) => c.html((newsHtml as string).replace('%%HEADER%%', newsHeader)))
 app.get('/n/:tag', (c) => c.html((newsHtml as string).replace('%%HEADER%%', newsHeader)))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))

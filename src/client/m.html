@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- m.html mobile first homepage -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumin Homepage</title>
+    <style>
+        :root {
+            --bg: #f8f9fb;
+            --surface: #ffffff;
+            --text: #1f1f1f;
+            --muted: #5f6368;
+            --border: #e3e3e3;
+            --lumin-blue: #4285f4;
+            --lumin-light-blue: #dee6f9;
+            --lumin-blue-soft: rgba(66, 133, 244, 0.16);
+            --divider-blue: rgba(66, 133, 244, 0.18);
+            --link: #1a73e8;
+            --card-radius: 14px;
+            --card-border: rgba(66, 133, 244, 0.3);
+            --card-shadow: 0 2px 4px rgba(31, 31, 31, 0.06), 0 10px 28px rgba(66, 133, 244, 0.11);
+            --card-surface: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            width: min(920px, 100% - 20px);
+            margin: 14px auto 20px;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 26px;
+            line-height: 1.25;
+            font-weight: 600;
+        }
+
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 12px;
+        }
+
+        .page-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .page-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .page-dashboard {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            padding: 5px 8px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+        }
+
+        .page-dashboard:hover {
+            color: var(--text);
+            background: #f7f7f7;
+            border-color: rgba(66, 133, 244, 0.18);
+        }
+
+        .page-dashboard:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: 2px;
+        }
+
+        .page-dashboard-icon {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 14px;
+            color: var(--lumin-blue);
+        }
+
+        .page-user-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: var(--lumin-blue-soft);
+            border: 1px solid rgba(66, 133, 244, 0.28);
+            color: var(--lumin-blue);
+            font-size: 11px;
+            font-weight: 700;
+            flex: 0 0 auto;
+        }
+
+        .page-user-text {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+        }
+
+        .page-user-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        .page-user-handle {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .page-button {
+            appearance: none;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--muted);
+            font: inherit;
+            font-size: 11px;
+            line-height: 1;
+            padding: 6px 8px;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .page-button:hover {
+            background: #f7f7f7;
+            color: var(--text);
+        }
+
+        .page-button:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: 2px;
+        }
+
+        #toggle-all {
+            display: inline-grid;
+            place-items: center;
+            min-width: 28px;
+            min-height: 28px;
+            padding: 4px;
+        }
+
+        #toggle-all svg {
+            width: 16px;
+            height: 16px;
+            display: block;
+            fill: currentColor;
+        }
+
+        .meta {
+            margin: 0 0 16px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .search-wrap {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            justify-content: center;
+            margin: 0;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .search-input {
+            flex: 0 1 480px;
+            width: min(480px, 100%);
+            border: 1px solid rgba(66, 133, 244, 0.35);
+            background: var(--surface);
+            color: var(--text);
+            border-radius: 999px;
+            padding: 5px 7px;
+            font: inherit;
+            font-size: 12px;
+            line-height: 1.2;
+            box-shadow: 0 1px 0 rgba(66, 133, 244, 0.08);
+        }
+
+        .search-input::placeholder {
+            color: #75839a;
+        }
+
+        .search-input:focus-visible {
+            outline: 2px solid var(--lumin-blue);
+            outline-offset: 1px;
+        }
+
+        @media (max-width: 760px) {
+            .page-head {
+                flex-wrap: wrap;
+                row-gap: 8px;
+            }
+
+            .search-wrap {
+                order: 3;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .search-input {
+                flex: 1 1 auto;
+                width: auto;
+            }
+        }
+
+        .state {
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 10px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .list-container,
+        #list-container {
+            border: 1px solid var(--card-border);
+            border-radius: var(--card-radius);
+            background: var(--card-surface);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #list {
+            margin: 10px;
+            padding: 10px;
+            background: transparent;
+            display: block;
+        }
+
+        #list>* {
+            border-top: 0px solid var(--divider-blue);
+        }
+
+        #list>:first-child {
+            border-top: 0;
+        }
+
+        .group {
+            overflow: hidden;
+        }
+
+        .group-title {
+            margin: 0;
+            font-size: 14px;
+            color: var(--muted);
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        .group-toggle {
+            width: 100%;
+            appearance: none;
+            border: 0;
+            background: transparent;
+            padding: 4px 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            cursor: pointer;
+            text-align: left;
+            color: var(--text);
+            font: inherit;
+        }
+
+        .group-toggle::-webkit-details-marker {
+            display: none;
+        }
+
+        .group-toggle::marker {
+            content: '';
+        }
+
+        .group-toggle:hover {
+            background: #f7f7f7;
+        }
+
+        .group-toggle:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: -2px;
+        }
+
+        .group-toggle-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .group-expander {
+            display: inline-grid;
+            place-items: center;
+            width: 15px;
+            height: 15px;
+            flex: 0 0 15px;
+            color: var(--lumin-blue);
+        }
+
+        .group-expander:hover {
+            color: #2f6fdb;
+        }
+
+        .group-expander svg {
+            width: 15px;
+            height: 15px;
+            display: block;
+            fill: currentColor;
+        }
+
+        .group-count {
+            color: var(--muted);
+            font-size: 11px;
+            flex: 0 0 auto;
+        }
+
+        .group-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .group-list .item {
+            border-top: 0px solid var(--divider-blue);
+        }
+
+        .group-list .item:last-child {
+            border-bottom: 0;
+        }
+
+        .bookmark-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 3px 6px 3px 28px;
+        }
+
+        .bookmark-row:hover .bookmark-link {
+            background: var(--lumin-light-blue);
+        }
+
+        .bookmark-link {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            padding: 0;
+            text-decoration: none;
+            color: inherit;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .bookmark-link:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: -2px;
+        }
+
+        .bookmark-row-icon {
+            width: 11px;
+            flex: 0 0 11px;
+            color: #8a8a8a;
+            line-height: 1;
+            margin-top: 1px;
+            font-size: 11px;
+        }
+
+        .bookmark-row-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .bookmark-row-main {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .bookmark-row-title {
+            font-size: 13px;
+            line-height: 1.3;
+            font-weight: 400;
+            color: var(--text);
+            min-width: 0;
+        }
+
+        .bookmark-row-desc {
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.25;
+            color: var(--muted);
+            word-break: break-word;
+        }
+
+        .row-info-button {
+            appearance: none;
+            border: 1px solid rgba(66, 133, 244, 0.35);
+            background: #ffffff;
+            color: var(--lumin-blue);
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            display: inline-grid;
+            place-items: center;
+            padding: 0;
+            margin-top: 1px;
+            font: inherit;
+            font-size: 9px;
+            font-weight: 600;
+            line-height: 1;
+            flex: 0 0 auto;
+            transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+        }
+
+        .row-info-button:hover {
+            background: var(--lumin-blue);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .row-info-button[aria-expanded="true"] {
+            background: var(--lumin-blue);
+            color: #ffffff;
+            border-color: var(--lumin-blue);
+        }
+
+        .row-info-button:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: 1px;
+        }
+
+        .row-action-buttons {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+            margin-top: 1px;
+        }
+
+        .row-edit-button {
+            appearance: none;
+            border: 1px solid rgba(66, 133, 244, 0.35);
+            background: #ffffff;
+            color: var(--lumin-blue);
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            display: inline-grid;
+            place-items: center;
+            padding: 0;
+            line-height: 1;
+            flex: 0 0 auto;
+            transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+        }
+
+        .row-edit-button svg {
+            width: 8px;
+            height: 8px;
+        }
+
+        .row-edit-button:hover {
+            background: var(--lumin-blue);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .row-edit-button:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: 1px;
+        }
+
+        .row-details {
+            display: none;
+            padding: 0 6px 8px 46px;
+            color: var(--muted);
+        }
+
+        .details-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 0 0 6px;
+        }
+
+        .details-toolbar-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .details-visibility {
+            margin-left: 0;
+        }
+
+        .row-details.is-open {
+            display: block;
+        }
+
+        .row-details-url {
+            display: block;
+            margin: 0 0 6px;
+            font-size: 11px;
+            line-height: 1.25;
+            color: var(--link);
+            text-decoration: none;
+            word-break: break-word;
+        }
+
+        .row-details-url:hover {
+            text-decoration: underline;
+        }
+
+        .row-details-desc {
+            margin: 0 0 6px;
+            font-size: 11px;
+            line-height: 1.35;
+        }
+
+        .row-details-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .row-tag {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 6px;
+            font-size: 10px;
+            line-height: 1;
+            color: var(--muted);
+            background: var(--surface);
+        }
+
+        .item {
+            list-style: none;
+            padding: 0;
+            border-top: 0px solid var(--divider-blue);
+        }
+
+        .group-list .item:first-child {
+            border-top: 0;
+        }
+
+        @media (max-width: 760px) {
+
+            .list-container,
+            #list-container {
+                box-shadow: 0 1px 3px rgba(31, 31, 31, 0.05), 0 6px 18px rgba(66, 133, 244, 0.08);
+            }
+        }
+
+        .item-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 3px 6px 3px 28px;
+        }
+
+        .item-row:hover .item-link-wrap {
+            background: var(--lumin-light-blue);
+        }
+
+        .item-link-wrap {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            padding: 0;
+            text-decoration: none;
+            color: inherit;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .item-link-wrap:focus-visible {
+            outline: 2px solid var(--link);
+            outline-offset: -2px;
+        }
+
+        .item-icon {
+            width: 11px;
+            flex: 0 0 11px;
+            color: #8a8a8a;
+            line-height: 1;
+            margin-top: 1px;
+            font-size: 11px;
+        }
+
+        .item-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .item-main {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .item-title {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.35;
+            font-weight: 400;
+            color: var(--text);
+            min-width: 0;
+        }
+
+        .visibility-icon {
+            display: inline-grid;
+            place-items: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #f7f7f7;
+            color: var(--muted);
+            flex: 0 0 auto;
+            margin-left: 2px;
+        }
+
+        .visibility-icon svg {
+            width: 9px;
+            height: 9px;
+        }
+
+        .visibility-icon.is-public {
+            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.08);
+            color: #0f766e;
+        }
+
+        .visibility-icon.is-private {
+            border-color: rgba(100, 116, 139, 0.35);
+            background: rgba(100, 116, 139, 0.08);
+            color: #475569;
+        }
+
+        .item-desc {
+            margin: 1px 0 0;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.3;
+        }
+
+        .item-details {
+            display: none;
+            padding: 0 6px 8px 46px;
+            color: var(--muted);
+        }
+
+        .item-details.is-open {
+            display: block;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="wrap">
+        <div class="page-head">
+            <h1>Lumin</h1>
+            <div class="search-wrap">
+                <input id="bookmark-search" class="search-input" type="search"
+                    placeholder="Search bookmarks by title, URL, tags, or description" autocomplete="off"
+                    spellcheck="false" />
+                <button id="toggle-all" class="page-button hidden" type="button" aria-label="Expand all groups"
+                    title="Expand all">
+                    ⊞
+                </button>
+            </div>
+            <div class="page-right">
+                <a href="/" class="page-dashboard" title="Dashboard">
+                    <svg class="page-dashboard-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <div id="page-user" class="page-user hidden" aria-live="polite">
+                    <div id="page-user-badge" class="page-user-badge">?</div>
+                    <div class="page-user-text">
+                        <div id="page-user-name" class="page-user-name"></div>
+                        <div id="page-user-handle" class="page-user-handle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p class="meta" id="meta"></p>
+        <p id="loading" class="state">Loading bookmarks...</p>
+        <p id="empty" class="state hidden">No bookmarks found for this bookmarkId.</p>
+        <p id="error" class="state hidden">Could not load bookmarks.</p>
+        <div id="list-container" class="list-container">
+            <div id="list" class="hidden"></div>
+        </div>
+    </main>
+
+    <script>
+        function q(id) {
+            return document.getElementById(id)
+        }
+
+        // used from Google Material Symbols icons, with the "Outlined" style and "collapse_all" and "expand_all" icons
+        // https://fonts.google.com/icons?icon.query=col&selected=Material+Symbols+Outlined:collapse_all:FILL@0;wght@400;GRAD@0;opsz@24&icon.size=24&icon.color=%231f1f1f
+        let svg_expand_all = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-80 240-320l57-57 183 183 183-183 57 57L480-80ZM298-584l-58-56 240-240 240 240-58 56-182-182-182 182Z"/></svg>'
+        let svg_collapse_all = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true"><path d="m296-80-56-56 240-240 240 240-56 56-184-184L296-80Zm184-504L240-824l56-56 184 184 184-184 56 56-240 240Z"/></svg>'
+        let svg_expand_group = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true"><path d="M507-480 384-357l56 57 180-180-180-180-56 57 123 123ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>'
+        let svg_collapse_group = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true"><path d="m480-340 180-180-57-56-123 123-123-123-57 56 180 180Zm0 260q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>'
+
+        let allBookmarks = []
+        let activeBookmarkId = ''
+        let activeToken = ''
+        let editOverlayPopup = null
+        let overlayClosePollTimer = null
+        let overlayRefreshTimer = null
+
+        function escHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+        }
+
+        function getBookmarkId() {
+            const path = window.location.pathname.replace(/\/+$/, '')
+            const parts = path.split('/')
+            return decodeURIComponent(parts[parts.length - 1] || '')
+        }
+
+        function getStorageKey(bookmarkId) {
+            return `lumin-homepage-open:${bookmarkId}`
+        }
+
+        function getAuthToken() {
+            try {
+                return window.localStorage.getItem('d11_token') || ''
+            } catch {
+                return ''
+            }
+        }
+
+        function authHeaders() {
+            const token = activeToken || getAuthToken()
+            return token ? { Authorization: 'Bearer ' + token } : {}
+        }
+
+        function setPageUser(user) {
+            const wrap = q('page-user')
+            const badge = q('page-user-badge')
+            const name = q('page-user-name')
+            const handle = q('page-user-handle')
+
+            if (!wrap || !badge || !name || !handle) return
+
+            if (!user) {
+                wrap.classList.add('hidden')
+                return
+            }
+
+            const displayName = user.full_name || user.slug_prefix || ''
+            const initials = (displayName || '?').trim().slice(0, 2).toUpperCase()
+
+            badge.textContent = initials || '?'
+            name.textContent = displayName
+            handle.textContent = user.slug_prefix ? '@' + user.slug_prefix : ''
+            wrap.classList.remove('hidden')
+        }
+
+        async function loadCurrentUser() {
+            const token = getAuthToken()
+            if (!token) {
+                setPageUser(null)
+                return
+            }
+
+            activeToken = token
+
+            try {
+                const response = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
+                if (!response.ok) {
+                    setPageUser(null)
+                    return
+                }
+
+                setPageUser(await response.json())
+            } catch {
+                setPageUser(null)
+            }
+        }
+
+        function readOpenGroups(bookmarkId) {
+            try {
+                const raw = window.localStorage.getItem(getStorageKey(bookmarkId))
+                if (!raw) return {}
+                const parsed = JSON.parse(raw)
+                return parsed && typeof parsed === 'object' ? parsed : {}
+            } catch {
+                return {}
+            }
+        }
+
+        function writeOpenGroups(bookmarkId, state) {
+            try {
+                window.localStorage.setItem(getStorageKey(bookmarkId), JSON.stringify(state))
+            } catch {
+                // Ignore storage failures so the page still works in restricted contexts.
+            }
+        }
+
+        function getGroupElements() {
+            return [...document.querySelectorAll('.group[data-group-name]')]
+        }
+
+        function updateGroupExpanderIcon(group) {
+            const icon = group.querySelector('.group-expander')
+            if (!icon) return
+            icon.innerHTML = group.open ? svg_collapse_group : svg_expand_group
+        }
+
+        function updateToggleAllButton() {
+            const button = q('toggle-all')
+            const groups = getGroupElements()
+
+            if (!button) return
+
+            if (groups.length === 0) {
+                button.classList.add('hidden')
+                return
+            }
+
+            button.classList.remove('hidden')
+            const allOpen = groups.every((group) => group.open)
+            const label = allOpen ? 'Collapse all groups' : 'Expand all groups'
+            button.setAttribute('aria-label', label)
+            button.title = label
+            button.innerHTML = allOpen ? svg_collapse_all : svg_expand_all
+        }
+
+        function setAllGroupsOpen(bookmarkId, open) {
+            const groups = getGroupElements()
+            if (groups.length === 0) return
+
+            const nextState = readOpenGroups(bookmarkId)
+            for (const group of groups) {
+                const groupName = group.getAttribute('data-group-name')
+                if (!groupName) continue
+                group.open = open
+                updateGroupExpanderIcon(group)
+                nextState[groupName] = open
+            }
+
+            writeOpenGroups(bookmarkId, nextState)
+            updateToggleAllButton()
+        }
+
+        function bindToggleAll(bookmarkId) {
+            const button = q('toggle-all')
+            if (!button) return
+
+            button.onclick = () => {
+                const groups = getGroupElements()
+                const allOpen = groups.length > 0 && groups.every((group) => group.open)
+                setAllGroupsOpen(bookmarkId, !allOpen)
+            }
+
+            updateToggleAllButton()
+        }
+
+        function bindGroupState(bookmarkId) {
+            const savedState = readOpenGroups(bookmarkId)
+            const groups = getGroupElements()
+
+            for (const group of groups) {
+                const groupName = group.getAttribute('data-group-name')
+                if (!groupName) continue
+
+                if (groupName in savedState) {
+                    group.open = savedState[groupName] === true
+                }
+
+                updateGroupExpanderIcon(group)
+
+                group.addEventListener('toggle', () => {
+                    const nextState = readOpenGroups(bookmarkId)
+                    nextState[groupName] = group.open
+                    updateGroupExpanderIcon(group)
+                    writeOpenGroups(bookmarkId, nextState)
+                    updateToggleAllButton()
+                })
+            }
+
+            updateToggleAllButton()
+        }
+
+        function setState(state) {
+            q('loading').classList.toggle('hidden', state !== 'loading')
+            q('empty').classList.toggle('hidden', state !== 'empty')
+            q('error').classList.toggle('hidden', state !== 'error')
+            q('list').classList.toggle('hidden', state !== 'ready')
+        }
+
+        function normalizeTag(tag) {
+            return String(tag || '').split(':')[0].trim()
+        }
+
+        function filterBookmarks(bookmarks, query) {
+            const qLower = String(query || '').trim().toLowerCase()
+            if (!qLower) return bookmarks
+
+            return bookmarks.filter((bookmark) => {
+                const title = String(bookmark?.title || '').toLowerCase()
+                const url = String(bookmark?.url || '').toLowerCase()
+                const desc = String(bookmark?.short_description || '').toLowerCase()
+                const tags = Array.isArray(bookmark?.tag_list)
+                    ? bookmark.tag_list.map((tag) => String(tag).toLowerCase()).join(' ')
+                    : ''
+                return title.includes(qLower) || url.includes(qLower) || desc.includes(qLower) || tags.includes(qLower)
+            })
+        }
+
+        function renderSearchResults() {
+            const input = q('bookmark-search')
+            const query = input ? input.value : ''
+            const filtered = filterBookmarks(allBookmarks, query)
+
+            if (filtered.length === 0) {
+                setState('empty')
+                return
+            }
+
+            renderList(filtered, activeBookmarkId)
+            setState('ready')
+        }
+
+        function bookmarkDetailsId(bookmark) {
+            return `bookmark-details-${bookmark.id}`
+        }
+
+        function tagsHtml(bookmark) {
+            const tags = Array.isArray(bookmark?.tag_list) ? bookmark.tag_list : []
+            if (tags.length === 0) return '<span class="row-tag">No tags</span>'
+            return tags.map((tag) => `<span class="row-tag">${escHtml(tag)}</span>`).join('')
+        }
+
+        function detailsHtml(bookmark, detailsClass) {
+            const url = bookmark.url || '#'
+            const desc = bookmark.short_description || ''
+            const detailsId = bookmarkDetailsId(bookmark)
+            return `
+              <div id="${detailsId}" class="${detailsClass}" hidden>
+                <div class="details-toolbar">
+                    <div class="details-toolbar-actions">
+                        ${editButtonHtml(bookmark)}
+                        ${visibilityIconHtml(bookmark, 'details-visibility')}
+                    </div>
+                </div>
+                <a class="row-details-url" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${escHtml(url)}</a>
+                ${desc ? `<p class="row-details-desc">${escHtml(desc)}</p>` : ''}
+                <div class="row-details-tags">${tagsHtml(bookmark)}</div>
+              </div>
+            `
+        }
+
+        function infoButtonHtml(bookmark) {
+            const detailsId = bookmarkDetailsId(bookmark)
+            return `<button class="row-info-button" type="button" aria-expanded="false" aria-controls="${detailsId}" data-details-id="${detailsId}" title="Show details">i</button>`
+        }
+
+        function editButtonHtml(bookmark) {
+            return `<button class="row-edit-button" type="button" data-edit-id="${bookmark.id}" title="Edit bookmark" aria-label="Edit bookmark"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>`
+        }
+
+        function visibilityIconHtml(bookmark, extraClass = '') {
+            const rawVisibility = bookmark?.is_public
+            const hasVisibility = !(rawVisibility === undefined || rawVisibility === null || rawVisibility === '')
+            const isPublic = hasVisibility
+                ? (rawVisibility === true || String(rawVisibility) === '1')
+                : true
+            const classSuffix = extraClass ? ` ${extraClass}` : ''
+
+            if (isPublic) {
+                return `<span class="visibility-icon is-public${classSuffix}" title="Public" aria-label="Public"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h18M12 3c2.5 2.5 4 5.8 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.8-4-9s1.5-6.5 4-9z"/></svg></span>`
+            }
+
+            return `<span class="visibility-icon is-private${classSuffix}" title="Private" aria-label="Private"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.657 0 3 1.343 3 3v3H9v-3c0-1.657 1.343-3 3-3z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V8a4 4 0 118 0v3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 11h12v8H6z"/></svg></span>`
+        }
+
+        function bindInfoButtons() {
+            const buttons = document.querySelectorAll('[data-details-id]')
+            for (const button of buttons) {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+
+                    const detailsId = button.getAttribute('data-details-id')
+                    if (!detailsId) return
+                    const panel = document.getElementById(detailsId)
+                    if (!panel) return
+
+                    const isOpen = !panel.hasAttribute('hidden')
+                    if (isOpen) {
+                        panel.setAttribute('hidden', '')
+                        panel.classList.remove('is-open')
+                        button.setAttribute('aria-expanded', 'false')
+                    } else {
+                        panel.removeAttribute('hidden')
+                        panel.classList.add('is-open')
+                        button.setAttribute('aria-expanded', 'true')
+                    }
+                })
+            }
+        }
+
+        function openEditOverlay(bookmarkId) {
+            const id = Number.parseInt(String(bookmarkId), 10)
+            if (!Number.isFinite(id) || id < 1) return
+
+            const targetUrl = `/add?editId=${encodeURIComponent(String(id))}&source=homepage&popup=1`
+            const popup = window.open(targetUrl, '_blank', 'width=540,height=700,resizable=yes')
+
+            if (!popup) {
+                window.location.href = targetUrl
+                return
+            }
+
+            editOverlayPopup = popup
+            if (overlayClosePollTimer) window.clearInterval(overlayClosePollTimer)
+            overlayClosePollTimer = window.setInterval(() => {
+                if (!editOverlayPopup || editOverlayPopup.closed) {
+                    window.clearInterval(overlayClosePollTimer)
+                    overlayClosePollTimer = null
+                    editOverlayPopup = null
+                    scheduleOverlayRefresh()
+                }
+            }, 500)
+        }
+
+        function bindEditButtons() {
+            const buttons = document.querySelectorAll('[data-edit-id]')
+            for (const button of buttons) {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    const bookmarkId = button.getAttribute('data-edit-id')
+                    if (!bookmarkId) return
+                    openEditOverlay(bookmarkId)
+                })
+            }
+        }
+
+        async function fetchHomepageBookmarks(bookmarkId) {
+            const response = await fetch(`/api/homepage/${encodeURIComponent(bookmarkId)}`, {
+                headers: authHeaders(),
+            })
+            if (!response.ok) throw new Error(`Request failed (${response.status})`)
+            const payload = await response.json()
+            return Array.isArray(payload?.bookmarks) ? payload.bookmarks : []
+        }
+
+        function scheduleOverlayRefresh() {
+            if (overlayRefreshTimer) window.clearTimeout(overlayRefreshTimer)
+            overlayRefreshTimer = window.setTimeout(() => {
+                overlayRefreshTimer = null
+                refreshHomepageBookmarks()
+            }, 120)
+        }
+
+        async function refreshHomepageBookmarks() {
+            if (!activeBookmarkId) return
+            try {
+                const bookmarks = await fetchHomepageBookmarks(activeBookmarkId)
+                allBookmarks = bookmarks
+                if (bookmarks.length === 0) {
+                    setState('empty')
+                    return
+                }
+                renderSearchResults()
+            } catch {
+                // Keep the current page state if refresh fails.
+            }
+        }
+
+        function cardHtml(bookmark) {
+            const title = bookmark.title || bookmark.url || 'Untitled'
+            const url = bookmark.url || '#'
+
+            return `
+          <li class="item">
+                        <div class="item-row">
+                        <span class="item-icon"></span>
+                        ${infoButtonHtml(bookmark)}
+                        <a class="item-link-wrap" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escHtml(url)}">
+                            <span class="item-text">
+                                    <span class="item-main">
+                                        <h2 class="item-title">${escHtml(title)}</h2>
+                                    </span>
+                            </span>
+                        </a>
+                        </div>
+                        ${detailsHtml(bookmark, 'item-details')}
+          </li>
+        `
+        }
+
+        function bookmarkRowHtml(bookmark) {
+            const title = bookmark.title || bookmark.url || 'Untitled'
+            const url = bookmark.url || '#'
+
+            return `
+                <div class="bookmark-row">
+            <span class="bookmark-row-icon"></span>
+            ${infoButtonHtml(bookmark)}
+                <a class="bookmark-link" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escHtml(url)}">
+                        <span class="bookmark-row-text">
+                                <span class="bookmark-row-main">
+                                    <span class="bookmark-row-title">${escHtml(title)}</span>
+                                </span>
+            </span>
+          </a>
+          </div>
+          ${detailsHtml(bookmark, 'row-details')}
+        `
+        }
+
+        function splitBookmarks(bookmarks, bookmarkId) {
+            const groupMap = new Map()
+            const standalone = []
+            const baseTag = String(bookmarkId || '').toLowerCase()
+
+            for (const bookmark of bookmarks) {
+                const tags = Array.isArray(bookmark?.tag_list) ? bookmark.tag_list : []
+                const secondary = tags
+                    .map(normalizeTag)
+                    .filter((tag) => tag && tag.toLowerCase() !== baseTag)
+
+                if (secondary.length === 0) {
+                    standalone.push(bookmark)
+                    continue
+                }
+
+                for (const tag of secondary) {
+                    if (!groupMap.has(tag)) groupMap.set(tag, [])
+                    groupMap.get(tag).push(bookmark)
+                }
+            }
+
+            return {
+                groups: [...groupMap.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+                standalone,
+            }
+        }
+
+        function renderList(bookmarks, bookmarkId) {
+            const { groups, standalone } = splitBookmarks(bookmarks, bookmarkId)
+
+            const standaloneHtml = standalone.map(bookmarkRowHtml).join('')
+
+            const groupHtml = groups.map(([groupName, items]) => {
+                const cards = items.map(cardHtml).join('')
+
+                return `
+                    <details class="group" data-group-name="${escHtml(groupName)}">
+                        <summary class="group-toggle">
+                            <span class="group-toggle-left">
+                                <span class="group-expander"></span>
+                                <span class="group-title">${escHtml(groupName)}</span>
+                            </span>
+                            <span class="group-count">${items.length}</span>
+                        </summary>
+                        <ul class="group-list">${cards}</ul>
+                    </details>
+        `
+            }).join('')
+
+            q('list').innerHTML = standaloneHtml + groupHtml
+            bindGroupState(bookmarkId)
+            bindToggleAll(bookmarkId)
+            bindInfoButtons()
+            bindEditButtons()
+        }
+
+        async function init() {
+            const bookmarkId = getBookmarkId()
+            activeBookmarkId = bookmarkId
+            q('meta').textContent = bookmarkId ? `bookmarkId: ${bookmarkId}` : 'bookmarkId missing'
+
+            await loadCurrentUser()
+
+            const searchInput = q('bookmark-search')
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    if (!allBookmarks.length) return
+                    renderSearchResults()
+                })
+            }
+
+            if (!bookmarkId) {
+                setState('error')
+                return
+            }
+
+            setState('loading')
+
+            try {
+                const bookmarks = await fetchHomepageBookmarks(bookmarkId)
+                allBookmarks = bookmarks
+
+                if (bookmarks.length === 0) {
+                    setState('empty')
+                    return
+                }
+
+                renderSearchResults()
+            } catch {
+                setState('error')
+            }
+
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) return
+                const data = event.data
+                if (!data || typeof data !== 'object') return
+                if (data.source !== 'lumin-app-overlay') return
+                if (data.overlaySource !== 'homepage') return
+                if (data.type === 'bookmark-updated' || data.type === 'modal-closed') {
+                    scheduleOverlayRefresh()
+                }
+            })
+        }
+
+        init()
+    </script>
+</body>
+
+</html>
