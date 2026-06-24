@@ -9,20 +9,22 @@
     <title>Lumin Homepage</title>
     <style>
         :root {
-            --bg: #f8f9fb;
+            --bg: #f5f7fb;
             --surface: #ffffff;
+            --surface-elevated: #fbfdff;
             --text: #1f1f1f;
             --muted: #5f6368;
             --border: #e3e3e3;
             --lumin-blue: #4285f4;
-            --lumin-light-blue: #dee6f9;
+            --lumin-light-blue: #e9f0ff;
             --lumin-blue-soft: rgba(66, 133, 244, 0.16);
             --divider-blue: rgba(66, 133, 244, 0.18);
             --link: #1a73e8;
-            --card-radius: 14px;
+            --card-radius: 16px;
             --card-border: rgba(66, 133, 244, 0.3);
-            --card-shadow: 0 2px 4px rgba(31, 31, 31, 0.06), 0 10px 28px rgba(66, 133, 244, 0.11);
-            --card-surface: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+            --card-shadow: 0 2px 8px rgba(31, 31, 31, 0.06), 0 14px 28px rgba(66, 133, 244, 0.08);
+            --card-surface: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         * {
@@ -31,35 +33,51 @@
 
         body {
             margin: 0;
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-family: "Avenir Next", "Avenir", "Segoe UI", Helvetica, Arial, sans-serif;
             background: var(--bg);
             color: var(--text);
+            min-height: 100dvh;
         }
 
-        .wrap {
-            width: min(920px, 100% - 20px);
-            margin: 14px auto 20px;
+        .mobile-shell {
+            width: min(980px, 100%);
+            margin: 0 auto;
+            min-height: 100dvh;
+            padding: 10px 12px calc(88px + var(--safe-bottom));
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 2px 10px;
+            background: linear-gradient(to bottom, rgba(245, 247, 251, 0.96) 80%, rgba(245, 247, 251, 0));
+            backdrop-filter: blur(8px);
         }
 
         h1 {
-            margin: 0 0 6px;
-            font-size: 26px;
-            line-height: 1.25;
+            margin: 0;
+            font-size: 18px;
+            line-height: 1.2;
             font-weight: 600;
+            letter-spacing: -0.01em;
         }
 
         .page-head {
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            gap: 12px;
+            justify-content: space-between;
+            width: 100%;
+            gap: 10px;
         }
 
         .page-right {
-            margin-left: auto;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             min-width: 0;
         }
 
@@ -104,8 +122,8 @@
         }
 
         .page-user-badge {
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
             border-radius: 999px;
             display: grid;
             place-items: center;
@@ -125,7 +143,7 @@
         }
 
         .page-user-name {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             color: var(--text);
             white-space: nowrap;
@@ -143,13 +161,19 @@
             appearance: none;
             border: 1px solid var(--border);
             background: var(--surface);
-            color: var(--muted);
+            color: var(--text);
             font: inherit;
-            font-size: 11px;
+            font-size: 13px;
             line-height: 1;
-            padding: 6px 8px;
-            border-radius: 999px;
+            min-height: 44px;
+            border-radius: 12px;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 12px;
+            transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
         }
 
         .page-button:hover {
@@ -163,47 +187,50 @@
         }
 
         #toggle-all {
-            display: inline-grid;
+            display: inline-flex;
             place-items: center;
-            min-width: 28px;
-            min-height: 28px;
-            padding: 4px;
+            min-width: 44px;
+            padding: 0;
+            border-radius: 12px;
         }
 
         #toggle-all svg {
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
             display: block;
             fill: currentColor;
         }
 
         .meta {
-            margin: 0 0 16px;
+            margin: 0 0 8px;
             color: var(--muted);
-            font-size: 12px;
+            font-size: 11px;
+            padding: 0 2px;
+        }
+
+        .content-wrap {
+            padding-bottom: 8px;
         }
 
         .search-wrap {
             display: flex;
             align-items: center;
-            gap: 5px;
-            justify-content: center;
-            margin: 0;
-            flex: 1 1 auto;
-            min-width: 0;
+            gap: 8px;
+            flex: 1 1 100%;
         }
 
         .search-input {
-            flex: 0 1 480px;
-            width: min(480px, 100%);
+            flex: 1 1 auto;
+            width: 100%;
             border: 1px solid rgba(66, 133, 244, 0.35);
             background: var(--surface);
             color: var(--text);
-            border-radius: 999px;
-            padding: 5px 7px;
+            border-radius: 12px;
+            padding: 0 14px;
             font: inherit;
-            font-size: 12px;
+            font-size: 15px;
             line-height: 1.2;
+            min-height: 44px;
             box-shadow: 0 1px 0 rgba(66, 133, 244, 0.08);
         }
 
@@ -216,30 +243,12 @@
             outline-offset: 1px;
         }
 
-        @media (max-width: 760px) {
-            .page-head {
-                flex-wrap: wrap;
-                row-gap: 8px;
-            }
-
-            .search-wrap {
-                order: 3;
-                width: 100%;
-                justify-content: flex-start;
-            }
-
-            .search-input {
-                flex: 1 1 auto;
-                width: auto;
-            }
-        }
-
         .state {
-            padding: 14px 16px;
+            padding: 16px;
             border: 1px solid var(--border);
             background: var(--surface);
-            border-radius: 10px;
-            font-size: 14px;
+            border-radius: 14px;
+            font-size: 15px;
             color: var(--muted);
         }
 
@@ -254,8 +263,8 @@
         }
 
         #list {
-            margin: 10px;
-            padding: 10px;
+            margin: 0;
+            padding: 8px;
             background: transparent;
             display: block;
         }
@@ -270,12 +279,21 @@
 
         .group {
             overflow: hidden;
+            border: 1px solid rgba(66, 133, 244, 0.18);
+            border-radius: 14px;
+            margin-top: 10px;
+            background: var(--surface-elevated);
+        }
+
+        .group:first-child {
+            margin-top: 0;
         }
 
         .group-title {
             margin: 0;
-            font-size: 14px;
-            color: var(--muted);
+            font-size: 15px;
+            color: var(--text);
+            font-weight: 600;
             letter-spacing: 0;
             text-transform: none;
         }
@@ -285,11 +303,12 @@
             appearance: none;
             border: 0;
             background: transparent;
-            padding: 4px 5px;
+            min-height: 48px;
+            padding: 0 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 6px;
+            gap: 8px;
             cursor: pointer;
             text-align: left;
             color: var(--text);
@@ -305,7 +324,7 @@
         }
 
         .group-toggle:hover {
-            background: #f7f7f7;
+            background: #f4f8ff;
         }
 
         .group-toggle:focus-visible {
@@ -316,16 +335,16 @@
         .group-toggle-left {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
             min-width: 0;
         }
 
         .group-expander {
             display: inline-grid;
             place-items: center;
-            width: 15px;
-            height: 15px;
-            flex: 0 0 15px;
+            width: 22px;
+            height: 22px;
+            flex: 0 0 22px;
             color: var(--lumin-blue);
         }
 
@@ -334,15 +353,18 @@
         }
 
         .group-expander svg {
-            width: 15px;
-            height: 15px;
+            width: 20px;
+            height: 20px;
             display: block;
             fill: currentColor;
         }
 
         .group-count {
             color: var(--muted);
-            font-size: 11px;
+            font-size: 12px;
+            padding: 2px 8px;
+            background: #eef3ff;
+            border-radius: 999px;
             flex: 0 0 auto;
         }
 
@@ -363,8 +385,9 @@
         .bookmark-row {
             display: flex;
             align-items: flex-start;
-            gap: 6px;
-            padding: 3px 6px 3px 28px;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 12px;
         }
 
         .bookmark-row:hover .bookmark-link {
@@ -374,8 +397,10 @@
         .bookmark-link {
             display: flex;
             align-items: flex-start;
-            gap: 7px;
-            padding: 0;
+            gap: 8px;
+            min-height: 44px;
+            padding: 9px 10px;
+            border-radius: 11px;
             text-decoration: none;
             color: inherit;
             flex: 1 1 auto;
@@ -388,12 +413,12 @@
         }
 
         .bookmark-row-icon {
-            width: 11px;
-            flex: 0 0 11px;
+            width: 0;
+            flex: 0 0 0;
             color: #8a8a8a;
             line-height: 1;
             margin-top: 1px;
-            font-size: 11px;
+            font-size: 0;
         }
 
         .bookmark-row-text {
@@ -406,14 +431,14 @@
         .bookmark-row-main {
             display: flex;
             align-items: baseline;
-            gap: 6px;
+            gap: 8px;
             min-width: 0;
         }
 
         .bookmark-row-title {
-            font-size: 13px;
+            font-size: 15px;
             line-height: 1.3;
-            font-weight: 400;
+            font-weight: 500;
             color: var(--text);
             min-width: 0;
         }
@@ -432,15 +457,15 @@
             background: #ffffff;
             color: var(--lumin-blue);
             cursor: pointer;
-            width: 14px;
-            height: 14px;
-            border-radius: 999px;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
             display: inline-grid;
             place-items: center;
             padding: 0;
-            margin-top: 1px;
+            margin-top: 4px;
             font: inherit;
-            font-size: 9px;
+            font-size: 14px;
             font-weight: 600;
             line-height: 1;
             flex: 0 0 auto;
@@ -467,9 +492,9 @@
         .row-action-buttons {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 8px;
             flex: 0 0 auto;
-            margin-top: 1px;
+            margin-top: 4px;
         }
 
         .row-edit-button {
@@ -478,9 +503,9 @@
             background: #ffffff;
             color: var(--lumin-blue);
             cursor: pointer;
-            width: 14px;
-            height: 14px;
-            border-radius: 999px;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
             display: inline-grid;
             place-items: center;
             padding: 0;
@@ -490,8 +515,8 @@
         }
 
         .row-edit-button svg {
-            width: 8px;
-            height: 8px;
+            width: 16px;
+            height: 16px;
         }
 
         .row-edit-button:hover {
@@ -507,7 +532,7 @@
 
         .row-details {
             display: none;
-            padding: 0 6px 8px 46px;
+            padding: 2px 12px 12px 58px;
             color: var(--muted);
         }
 
@@ -516,7 +541,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            margin: 0 0 6px;
+            margin: 0 0 8px;
         }
 
         .details-toolbar-actions {
@@ -536,9 +561,9 @@
 
         .row-details-url {
             display: block;
-            margin: 0 0 6px;
-            font-size: 11px;
-            line-height: 1.25;
+            margin: 0 0 8px;
+            font-size: 13px;
+            line-height: 1.35;
             color: var(--link);
             text-decoration: none;
             word-break: break-word;
@@ -549,8 +574,8 @@
         }
 
         .row-details-desc {
-            margin: 0 0 6px;
-            font-size: 11px;
+            margin: 0 0 8px;
+            font-size: 13px;
             line-height: 1.35;
         }
 
@@ -565,8 +590,8 @@
             align-items: center;
             border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 2px 6px;
-            font-size: 10px;
+            padding: 5px 9px;
+            font-size: 12px;
             line-height: 1;
             color: var(--muted);
             background: var(--surface);
@@ -593,8 +618,13 @@
         .item-row {
             display: flex;
             align-items: flex-start;
-            gap: 6px;
-            padding: 3px 6px 3px 28px;
+            gap: 10px;
+            padding: 6px 12px;
+            border-top: 1px solid rgba(66, 133, 244, 0.12);
+        }
+
+        .group-list .item:first-child .item-row {
+            border-top: 0;
         }
 
         .item-row:hover .item-link-wrap {
@@ -604,8 +634,10 @@
         .item-link-wrap {
             display: flex;
             align-items: flex-start;
-            gap: 7px;
-            padding: 0;
+            gap: 8px;
+            min-height: 44px;
+            padding: 9px 10px;
+            border-radius: 11px;
             text-decoration: none;
             color: inherit;
             flex: 1 1 auto;
@@ -618,12 +650,12 @@
         }
 
         .item-icon {
-            width: 11px;
-            flex: 0 0 11px;
+            width: 0;
+            flex: 0 0 0;
             color: #8a8a8a;
             line-height: 1;
             margin-top: 1px;
-            font-size: 11px;
+            font-size: 0;
         }
 
         .item-text {
@@ -636,15 +668,15 @@
         .item-main {
             display: flex;
             align-items: baseline;
-            gap: 6px;
+            gap: 8px;
             min-width: 0;
         }
 
         .item-title {
             margin: 0;
-            font-size: 13px;
+            font-size: 15px;
             line-height: 1.35;
-            font-weight: 400;
+            font-weight: 500;
             color: var(--text);
             min-width: 0;
         }
@@ -688,7 +720,7 @@
 
         .item-details {
             display: none;
-            padding: 0 6px 8px 46px;
+            padding: 2px 12px 12px 58px;
             color: var(--muted);
         }
 
@@ -699,48 +731,107 @@
         .hidden {
             display: none;
         }
+
+        .bottom-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 30;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(66, 133, 244, 0.22);
+            padding: 10px 12px calc(10px + var(--safe-bottom));
+        }
+
+        .bottom-bar-inner {
+            width: min(980px, 100%);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bottom-home {
+            min-width: 44px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .bottom-home svg {
+            width: 19px;
+            height: 19px;
+            color: var(--lumin-blue);
+        }
+
+        @media (min-width: 740px) {
+            .mobile-shell {
+                padding: 12px 16px calc(84px + var(--safe-bottom));
+            }
+
+            .topbar {
+                padding-left: 4px;
+                padding-right: 4px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .bottom-bar {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <main class="wrap">
-        <div class="page-head">
-            <h1>Lumin</h1>
+    <main class="mobile-shell">
+        <header class="topbar">
+            <div class="page-head">
+                <h1>Lumin</h1>
+                <div class="page-right">
+                    <div id="page-user" class="page-user hidden" aria-live="polite">
+                        <div id="page-user-badge" class="page-user-badge">?</div>
+                        <div class="page-user-text">
+                            <div id="page-user-name" class="page-user-name"></div>
+                            <div id="page-user-handle" class="page-user-handle"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="content-wrap">
+            <p class="meta" id="meta"></p>
+            <p id="loading" class="state">Loading bookmarks...</p>
+            <p id="empty" class="state hidden">No bookmarks found for this bookmarkId.</p>
+            <p id="error" class="state hidden">Could not load bookmarks.</p>
+            <div id="list-container" class="list-container">
+                <div id="list" class="hidden"></div>
+            </div>
+        </section>
+    </main>
+
+    <nav class="bottom-bar" aria-label="Bookmark controls">
+        <div class="bottom-bar-inner">
+            <a href="/" class="page-button bottom-home" title="Dashboard" aria-label="Dashboard">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+            </a>
             <div class="search-wrap">
-                <input id="bookmark-search" class="search-input" type="search"
-                    placeholder="Search bookmarks by title, URL, tags, or description" autocomplete="off"
-                    spellcheck="false" />
+                <input id="bookmark-search" class="search-input" type="search" placeholder="Search title, URL, tags"
+                    autocomplete="off" spellcheck="false" />
                 <button id="toggle-all" class="page-button hidden" type="button" aria-label="Expand all groups"
                     title="Expand all">
                     ⊞
                 </button>
             </div>
-            <div class="page-right">
-                <a href="/" class="page-dashboard" title="Dashboard">
-                    <svg class="page-dashboard-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <span>Dashboard</span>
-                </a>
-                <div id="page-user" class="page-user hidden" aria-live="polite">
-                    <div id="page-user-badge" class="page-user-badge">?</div>
-                    <div class="page-user-text">
-                        <div id="page-user-name" class="page-user-name"></div>
-                        <div id="page-user-handle" class="page-user-handle"></div>
-                    </div>
-                </div>
-            </div>
         </div>
-        <p class="meta" id="meta"></p>
-        <p id="loading" class="state">Loading bookmarks...</p>
-        <p id="empty" class="state hidden">No bookmarks found for this bookmarkId.</p>
-        <p id="error" class="state hidden">Could not load bookmarks.</p>
-        <div id="list-container" class="list-container">
-            <div id="list" class="hidden"></div>
-        </div>
-    </main>
+    </nav>
 
     <script>
         function q(id) {
