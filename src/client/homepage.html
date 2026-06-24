@@ -19,6 +19,10 @@
             --lumin-blue-soft: rgba(66, 133, 244, 0.16);
             --divider-blue: rgba(66, 133, 244, 0.18);
             --link: #1a73e8;
+            --card-radius: 14px;
+            --card-border: rgba(66, 133, 244, 0.3);
+            --card-shadow: 0 2px 4px rgba(31, 31, 31, 0.06), 0 10px 28px rgba(66, 133, 244, 0.11);
+            --card-surface: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
         }
 
         * {
@@ -239,14 +243,29 @@
             color: var(--muted);
         }
 
+        .list-container,
+        #list-container {
+            border: 1px solid var(--card-border);
+            border-radius: var(--card-radius);
+            background: var(--card-surface);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
         #list {
-            margin: 0;
-            padding: 0;
+            margin: 10px;
+            padding: 10px;
+            background: transparent;
             display: block;
         }
 
         #list>* {
-            border-top: 1px solid var(--divider-blue);
+            border-top: 0px solid var(--divider-blue);
+        }
+
+        #list>:first-child {
+            border-top: 0;
         }
 
         .group {
@@ -334,7 +353,11 @@
         }
 
         .group-list .item {
-            border-top: 1px solid var(--divider-blue);
+            border-top: 0px solid var(--divider-blue);
+        }
+
+        .group-list .item:last-child {
+            border-bottom: 0;
         }
 
         .bookmark-row {
@@ -552,7 +575,19 @@
         .item {
             list-style: none;
             padding: 0;
-            border-top: 1px solid var(--divider-blue);
+            border-top: 0px solid var(--divider-blue);
+        }
+
+        .group-list .item:first-child {
+            border-top: 0;
+        }
+
+        @media (max-width: 760px) {
+
+            .list-container,
+            #list-container {
+                box-shadow: 0 1px 3px rgba(31, 31, 31, 0.05), 0 6px 18px rgba(66, 133, 244, 0.08);
+            }
         }
 
         .item-row {
@@ -702,7 +737,9 @@
         <p id="loading" class="state">Loading bookmarks...</p>
         <p id="empty" class="state hidden">No bookmarks found for this bookmarkId.</p>
         <p id="error" class="state hidden">Could not load bookmarks.</p>
-        <div id="list" class="hidden"></div>
+        <div id="list-container" class="list-container">
+            <div id="list" class="hidden"></div>
+        </div>
     </main>
 
     <script>
