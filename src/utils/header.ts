@@ -51,6 +51,7 @@ const LNKA = (href: string, label: string, extra = '') =>
 function desktopDropdown(type: 'full' | 'compact'): string {
     if (type === 'full') {
         return `
+            ${LNKA('/chat', 'Chat')}
             ${BTN("window.location.href='/analytics'", 'Analytics')}
             ${BTN('openRenameTagModal(); toggleUserMenu()', 'Rename Tag')}
             ${BTN('doExportBookmarks(); toggleUserMenu()', 'Export Bookmarks')}
@@ -65,6 +66,7 @@ function desktopDropdown(type: 'full' | 'compact'): string {
     // compact (explore / news)
     return `
             ${LNKA('/', 'Dashboard')}
+            ${LNKA('/chat', 'Chat')}
             ${BTN("window.location.href='/analytics'", 'Analytics')}
             ${BTN('copyLoginLink()', 'Copy Login Link')}
             ${LNKA('/admin', 'Admin', 'id="desktop-admin-link" ')}

@@ -75,7 +75,7 @@
                     <textarea id="message-input" rows="3" maxlength="4000" placeholder="Write a message..."
                         class="w-full text-sm px-3 py-2 rounded-xl border border-g-border focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y overflow-x-hidden"></textarea>
                     <div class="mt-2 flex justify-between items-center">
-                        <p class="text-xs text-g-gray">Replies are one level deep in V1.</p>
+                        <p class="text-xs text-g-gray">Shift+Enter to create a new line</p>
                         <button type="submit"
                             class="bg-g-blue text-white text-sm px-4 py-2 rounded-xl hover:bg-blue-600">Post</button>
                     </div>
@@ -118,6 +118,8 @@
             messages: [],
             pollTimer: null,
             stickToBottom: true,
+            openReplyId: null,
+            replyDrafts: {},
         }
 
         const el = {
@@ -192,6 +194,8 @@
                 btn.addEventListener('click', () => {
                     state.currentChannel = btn.dataset.channel
                     state.q = ''
+                    state.openReplyId = null
+                    state.replyDrafts = {}
                     el.searchInput.value = ''
                     loadMessages()
                 })
@@ -205,11 +209,15 @@
                 <div class="mt-2 ml-3 pl-3 border-l border-g-border">
                     <div class="text-xs text-g-gray mb-1">${esc(reply.user_full_name || reply.user_slug_prefix)} · ${new Date(reply.created_at).toLocaleString()}</div>
                     <div class="text-sm whitespace-pre-wrap">${esc(reply.content)}</div>
-                    <div class="mt-1 flex items-center gap-2 text-xs text-g-gray">
-                        <button data-vote="1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▲ ${reply.upvotes}</button>
-                        <button data-vote="-1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▼ ${reply.downvotes}</button>
-                        <button data-report-id="${reply.id}" class="report-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Report</button>
-                        ${state.user?.is_admin === 1 ? `<button data-mod-id="${reply.id}" data-hidden="${reply.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">${reply.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                    <div class="mt-1 flex items-center justify-between gap-2 text-xs text-g-gray">
+                        <div class="flex items-center gap-2">
+                            <button data-vote="1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▲ ${reply.upvotes}</button>
+                            <button data-vote="-1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▼ ${reply.downvotes}</button>
+                        </div>
+                        <div class="flex items-center gap-2 justify-end">
+                            <button data-report-id="${reply.id}" class="report-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Report</button>
+                            ${state.user?.is_admin === 1 ? `<button data-mod-id="${reply.id}" data-hidden="${reply.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">${reply.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                        </div>
                     </div>
                 </div>`
         }
@@ -225,15 +233,19 @@
                     <article class="border border-g-border rounded-xl p-3">
                         <div class="text-xs text-g-gray mb-1">${esc(msg.user_full_name || msg.user_slug_prefix)} · ${new Date(msg.created_at).toLocaleString()}</div>
                         <div class="text-sm whitespace-pre-wrap">${esc(msg.content)}</div>
-                        <div class="mt-2 flex items-center gap-2 text-xs text-g-gray flex-wrap">
-                            <button data-vote="1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▲ ${msg.upvotes}</button>
-                            <button data-vote="-1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▼ ${msg.downvotes}</button>
-                            <button data-report-id="${msg.id}" class="report-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Report</button>
-                            <button data-reply-open="${msg.id}" class="reply-open-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Reply</button>
-                            ${state.user?.is_admin === 1 ? `<button data-mod-id="${msg.id}" data-hidden="${msg.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">${msg.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                        <div class="mt-2 flex items-center justify-between gap-2 text-xs text-g-gray">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <button data-vote="1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▲ ${msg.upvotes}</button>
+                                <button data-vote="-1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▼ ${msg.downvotes}</button>
+                                <button data-reply-open="${msg.id}" class="reply-open-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Reply</button>
+                            </div>
+                            <div class="flex items-center gap-2 justify-end">
+                                <button data-report-id="${msg.id}" class="report-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Report</button>
+                                ${state.user?.is_admin === 1 ? `<button data-mod-id="${msg.id}" data-hidden="${msg.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">${msg.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                            </div>
                         </div>
-                        <form data-reply-form="${msg.id}" class="hidden mt-2">
-                            <textarea data-reply-input="${msg.id}" rows="2" maxlength="4000" class="w-full text-sm px-3 py-2 rounded-xl border border-g-border" placeholder="Write a reply..."></textarea>
+                        <form data-reply-form="${msg.id}" class="${state.openReplyId === msg.id ? '' : 'hidden'} mt-2">
+                            <textarea data-reply-input="${msg.id}" rows="2" maxlength="4000" class="w-full text-sm px-3 py-2 rounded-xl border border-g-border resize-y overflow-x-hidden" placeholder="Write a reply...">${esc(state.replyDrafts[msg.id] ?? '')}</textarea>
                             <div class="mt-2 flex justify-end gap-2">
                                 <button type="button" data-reply-cancel="${msg.id}" class="text-xs px-3 py-1.5 rounded-lg border border-g-border">Cancel</button>
                                 <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-g-blue text-white">Post Reply</button>
@@ -277,17 +289,34 @@
 
             for (const btn of el.messages.querySelectorAll('.reply-open-btn')) {
                 btn.addEventListener('click', () => {
-                    const id = btn.dataset.replyOpen
-                    const form = el.messages.querySelector(`[data-reply-form="${id}"]`)
-                    if (form) form.classList.remove('hidden')
+                    const id = Number(btn.dataset.replyOpen)
+                    state.openReplyId = id
+                    renderMessages()
+                    const input = el.messages.querySelector(`[data-reply-input="${id}"]`)
+                    if (input) input.focus()
                 })
             }
 
             for (const btn of el.messages.querySelectorAll('[data-reply-cancel]')) {
                 btn.addEventListener('click', () => {
-                    const id = btn.dataset.replyCancel
-                    const form = el.messages.querySelector(`[data-reply-form="${id}"]`)
-                    if (form) form.classList.add('hidden')
+                    const id = Number(btn.dataset.replyCancel)
+                    state.openReplyId = null
+                    delete state.replyDrafts[id]
+                    renderMessages()
+                })
+            }
+
+            for (const input of el.messages.querySelectorAll('[data-reply-input]')) {
+                input.addEventListener('input', () => {
+                    const id = Number(input.dataset.replyInput)
+                    state.replyDrafts[id] = input.value
+                })
+
+                input.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' || event.shiftKey) return
+                    event.preventDefault()
+                    const form = input.closest('form')
+                    if (form) form.requestSubmit()
                 })
             }
 
@@ -309,7 +338,8 @@
                     })
 
                     input.value = ''
-                    form.classList.add('hidden')
+                    delete state.replyDrafts[id]
+                    state.openReplyId = null
                     await loadMessages({ silent: true })
                 })
             }
@@ -338,6 +368,13 @@
         }
 
         async function loadMessages({ silent = false, forceScrollBottom = false } = {}) {
+            const activeReplyInput = document.activeElement?.matches?.('[data-reply-input]')
+                ? document.activeElement
+                : null
+            const focusReplyId = activeReplyInput ? Number(activeReplyInput.dataset.replyInput) : null
+            const focusSelectionStart = activeReplyInput ? activeReplyInput.selectionStart : null
+            const focusSelectionEnd = activeReplyInput ? activeReplyInput.selectionEnd : null
+
             if (!silent) el.statusText.textContent = 'Loading messages...'
             const params = new URLSearchParams({
                 channel: state.currentChannel,
@@ -348,8 +385,22 @@
             const res = await api(`/api/chat/messages?${params.toString()}`)
             if (!res) return
             state.messages = res.data || []
+            if (state.openReplyId !== null && !state.messages.some((m) => m.id === state.openReplyId)) {
+                state.openReplyId = null
+            }
             renderChannels()
             renderMessages()
+
+            if (focusReplyId !== null) {
+                const restored = el.messages.querySelector(`[data-reply-input="${focusReplyId}"]`)
+                if (restored) {
+                    restored.focus()
+                    if (focusSelectionStart !== null && focusSelectionEnd !== null) {
+                        restored.setSelectionRange(focusSelectionStart, focusSelectionEnd)
+                    }
+                }
+            }
+
             scrollMessagesToBottom(forceScrollBottom)
             el.statusText.textContent = `${res.meta.total} messages`
         }
