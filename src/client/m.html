@@ -252,19 +252,14 @@
             color: var(--muted);
         }
 
-        .list-container,
-        #list-container {
-            border: 1px solid var(--card-border);
-            border-radius: var(--card-radius);
-            background: var(--card-surface);
-            box-shadow: var(--card-shadow);
-            overflow: hidden;
+        .list-edge-bleed {
+            margin-inline: -12px;
             position: relative;
         }
 
         #list {
             margin: 0;
-            padding: 8px;
+            padding: 8px 0;
             background: transparent;
             display: block;
         }
@@ -280,7 +275,7 @@
         .group {
             overflow: hidden;
             border: 1px solid rgba(66, 133, 244, 0.18);
-            border-radius: 14px;
+            border-radius: 0;
             margin-top: 10px;
             background: var(--surface-elevated);
         }
@@ -386,8 +381,12 @@
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            padding: 6px 12px;
-            border-radius: 12px;
+            padding: 8px 12px;
+            border-top: 1px solid rgba(66, 133, 244, 0.12);
+        }
+
+        #list>.bookmark-row:first-child {
+            border-top: 0;
         }
 
         .bookmark-row:hover .bookmark-link {
@@ -607,14 +606,6 @@
             border-top: 0;
         }
 
-        @media (max-width: 760px) {
-
-            .list-container,
-            #list-container {
-                box-shadow: 0 1px 3px rgba(31, 31, 31, 0.05), 0 6px 18px rgba(66, 133, 244, 0.08);
-            }
-        }
-
         .item-row {
             display: flex;
             align-items: flex-start;
@@ -769,6 +760,29 @@
                 padding: 12px 16px calc(84px + var(--safe-bottom));
             }
 
+            .list-edge-bleed {
+                margin-inline: 0;
+                border: 1px solid var(--card-border);
+                border-radius: var(--card-radius);
+                background: var(--card-surface);
+                box-shadow: var(--card-shadow);
+                overflow: hidden;
+            }
+
+            #list {
+                padding: 8px;
+            }
+
+            .group {
+                border-radius: 14px;
+            }
+
+            .bookmark-row {
+                border-top: 0;
+                border-radius: 12px;
+                padding: 6px 12px;
+            }
+
             .topbar {
                 padding-left: 4px;
                 padding-right: 4px;
@@ -808,7 +822,7 @@
             <p id="loading" class="state">Loading bookmarks...</p>
             <p id="empty" class="state hidden">No bookmarks found for this bookmarkId.</p>
             <p id="error" class="state hidden">Could not load bookmarks.</p>
-            <div id="list-container" class="list-container">
+            <div class="list-edge-bleed">
                 <div id="list" class="hidden"></div>
             </div>
         </section>
