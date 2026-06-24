@@ -132,16 +132,19 @@ export async function listMessages(
 
     let from = 'FROM chats c JOIN channels ch ON ch.id = c.channel_id JOIN users u ON u.id = c.user_id'
     let selectRank = ''
-    if (sort === 'relevance' && q.length > 0) {
+    if (q.length > 0) {
         from += ' JOIN chats_fts ON chats_fts.rowid = c.id'
         filters.push('chats_fts MATCH ?')
         bindings.push(toFtsQuery(q) ?? q)
+    }
+
+    if (sort === 'relevance' && q.length > 0) {
         selectRank = ', bm25(chats_fts) AS relevance_score'
     }
 
     const where = filters.join(' AND ')
 
-    let orderBy = 'c.created_at DESC'
+    let orderBy = 'c.created_at ASC'
     if (sort === 'popularity') {
         orderBy = '(c.upvotes - c.downvotes) DESC, c.created_at DESC'
     }

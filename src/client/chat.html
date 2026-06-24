@@ -55,7 +55,7 @@
                 <div id="channels" class="space-y-1"></div>
             </aside>
 
-            <section class="bg-white border border-g-border rounded-2xl p-3 sm:p-4 min-h-[70vh]">
+            <section class="bg-white border border-g-border rounded-2xl p-3 sm:p-4 min-h-[70vh] overflow-x-hidden">
                 <div class="flex items-center justify-between mb-3 gap-2">
                     <div>
                         <h2 id="channel-title" class="text-lg font-semibold">#general</h2>
@@ -69,24 +69,24 @@
                     </div>
                 </div>
 
-                <form id="composer" class="mb-4">
+                <div id="messages" class="space-y-3 max-h-[52vh] overflow-y-auto pr-1 pb-4"></div>
+
+                <form id="composer" class="mt-4 pt-3 border-t border-g-border overflow-x-hidden">
                     <textarea id="message-input" rows="3" maxlength="4000" placeholder="Write a message..."
-                        class="w-full text-sm px-3 py-2 rounded-xl border border-g-border focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y"></textarea>
+                        class="w-full text-sm px-3 py-2 rounded-xl border border-g-border focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y overflow-x-hidden"></textarea>
                     <div class="mt-2 flex justify-between items-center">
                         <p class="text-xs text-g-gray">Replies are one level deep in V1.</p>
                         <button type="submit"
                             class="bg-g-blue text-white text-sm px-4 py-2 rounded-xl hover:bg-blue-600">Post</button>
                     </div>
                 </form>
-
-                <div id="messages" class="space-y-3"></div>
             </section>
 
             <aside class="hidden lg:block bg-white border border-g-border rounded-2xl p-3 h-fit">
                 <h2 class="text-xs uppercase tracking-wide text-g-gray mb-2">Sort</h2>
                 <div class="space-y-2">
                     <button data-sort="date"
-                        class="sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border border-g-border">Newest</button>
+                        class="sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border border-g-border">Chronological</button>
                     <button data-sort="popularity"
                         class="sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border border-g-border">Popularity</button>
                     <button data-sort="relevance"
@@ -117,6 +117,7 @@
             q: '',
             messages: [],
             pollTimer: null,
+            stickToBottom: true,
         }
 
         const el = {
@@ -245,6 +246,13 @@
             wireMessageActions()
         }
 
+        function scrollMessagesToBottom(force = false) {
+            if (!force && !state.stickToBottom) return
+            requestAnimationFrame(() => {
+                el.messages.scrollTop = Math.max(el.messages.scrollHeight - el.messages.clientHeight, 0)
+            })
+        }
+
         function wireMessageActions() {
             for (const btn of el.messages.querySelectorAll('.vote-btn')) {
                 btn.addEventListener('click', async () => {
@@ -329,7 +337,7 @@
             renderChannels()
         }
 
-        async function loadMessages({ silent = false } = {}) {
+        async function loadMessages({ silent = false, forceScrollBottom = false } = {}) {
             if (!silent) el.statusText.textContent = 'Loading messages...'
             const params = new URLSearchParams({
                 channel: state.currentChannel,
@@ -342,6 +350,7 @@
             state.messages = res.data || []
             renderChannels()
             renderMessages()
+            scrollMessagesToBottom(forceScrollBottom)
             el.statusText.textContent = `${res.meta.total} messages`
         }
 
@@ -359,8 +368,9 @@
                 replies: [],
             }
 
-            state.messages = [optimistic, ...state.messages]
+            state.messages = [...state.messages, optimistic]
             renderMessages()
+            scrollMessagesToBottom(true)
 
             try {
                 await api('/api/chat/messages', {
@@ -370,7 +380,7 @@
                         content,
                     }),
                 })
-                await loadMessages({ silent: true })
+                await loadMessages({ silent: true, forceScrollBottom: true })
             } catch (err) {
                 state.messages = state.messages.filter((m) => m.id !== tempId)
                 renderMessages()
@@ -425,7 +435,7 @@
 
                 applySortButtonStyles()
                 await loadChannels()
-                await loadMessages()
+                await loadMessages({ forceScrollBottom: true })
 
                 state.pollTimer = setInterval(() => {
                     loadMessages({ silent: true }).catch(() => null)
@@ -443,17 +453,45 @@
             await postMessage(content)
         })
 
+        el.messageInput.addEventListener('keydown', async (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                const content = el.messageInput.value.trim()
+                if (!content) return
+                el.messageInput.value = ''
+                await postMessage(content)
+            }
+        })
+
         el.searchBtn.addEventListener('click', async () => {
             state.q = el.searchInput.value.trim()
-            await loadMessages()
+            await loadMessages({ forceScrollBottom: true })
         })
 
         el.searchInput.addEventListener('keydown', async (event) => {
             if (event.key === 'Enter') {
                 event.preventDefault()
                 state.q = el.searchInput.value.trim()
-                await loadMessages()
+                await loadMessages({ forceScrollBottom: true })
             }
+        })
+
+        // Cross-browser clear handling: when the search box becomes empty,
+        // immediately reset query state and reload the full message list.
+        el.searchInput.addEventListener('input', async () => {
+            const next = el.searchInput.value.trim()
+            if (next !== '') return
+            if (state.q === '') return
+            state.q = ''
+            await loadMessages({ forceScrollBottom: true })
+        })
+
+        // Keep the search event as a fast path for browsers that fire it on clear.
+        el.searchInput.addEventListener('search', async () => {
+            const next = el.searchInput.value.trim()
+            if (next === state.q) return
+            state.q = next
+            await loadMessages({ forceScrollBottom: true })
         })
 
         for (const btn of el.sortBtns) {
@@ -470,6 +508,11 @@
             el.reportsDialog.showModal()
         })
         el.closeReports.addEventListener('click', () => el.reportsDialog.close())
+
+        el.messages.addEventListener('scroll', () => {
+            const distanceToBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight
+            state.stickToBottom = distanceToBottom < 32
+        })
 
         bootstrap()
     </script>
