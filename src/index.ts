@@ -8,6 +8,7 @@ import { apiTokenMiddleware } from './middleware/apiTokenMiddleware.ts'
 import authRoutes from './routes/auth.ts'
 import bookmarkRoutes from './routes/bookmarks.ts'
 import v1Routes from './routes/v1.ts'
+import chatRoutes from './routes/chat.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { hashToken } from './utils/auth.ts'
@@ -34,6 +35,8 @@ import analyticsHtml from './client/analytics.html'
 import homepageHtml from './client/homepage.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import mobileHtml from './client/m.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import chatHtml from './client/chat.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -155,8 +158,10 @@ app.get('/l/:slug', async (c) => {
 
 // ─── Authenticated API routes ─────────────────────────────────────────────────
 app.use('/api/bookmarks/*', authMiddleware)
+app.use('/api/chat/*', authMiddleware)
 
 app.route('/api/bookmarks', bookmarkRoutes)
+app.route('/api/chat', chatRoutes)
 
 // Convenience top-level aliases
 app.get('/api/tags', authMiddleware, async (c) => {
@@ -1431,6 +1436,7 @@ app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))
 app.get('/admin', (c) => c.html(adminHtml as string))
 app.get('/analytics', (c) => c.html(analyticsHtml as string))
+app.get('/chat', (c) => c.html(chatHtml as string))
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not Found' }, 404))

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumin Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: {
+                            blue: '#4285F4',
+                            black: '#1F1F1F',
+                            gray: '#474747',
+                            border: '#E3E3E3',
+                            surface: '#FFFFFF'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-[#F8F9FA] text-g-black font-sans min-h-screen">
+    <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-g-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/" class="text-sm text-g-gray hover:text-g-blue">Dashboard</a>
+                <span class="text-g-border">|</span>
+                <h1 class="text-sm font-semibold">Chat</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-reports"
+                    class="hidden text-xs px-3 py-1.5 rounded-full border border-g-border hover:border-g-blue hover:text-g-blue">Reports</button>
+                <button id="btn-logout"
+                    class="text-xs px-3 py-1.5 rounded-full border border-g-border hover:border-g-blue hover:text-g-blue">Log
+                    out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr_250px] gap-4">
+            <aside class="bg-white border border-g-border rounded-2xl p-3 h-fit">
+                <h2 class="text-xs uppercase tracking-wide text-g-gray mb-2">Channels</h2>
+                <div id="channels" class="space-y-1"></div>
+            </aside>
+
+            <section class="bg-white border border-g-border rounded-2xl p-3 sm:p-4 min-h-[70vh]">
+                <div class="flex items-center justify-between mb-3 gap-2">
+                    <div>
+                        <h2 id="channel-title" class="text-lg font-semibold">#general</h2>
+                        <p class="text-xs text-g-gray" id="status-text">Loading messages...</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input id="search-input" type="search" placeholder="Search messages"
+                            class="w-40 sm:w-56 text-sm px-3 py-2 rounded-xl border border-g-border focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <button id="search-btn"
+                            class="text-sm px-3 py-2 rounded-xl border border-g-border hover:border-g-blue">Search</button>
+                    </div>
+                </div>
+
+                <form id="composer" class="mb-4">
+                    <textarea id="message-input" rows="3" maxlength="4000" placeholder="Write a message..."
+                        class="w-full text-sm px-3 py-2 rounded-xl border border-g-border focus:outline-none focus:ring-2 focus:ring-blue-200 resize-y"></textarea>
+                    <div class="mt-2 flex justify-between items-center">
+                        <p class="text-xs text-g-gray">Replies are one level deep in V1.</p>
+                        <button type="submit"
+                            class="bg-g-blue text-white text-sm px-4 py-2 rounded-xl hover:bg-blue-600">Post</button>
+                    </div>
+                </form>
+
+                <div id="messages" class="space-y-3"></div>
+            </section>
+
+            <aside class="hidden lg:block bg-white border border-g-border rounded-2xl p-3 h-fit">
+                <h2 class="text-xs uppercase tracking-wide text-g-gray mb-2">Sort</h2>
+                <div class="space-y-2">
+                    <button data-sort="date"
+                        class="sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border border-g-border">Newest</button>
+                    <button data-sort="popularity"
+                        class="sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border border-g-border">Popularity</button>
+                    <button data-sort="relevance"
+                        class="sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border border-g-border">Relevance</button>
+                </div>
+                <p class="mt-3 text-xs text-g-gray">Relevance uses full-text search on message content.</p>
+            </aside>
+        </div>
+    </main>
+
+    <dialog id="reports-dialog" class="rounded-2xl p-0 w-[min(860px,94vw)]">
+        <div class="bg-white border border-g-border rounded-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-g-border flex items-center justify-between">
+                <h3 class="font-semibold">Reported Messages</h3>
+                <button id="close-reports" class="text-sm px-3 py-1.5 rounded-lg border border-g-border">Close</button>
+            </div>
+            <div id="reports-list" class="max-h-[70vh] overflow-y-auto p-4 space-y-3"></div>
+        </div>
+    </dialog>
+
+    <script>
+        const state = {
+            token: localStorage.getItem('d11_token') || '',
+            user: null,
+            channels: [],
+            currentChannel: 'general',
+            sort: 'date',
+            q: '',
+            messages: [],
+            pollTimer: null,
+        }
+
+        const el = {
+            channels: document.getElementById('channels'),
+            channelTitle: document.getElementById('channel-title'),
+            statusText: document.getElementById('status-text'),
+            composer: document.getElementById('composer'),
+            messageInput: document.getElementById('message-input'),
+            messages: document.getElementById('messages'),
+            searchInput: document.getElementById('search-input'),
+            searchBtn: document.getElementById('search-btn'),
+            sortBtns: Array.from(document.querySelectorAll('.sort-btn')),
+            btnLogout: document.getElementById('btn-logout'),
+            btnReports: document.getElementById('btn-reports'),
+            reportsDialog: document.getElementById('reports-dialog'),
+            reportsList: document.getElementById('reports-list'),
+            closeReports: document.getElementById('close-reports'),
+        }
+
+        function authHeaders() {
+            return {
+                'Authorization': `Bearer ${state.token}`,
+                'Content-Type': 'application/json'
+            }
+        }
+
+        function esc(text) {
+            const div = document.createElement('div')
+            div.textContent = text ?? ''
+            return div.innerHTML
+        }
+
+        async function api(path, options = {}) {
+            const res = await fetch(path, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    ...authHeaders(),
+                },
+            })
+
+            if (res.status === 401) {
+                doLogout()
+                return null
+            }
+
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(data.error || 'Request failed')
+            return data
+        }
+
+        function doLogout() {
+            localStorage.removeItem('d11_token')
+            document.cookie = 'd11_auth=; path=/; SameSite=Lax; Secure; max-age=0'
+            location.href = '/'
+        }
+
+        function applySortButtonStyles() {
+            for (const btn of el.sortBtns) {
+                const active = btn.dataset.sort === state.sort
+                btn.className = `sort-btn w-full text-left text-sm px-3 py-2 rounded-xl border ${active ? 'border-g-blue text-g-blue bg-blue-50' : 'border-g-border'}`
+            }
+        }
+
+        function renderChannels() {
+            el.channels.innerHTML = state.channels.map((ch) => {
+                const active = ch.slug === state.currentChannel
+                return `<button data-channel="${esc(ch.slug)}" class="w-full text-left px-3 py-2 rounded-xl text-sm ${active ? 'bg-blue-50 text-g-blue font-semibold' : 'hover:bg-[#F3F4F6]'}">#${esc(ch.slug)}</button>`
+            }).join('')
+
+            for (const btn of el.channels.querySelectorAll('button[data-channel]')) {
+                btn.addEventListener('click', () => {
+                    state.currentChannel = btn.dataset.channel
+                    state.q = ''
+                    el.searchInput.value = ''
+                    loadMessages()
+                })
+            }
+
+            el.channelTitle.textContent = `#${state.currentChannel}`
+        }
+
+        function renderReply(reply, parentId) {
+            return `
+                <div class="mt-2 ml-3 pl-3 border-l border-g-border">
+                    <div class="text-xs text-g-gray mb-1">${esc(reply.user_full_name || reply.user_slug_prefix)} · ${new Date(reply.created_at).toLocaleString()}</div>
+                    <div class="text-sm whitespace-pre-wrap">${esc(reply.content)}</div>
+                    <div class="mt-1 flex items-center gap-2 text-xs text-g-gray">
+                        <button data-vote="1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▲ ${reply.upvotes}</button>
+                        <button data-vote="-1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▼ ${reply.downvotes}</button>
+                        <button data-report-id="${reply.id}" class="report-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Report</button>
+                        ${state.user?.is_admin === 1 ? `<button data-mod-id="${reply.id}" data-hidden="${reply.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">${reply.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                    </div>
+                </div>`
+        }
+
+        function renderMessages() {
+            if (!state.messages.length) {
+                el.messages.innerHTML = '<div class="text-sm text-g-gray border border-dashed border-g-border rounded-xl p-6 text-center">No messages yet. Start the thread.</div>'
+                return
+            }
+
+            el.messages.innerHTML = state.messages.map((msg) => {
+                return `
+                    <article class="border border-g-border rounded-xl p-3">
+                        <div class="text-xs text-g-gray mb-1">${esc(msg.user_full_name || msg.user_slug_prefix)} · ${new Date(msg.created_at).toLocaleString()}</div>
+                        <div class="text-sm whitespace-pre-wrap">${esc(msg.content)}</div>
+                        <div class="mt-2 flex items-center gap-2 text-xs text-g-gray flex-wrap">
+                            <button data-vote="1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▲ ${msg.upvotes}</button>
+                            <button data-vote="-1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">▼ ${msg.downvotes}</button>
+                            <button data-report-id="${msg.id}" class="report-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Report</button>
+                            <button data-reply-open="${msg.id}" class="reply-open-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">Reply</button>
+                            ${state.user?.is_admin === 1 ? `<button data-mod-id="${msg.id}" data-hidden="${msg.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-g-border hover:border-g-blue">${msg.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                        </div>
+                        <form data-reply-form="${msg.id}" class="hidden mt-2">
+                            <textarea data-reply-input="${msg.id}" rows="2" maxlength="4000" class="w-full text-sm px-3 py-2 rounded-xl border border-g-border" placeholder="Write a reply..."></textarea>
+                            <div class="mt-2 flex justify-end gap-2">
+                                <button type="button" data-reply-cancel="${msg.id}" class="text-xs px-3 py-1.5 rounded-lg border border-g-border">Cancel</button>
+                                <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-g-blue text-white">Post Reply</button>
+                            </div>
+                        </form>
+                        ${(msg.replies || []).map((reply) => renderReply(reply, msg.id)).join('')}
+                    </article>`
+            }).join('')
+
+            wireMessageActions()
+        }
+
+        function wireMessageActions() {
+            for (const btn of el.messages.querySelectorAll('.vote-btn')) {
+                btn.addEventListener('click', async () => {
+                    const id = Number(btn.dataset.id)
+                    const vote = Number(btn.dataset.vote)
+                    await api(`/api/chat/messages/${id}/vote`, {
+                        method: 'POST',
+                        body: JSON.stringify({ vote })
+                    })
+                    await loadMessages({ silent: true })
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('.report-btn')) {
+                btn.addEventListener('click', async () => {
+                    const id = Number(btn.dataset.reportId)
+                    await api(`/api/chat/messages/${id}/report`, { method: 'POST' })
+                    btn.textContent = 'Reported'
+                    btn.disabled = true
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('.reply-open-btn')) {
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.replyOpen
+                    const form = el.messages.querySelector(`[data-reply-form="${id}"]`)
+                    if (form) form.classList.remove('hidden')
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('[data-reply-cancel]')) {
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.replyCancel
+                    const form = el.messages.querySelector(`[data-reply-form="${id}"]`)
+                    if (form) form.classList.add('hidden')
+                })
+            }
+
+            for (const form of el.messages.querySelectorAll('[data-reply-form]')) {
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault()
+                    const id = Number(form.dataset.replyForm)
+                    const input = el.messages.querySelector(`[data-reply-input="${id}"]`)
+                    const content = input.value.trim()
+                    if (!content) return
+
+                    await api('/api/chat/messages', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            channel_slug: state.currentChannel,
+                            parent_id: id,
+                            content,
+                        }),
+                    })
+
+                    input.value = ''
+                    form.classList.add('hidden')
+                    await loadMessages({ silent: true })
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('.mod-btn')) {
+                btn.addEventListener('click', async () => {
+                    const id = Number(btn.dataset.modId)
+                    const hidden = btn.dataset.hidden === 'true'
+                    await api(`/api/chat/messages/${id}/moderate`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ is_hidden: !hidden }),
+                    })
+                    await loadMessages({ silent: true })
+                })
+            }
+        }
+
+        async function loadChannels() {
+            const res = await api('/api/chat/channels')
+            if (!res) return
+            state.channels = res.data || []
+            if (!state.channels.some((c) => c.slug === state.currentChannel) && state.channels[0]) {
+                state.currentChannel = state.channels[0].slug
+            }
+            renderChannels()
+        }
+
+        async function loadMessages({ silent = false } = {}) {
+            if (!silent) el.statusText.textContent = 'Loading messages...'
+            const params = new URLSearchParams({
+                channel: state.currentChannel,
+                sort: state.sort,
+            })
+            if (state.q) params.set('q', state.q)
+
+            const res = await api(`/api/chat/messages?${params.toString()}`)
+            if (!res) return
+            state.messages = res.data || []
+            renderChannels()
+            renderMessages()
+            el.statusText.textContent = `${res.meta.total} messages`
+        }
+
+        async function postMessage(content) {
+            const tempId = `temp-${Date.now()}`
+            const optimistic = {
+                id: tempId,
+                user_full_name: state.user?.full_name,
+                user_slug_prefix: state.user?.slug_prefix || 'you',
+                created_at: new Date().toISOString(),
+                content,
+                upvotes: 0,
+                downvotes: 0,
+                is_hidden: 0,
+                replies: [],
+            }
+
+            state.messages = [optimistic, ...state.messages]
+            renderMessages()
+
+            try {
+                await api('/api/chat/messages', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        channel_slug: state.currentChannel,
+                        content,
+                    }),
+                })
+                await loadMessages({ silent: true })
+            } catch (err) {
+                state.messages = state.messages.filter((m) => m.id !== tempId)
+                renderMessages()
+                alert(err.message)
+            }
+        }
+
+        async function loadReports() {
+            const res = await api('/api/chat/reports')
+            if (!res) return
+
+            el.reportsList.innerHTML = (res.data || []).map((msg) => `
+                <article class="border border-g-border rounded-xl p-3">
+                    <div class="text-xs text-g-gray mb-1">#${esc(msg.channel_slug)} · ${esc(msg.user_full_name || msg.user_slug_prefix)} · ${new Date(msg.created_at).toLocaleString()}</div>
+                    <div class="text-sm whitespace-pre-wrap mb-2">${esc(msg.content)}</div>
+                    <div class="flex gap-2">
+                        <button data-mod-id="${msg.id}" data-hidden="${msg.is_hidden}" class="reports-mod-btn text-xs px-3 py-1.5 rounded-lg border border-g-border hover:border-g-blue">${msg.is_hidden ? 'Unhide' : 'Hide'}</button>
+                    </div>
+                </article>
+            `).join('') || '<p class="text-sm text-g-gray">No reported messages.</p>'
+
+            for (const btn of el.reportsList.querySelectorAll('.reports-mod-btn')) {
+                btn.addEventListener('click', async () => {
+                    const id = Number(btn.dataset.modId)
+                    const hidden = btn.dataset.hidden === 'true'
+                    await api(`/api/chat/messages/${id}/moderate`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ is_hidden: !hidden }),
+                    })
+                    await loadReports()
+                    await loadMessages({ silent: true })
+                })
+            }
+        }
+
+        async function bootstrap() {
+            if (!state.token) {
+                location.href = '/'
+                return
+            }
+
+            try {
+                const me = await api('/api/auth/me', { method: 'GET' })
+                if (!me) return
+                state.user = me
+                if (state.user.is_admin === 1) {
+                    el.btnReports.classList.remove('hidden')
+                }
+
+                const fromQuery = new URLSearchParams(location.search).get('channel')
+                if (fromQuery) state.currentChannel = fromQuery
+
+                applySortButtonStyles()
+                await loadChannels()
+                await loadMessages()
+
+                state.pollTimer = setInterval(() => {
+                    loadMessages({ silent: true }).catch(() => null)
+                }, 10000)
+            } catch {
+                doLogout()
+            }
+        }
+
+        el.composer.addEventListener('submit', async (event) => {
+            event.preventDefault()
+            const content = el.messageInput.value.trim()
+            if (!content) return
+            el.messageInput.value = ''
+            await postMessage(content)
+        })
+
+        el.searchBtn.addEventListener('click', async () => {
+            state.q = el.searchInput.value.trim()
+            await loadMessages()
+        })
+
+        el.searchInput.addEventListener('keydown', async (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault()
+                state.q = el.searchInput.value.trim()
+                await loadMessages()
+            }
+        })
+
+        for (const btn of el.sortBtns) {
+            btn.addEventListener('click', async () => {
+                state.sort = btn.dataset.sort || 'date'
+                applySortButtonStyles()
+                await loadMessages()
+            })
+        }
+
+        el.btnLogout.addEventListener('click', doLogout)
+        el.btnReports.addEventListener('click', async () => {
+            await loadReports()
+            el.reportsDialog.showModal()
+        })
+        el.closeReports.addEventListener('click', () => el.reportsDialog.close())
+
+        bootstrap()
+    </script>
+</body>
+
+</html>

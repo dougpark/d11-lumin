@@ -120,6 +120,56 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id    ON api_tokens (user_id);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens (token_hash);
 
+-- ─── Chat Channels (V1) ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS channels (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  slug       TEXT    NOT NULL UNIQUE,
+  created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_channels_slug ON channels (slug);
+
+-- Seed default channels
+INSERT OR IGNORE INTO channels (name, slug) VALUES ('General', 'general');
+INSERT OR IGNORE INTO channels (name, slug) VALUES ('Links', 'links');
+INSERT OR IGNORE INTO channels (name, slug) VALUES ('AI', 'ai');
+INSERT OR IGNORE INTO channels (name, slug) VALUES ('Meta', 'meta');
+
+-- ─── Chats (V1) ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS chats (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel_id  INTEGER NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  parent_id   INTEGER REFERENCES chats (id) ON DELETE CASCADE,
+  content     TEXT    NOT NULL,
+  upvotes     INTEGER NOT NULL DEFAULT 0,
+  downvotes   INTEGER NOT NULL DEFAULT 0,
+  reported    INTEGER NOT NULL DEFAULT 0 CHECK (reported IN (0, 1)),
+  is_hidden   INTEGER NOT NULL DEFAULT 0 CHECK (is_hidden IN (0, 1)),
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+  -- Replies are one level deep in V1
+  CHECK (parent_id IS NULL OR parent_id != id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chats_channel_created ON chats (channel_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chats_parent_id       ON chats (parent_id);
+CREATE INDEX IF NOT EXISTS idx_chats_reported_hidden ON chats (reported, is_hidden);
+
+-- Per-user vote state to keep vote operations idempotent.
+CREATE TABLE IF NOT EXISTS chat_votes (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id    INTEGER NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  vote       INTEGER NOT NULL CHECK (vote IN (-1, 1)),
+  created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  UNIQUE (chat_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_votes_chat_id ON chat_votes (chat_id);
+CREATE INDEX IF NOT EXISTS idx_chat_votes_user_id ON chat_votes (user_id);
+
 -- ─── RSS Feeds (seed rows managed via SQL, admin UI in V2) ───────────────────
 CREATE TABLE IF NOT EXISTS rss_feeds (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,4 +275,32 @@ CREATE TRIGGER IF NOT EXISTS bookmarks_fts_au
     VALUES ('delete', old.id, old.title, old.short_description, old.ai_summary, old.tag_list, old.url);
     INSERT INTO bookmarks_fts(rowid, title, short_description, ai_summary, tag_list, url)
     VALUES (new.id, new.title, new.short_description, new.ai_summary, new.tag_list, new.url);
+  END;
+
+-- ─── Chat Full-Text Search (FTS5) ───────────────────────────────────────────
+-- Content table mirrors chats; rowid = chats.id.
+CREATE VIRTUAL TABLE IF NOT EXISTS chats_fts USING fts5(
+  content,
+  content=chats,
+  content_rowid=id
+);
+
+CREATE TRIGGER IF NOT EXISTS chats_fts_ai
+  AFTER INSERT ON chats BEGIN
+    INSERT INTO chats_fts(rowid, content)
+    VALUES (new.id, new.content);
+  END;
+
+CREATE TRIGGER IF NOT EXISTS chats_fts_ad
+  AFTER DELETE ON chats BEGIN
+    INSERT INTO chats_fts(chats_fts, rowid, content)
+    VALUES ('delete', old.id, old.content);
+  END;
+
+CREATE TRIGGER IF NOT EXISTS chats_fts_au
+  AFTER UPDATE ON chats BEGIN
+    INSERT INTO chats_fts(chats_fts, rowid, content)
+    VALUES ('delete', old.id, old.content);
+    INSERT INTO chats_fts(rowid, content)
+    VALUES (new.id, new.content);
   END;

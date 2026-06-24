@@ -58,6 +58,34 @@ export type ApiToken = {
     created_at: string
 }
 
+export type ChatChannel = {
+    id: number
+    name: string
+    slug: string
+    created_at: string
+}
+
+export type ChatMessage = {
+    id: number
+    channel_id: number
+    user_id: number
+    parent_id: number | null
+    content: string
+    upvotes: number
+    downvotes: number
+    reported: number
+    is_hidden: number
+    created_at: string
+}
+
+export type ChatVote = {
+    id: number
+    chat_id: number
+    user_id: number
+    vote: -1 | 1
+    created_at: string
+}
+
 // ─── Input shapes (omit DB-managed fields) ────────────────────────────────────
 
 export type CreateBookmarkInput = {
