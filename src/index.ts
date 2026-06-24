@@ -926,7 +926,7 @@ app.get('/api/n/recent', async (c) => {
          JOIN rss_feeds f ON f.id = r.feed_id
         WHERE r.expires_at > ?
         ORDER BY r.published_at DESC
-        LIMIT 100`
+        LIMIT 200`
     ).bind(now),
     c.env.DB.prepare(
       `SELECT COUNT(*) AS total FROM rss_items WHERE expires_at > ?`
