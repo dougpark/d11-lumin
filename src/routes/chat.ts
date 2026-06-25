@@ -94,7 +94,7 @@ chat.post('/messages', async (c) => {
         const created = await getMessageById(c.env.DB, id)
         if (!created) return c.json({ error: 'Failed to load created message' }, 500)
 
-        return c.json({ data: { ...created, user_vote: 0, replies: [] } }, 201)
+        return c.json({ data: { ...created, user_vote: 0, upvoters: [], downvoters: [], replies: [] } }, 201)
     } catch (err) {
         return c.json({ error: (err as Error).message }, 400)
     }

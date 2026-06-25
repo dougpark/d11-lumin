@@ -609,8 +609,8 @@
                     <div class="text-sm whitespace-pre-wrap text-[#1a1a2e]">${esc(reply.content)}</div>
                     <div class="mt-1 flex items-center justify-between gap-2 text-xs text-muted-fg">
                         <div class="vote-counts">
-                            ${reply.upvotes > 0 ? `<span class="vote-count" data-vote-type="up" data-voters="${esc(JSON.stringify(reply.upvoters || []))}" title="Click to see upvoters">👍 ${reply.upvotes}</span>` : ''}
-                            ${reply.downvotes > 0 ? `<span class="vote-count" data-vote-type="down" data-voters="${esc(JSON.stringify(reply.downvoters || []))}" title="Click to see downvoters">👎 ${reply.downvotes}</span>` : ''}
+                            ${reply.upvotes > 0 ? `<span class="vote-count" data-vote-type="up" data-voters='${JSON.stringify(reply.upvoters || [])}' title="Click to see upvoters">👍 ${reply.upvotes}</span>` : ''}
+                            ${reply.downvotes > 0 ? `<span class="vote-count" data-vote-type="down" data-voters='${JSON.stringify(reply.downvoters || [])}' title="Click to see downvoters">👎 ${reply.downvotes}</span>` : ''}
                         </div>
                         <div class="message-actions flex items-center gap-2 justify-end">
                             <button data-vote="1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">👍</button>
@@ -656,8 +656,8 @@
                             </div>
                             <div class="mt-1 flex items-center ${isOwn ? 'justify-end' : 'justify-start'} gap-2 text-xs text-muted-fg flex-wrap">
                                 <div class="vote-counts">
-                                    ${msg.upvotes > 0 ? `<span class="vote-count" data-vote-type="up" data-voters="${esc(JSON.stringify(msg.upvoters || []))}" title="Click to see upvoters">👍 ${msg.upvotes}</span>` : ''}
-                                    ${msg.downvotes > 0 ? `<span class="vote-count" data-vote-type="down" data-voters="${esc(JSON.stringify(msg.downvoters || []))}" title="Click to see downvoters">👎 ${msg.downvotes}</span>` : ''}
+                                    ${msg.upvotes > 0 ? `<span class="vote-count" data-vote-type="up" data-voters='${JSON.stringify(msg.upvoters || [])}' title="Click to see upvoters">👍 ${msg.upvotes}</span>` : ''}
+                                    ${msg.downvotes > 0 ? `<span class="vote-count" data-vote-type="down" data-voters='${JSON.stringify(msg.downvoters || [])}' title="Click to see downvoters">👎 ${msg.downvotes}</span>` : ''}
                                 </div>
                                 <div class="message-actions flex items-center gap-2">
                                     <button data-vote="1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">👍</button>

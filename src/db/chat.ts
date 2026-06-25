@@ -12,6 +12,8 @@ export type ChatMessageView = {
     content: string
     upvotes: number
     downvotes: number
+    upvoters: string[]
+    downvoters: string[]
     reported: number
     is_hidden: number
     created_at: string
@@ -106,6 +108,46 @@ export async function getMessageById(db: D1Database, id: number): Promise<RawMes
     return row ?? null
 }
 
+// Helper to fetch voter names for messages
+async function getVotersForMessages(
+    db: D1Database,
+    messageIds: number[],
+): Promise<Map<number, { upvoters: string[]; downvoters: string[] }>> {
+    if (messageIds.length === 0) return new Map()
+
+    const placeholders = messageIds.map(() => '?').join(',')
+    const result = await db
+        .prepare(
+            `SELECT cv.chat_id, cv.vote, u.full_name, u.slug_prefix
+             FROM chat_votes cv
+             JOIN users u ON u.id = cv.user_id
+             WHERE cv.chat_id IN (${placeholders})
+             ORDER BY cv.created_at ASC`
+        )
+        .bind(...messageIds)
+        .all<{ chat_id: number; vote: -1 | 1; full_name: string | null; slug_prefix: string }>()
+
+    const voters = new Map<number, { upvoters: string[]; downvoters: string[] }>()
+
+    for (const messageId of messageIds) {
+        voters.set(messageId, { upvoters: [], downvoters: [] })
+    }
+
+    for (const row of result.results) {
+        const entry = voters.get(row.chat_id)
+        if (entry) {
+            const voterName = row.full_name || row.slug_prefix
+            if (row.vote === 1) {
+                entry.upvoters.push(voterName)
+            } else if (row.vote === -1) {
+                entry.downvoters.push(voterName)
+            }
+        }
+    }
+
+    return voters
+}
+
 export async function listMessages(
     db: D1Database,
     opts: {
@@ -179,6 +221,8 @@ export async function listMessages(
     const topRows = listResult.results.map((r) => ({
         ...r,
         user_vote: r.user_vote ?? 0,
+        upvoters: [] as string[],
+        downvoters: [] as string[],
         replies: [] as ChatMessageView[],
     }))
 
@@ -210,14 +254,29 @@ export async function listMessages(
     for (const row of repliesResult.results) {
         if (!row.parent_id) continue
         const arr = byParent.get(row.parent_id) ?? []
-        arr.push({ ...row, user_vote: row.user_vote ?? 0, replies: [] })
+        arr.push({ ...row, user_vote: row.user_vote ?? 0, upvoters: [], downvoters: [], replies: [] })
         byParent.set(row.parent_id, arr)
     }
 
-    const messages = topRows.map((row) => ({
-        ...row,
-        replies: byParent.get(row.id) ?? [],
-    }))
+    // Fetch all message IDs (top-level and replies) to get voter names
+    const allMessageIds = [
+        ...topRows.map((r) => r.id),
+        ...repliesResult.results.map((r) => r.id),
+    ]
+    const votersMap = await getVotersForMessages(db, allMessageIds)
+
+    const messages = topRows.map((row) => {
+        const voters = votersMap.get(row.id) ?? { upvoters: [], downvoters: [] }
+        const replies = (byParent.get(row.id) ?? []).map((reply) => {
+            const replyVoters = votersMap.get(reply.id) ?? { upvoters: [], downvoters: [] }
+            return { ...reply, ...replyVoters }
+        })
+        return {
+            ...row,
+            ...voters,
+            replies,
+        }
+    })
 
     return {
         messages,
