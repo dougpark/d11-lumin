@@ -40,7 +40,8 @@
         }
     </script>
     <style>
-        html, body {
+        html,
+        body {
             height: 100%;
             margin: 0;
             padding: 0;
@@ -122,7 +123,7 @@
         }
 
         .message-mine {
-            background-color: #00897b;
+            background-color: var(--primary);
             color: white;
             margin-left: auto;
         }
@@ -136,6 +137,50 @@
         /* Tab active state */
         .nav-tab.active {
             color: #1565c0;
+        }
+
+        /* Message actions */
+        .message-actions {
+            transition: opacity 200ms ease;
+        }
+
+        .message-container:not(:hover) .message-actions {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .message-container:hover .message-actions {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Vote counts - always visible */
+        .vote-counts {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .vote-count {
+            font-size: 0.75rem;
+            color: #78909c;
+        }
+
+        .vote-count.zero {
+            display: none;
+        }
+
+        /* Touch device support */
+        @media (hover: none) {
+            .message-container .message-actions {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .message-container.message-tapped .message-actions {
+                opacity: 1;
+                pointer-events: auto;
+            }
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -450,21 +495,23 @@
             const avatarColor = getAvatarColor(reply.user_slug_prefix || 'unknown')
 
             return `
-                <div class="mt-2 ml-3 pl-3 border-l border-border">
+                <div class="message-container mt-2 ml-3 pl-3 border-l border-border hover:bg-muted/30 rounded-r-lg p-2 -ml-1 pl-4">
                     <div class="flex items-center gap-2 mb-1">
                         <div class="w-6 h-6 rounded-full text-white text-xs font-semibold flex items-center justify-center" style="background-color: ${avatarColor}">${esc(initials)}</div>
                         <span class="text-xs font-medium">${esc(reply.user_full_name || reply.user_slug_prefix)}</span>
-                        <span class="text-xs text-muted-fg">${new Date(reply.created_at).toLocaleString()}</span>
+                        <span class="text-xs text-muted-fg">${new Date(reply.created_at).toLocaleString([], { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div class="text-sm whitespace-pre-wrap text-[#1a1a2e]">${esc(reply.content)}</div>
                     <div class="mt-1 flex items-center justify-between gap-2 text-xs text-muted-fg">
-                        <div class="flex items-center gap-2">
-                            <button data-vote="1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">▲ ${reply.upvotes}</button>
-                            <button data-vote="-1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">▼ ${reply.downvotes}</button>
+                        <div class="vote-counts">
+                            ${reply.upvotes > 0 ? `<span class="vote-count">👍 ${reply.upvotes}</span>` : ''}
+                            ${reply.downvotes > 0 ? `<span class="vote-count">👎 ${reply.downvotes}</span>` : ''}
                         </div>
-                        <div class="flex items-center gap-2 justify-end">
-                            <button data-report-id="${reply.id}" class="report-btn px-2 py-1 border rounded-lg border-border hover:border-primary">Report</button>
-                            ${state.user?.is_admin === 1 ? `<button data-mod-id="${reply.id}" data-hidden="${reply.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-border hover:border-primary">${reply.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                        <div class="message-actions flex items-center gap-2 justify-end">
+                            <button data-vote="1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">👍</button>
+                            <button data-vote="-1" data-id="${reply.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">👎</button>
+                            <button data-report-id="${reply.id}" class="hidden report-btn px-2 py-1 border rounded-lg border-border hover:border-primary">Report</button>
+                            ${state.user?.is_admin === 1 ? `<button data-mod-id="${reply.id}" data-hidden="${reply.is_hidden}" class="hidden mod-btn px-2 py-1 border rounded-lg border-border hover:border-primary">${reply.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
                         </div>
                     </div>
                 </div>`
@@ -476,26 +523,44 @@
                 return
             }
 
+            let prevDate = null
             el.messages.innerHTML = state.messages.map((msg) => {
+                const msgDate = new Date(msg.created_at)
+                const msgDateStr = msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })
+
+                let dateSeparator = ''
+                if (prevDate !== msgDateStr) {
+                    dateSeparator = `<div class="flex items-center gap-3 my-4"><div class="flex-1 h-px bg-border"></div><span class="text-xs font-semibold text-muted-fg px-2">${msgDateStr}</span><div class="flex-1 h-px bg-border"></div></div>`
+                    prevDate = msgDateStr
+                }
+
                 const initials = createAvatarInitials(msg.user_full_name, msg.user_slug_prefix)
                 const avatarColor = getAvatarColor(msg.user_slug_prefix || 'unknown')
                 const isOwn = msg.user_slug_prefix === state.user?.slug_prefix
 
                 return `
-                    <article class="flex ${isOwn ? 'justify-end' : 'justify-start'} gap-2 mb-3">
+                    ${dateSeparator}
+                    <article class="message-container flex ${isOwn ? 'justify-end' : 'justify-start'} gap-2 mb-3">
                         ${!isOwn ? `<div class="w-8 h-8 rounded-full text-white text-xs font-semibold flex items-center justify-center flex-shrink-0" style="background-color: ${avatarColor}">${esc(initials)}</div>` : ''}
                         <div class="${isOwn ? 'mr-2' : ''}">
                             ${!isOwn ? `<div class="text-xs font-medium text-[#1a1a2e] mb-1">${esc(msg.user_full_name || msg.user_slug_prefix)}</div>` : ''}
+                             <div class="text-xs text-muted-fg mt-1 ${isOwn ? 'text-right' : ''}">${msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+
                             <div class="message-bubble ${isOwn ? 'message-mine' : 'message-theirs'}">
                                 ${esc(msg.content)}
                             </div>
-                            <div class="text-xs text-muted-fg mt-1 ${isOwn ? 'text-right' : ''}">${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                             <div class="mt-1 flex items-center ${isOwn ? 'justify-end' : 'justify-start'} gap-2 text-xs text-muted-fg flex-wrap">
-                                <button data-vote="1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">▲ ${msg.upvotes}</button>
-                                <button data-vote="-1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">▼ ${msg.downvotes}</button>
-                                <button data-reply-open="${msg.id}" class="reply-open-btn px-2 py-1 border rounded-lg border-border hover:border-primary">Reply</button>
-                                <button data-report-id="${msg.id}" class="report-btn px-2 py-1 border rounded-lg border-border hover:border-primary">Report</button>
-                                ${state.user?.is_admin === 1 ? `<button data-mod-id="${msg.id}" data-hidden="${msg.is_hidden}" class="mod-btn px-2 py-1 border rounded-lg border-border hover:border-primary">${msg.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                                <div class="vote-counts">
+                                    ${msg.upvotes > 0 ? `<span class="vote-count">👍 ${msg.upvotes}</span>` : ''}
+                                    ${msg.downvotes > 0 ? `<span class="vote-count">👎 ${msg.downvotes}</span>` : ''}
+                                </div>
+                                <div class="message-actions flex items-center gap-2">
+                                    <button data-vote="1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">👍</button>
+                                    <button data-vote="-1" data-id="${msg.id}" class="vote-btn px-2 py-1 border rounded-lg border-border hover:border-primary">👎</button>
+                                    <button data-reply-open="${msg.id}" class="reply-open-btn px-2 py-1 border rounded-lg border-border hover:border-primary">↩</button>
+                                    <button data-report-id="${msg.id}" class="hidden report-btn px-2 py-1 border rounded-lg border-border hover:border-primary">Report</button>
+                                    ${state.user?.is_admin === 1 ? `<button data-mod-id="${msg.id}" data-hidden="${msg.is_hidden}" class="hidden mod-btn px-2 py-1 border rounded-lg border-border hover:border-primary">${msg.is_hidden ? 'Unhide' : 'Hide'}</button>` : ''}
+                                </div>
                             </div>
                             <form data-reply-form="${msg.id}" class="${state.openReplyId === msg.id ? '' : 'hidden'} mt-3 pt-2 border-t border-border">
                                 <textarea data-reply-input="${msg.id}" rows="2" maxlength="4000" class="w-full text-sm px-3 py-2 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Write a reply...">${esc(state.replyDrafts[msg.id] ?? '')}</textarea>
