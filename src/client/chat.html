@@ -132,6 +132,16 @@
             transform: translateX(0);
         }
 
+        .header-icon-btn {
+            padding: 0.4rem;
+            border-radius: 0.5rem;
+            transition: background-color 150ms ease;
+        }
+
+        .header-icon-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
         /* Message bubble styles */
         .message-bubble {
             border-radius: 1rem;
@@ -294,17 +304,33 @@
         <!-- Top Bar / Header -->
         <header
             class="flex-shrink-0 bg-primary text-white px-4 py-3 flex items-center justify-between border-b border-primary/20">
-            <div class="flex items-center gap-3 flex-1">
-                <button id="btn-back" class="p-1 hover:bg-white/20 rounded-lg hidden">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+                <button id="btn-back" class="p-1 hover:bg-white/20 rounded-lg" title="Channels"
+                    aria-label="Open channels">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
                         </path>
                     </svg>
                 </button>
-                <div>
+                <div class="min-w-0">
                     <h1 id="channel-title" class="text-base font-semibold">#general</h1>
                     <p id="status-text" class="text-xs opacity-90">Loading messages...</p>
                 </div>
+            </div>
+            <div class="flex items-center gap-1 ml-2">
+                <button id="btn-search" class="header-icon-btn" title="Search" aria-label="Open search">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                            clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+                <button id="btn-profile" class="header-icon-btn" title="Profile" aria-label="Open profile">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                            clip-rule="evenodd"></path>
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -339,48 +365,6 @@
                 </button>
             </div>
         </form>
-
-        <!-- Bottom Navigation Rail -->
-        <nav class="flex-shrink-0 bg-white border-t border-border flex items-center justify-between px-0 py-2">
-            <button id="nav-channels"
-                class="nav-tab flex-1 py-2 flex flex-col items-center gap-1 hover:bg-muted text-muted-fg transition active"
-                title="Channels">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        d="M2 6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM4 9a1 1 0 100 2h8a1 1 0 100-2H4z">
-                    </path>
-                </svg>
-                <span class="text-xs">Channels</span>
-            </button>
-            <button id="nav-mentions"
-                class="nav-tab flex-1 py-2 flex flex-col items-center gap-1 hover:bg-muted text-muted-fg transition"
-                title="Mentions">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
-                </svg>
-                <span class="text-xs">Mentions</span>
-            </button>
-            <button id="nav-search"
-                class="nav-tab flex-1 py-2 flex flex-col items-center gap-1 hover:bg-muted text-muted-fg transition"
-                title="Search">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd"
-                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                        clip-rule="evenodd"></path>
-                </svg>
-                <span class="text-xs">Search</span>
-            </button>
-            <button id="nav-me"
-                class="nav-tab flex-1 py-2 flex flex-col items-center gap-1 hover:bg-muted text-muted-fg transition"
-                title="Me">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                        clip-rule="evenodd"></path>
-                </svg>
-                <span class="text-xs">Me</span>
-            </button>
-        </nav>
 
         <!-- Drawer Overlay -->
         <div id="drawer-overlay" class="drawer-overlay"></div>
@@ -435,6 +419,19 @@
                         Reported Messages
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Temporary Profile Drawer (Right) -->
+        <div id="profile-drawer" class="drawer drawer-right">
+            <div class="p-4">
+                <h2 class="text-sm font-semibold text-[#1a1a2e] mb-3">Profile</h2>
+                <div class="rounded-xl border border-border bg-white p-4">
+                    <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">User</p>
+                    <p id="profile-user-name" class="text-base font-semibold text-[#1a1a2e]">Loading...</p>
+                    <p id="profile-user-handle" class="text-sm text-muted-fg mt-1"></p>
+                </div>
+                <p class="text-xs text-muted-fg mt-4">Temporary profile page. More account settings coming soon.</p>
             </div>
         </div>
     </div>
@@ -494,16 +491,17 @@
             sortBtns: Array.from(document.querySelectorAll('.sort-btn')),
             btnLogout: document.getElementById('btn-logout'),
             btnBack: document.getElementById('btn-back'),
+            btnSearch: document.getElementById('btn-search'),
+            btnProfile: document.getElementById('btn-profile'),
             btnReports: document.getElementById('btn-reports'),
             reportsDialog: document.getElementById('reports-dialog'),
             reportsList: document.getElementById('reports-list'),
             closeReports: document.getElementById('close-reports'),
-            navChannels: document.getElementById('nav-channels'),
-            navMentions: document.getElementById('nav-mentions'),
-            navSearch: document.getElementById('nav-search'),
-            navMe: document.getElementById('nav-me'),
             channelsDrawer: document.getElementById('channels-drawer'),
             searchDrawer: document.getElementById('search-drawer'),
+            profileDrawer: document.getElementById('profile-drawer'),
+            profileUserName: document.getElementById('profile-user-name'),
+            profileUserHandle: document.getElementById('profile-user-handle'),
             drawerOverlay: document.getElementById('drawer-overlay'),
             voterPopup: document.getElementById('voter-popup'),
             voterPopupTitle: document.getElementById('voter-popup-title'),
@@ -556,8 +554,8 @@
             state.activeDrawer = null
             el.channelsDrawer.classList.remove('open')
             el.searchDrawer.classList.remove('open')
+            el.profileDrawer.classList.remove('open')
             el.drawerOverlay.classList.remove('active')
-            el.btnBack.classList.add('hidden')
         }
 
         function openDrawer(drawer) {
@@ -568,15 +566,16 @@
             if (drawer === 'channels') {
                 el.channelsDrawer.classList.add('open')
                 el.searchDrawer.classList.remove('open')
+                el.profileDrawer.classList.remove('open')
             } else if (drawer === 'search') {
                 el.searchDrawer.classList.add('open')
                 el.channelsDrawer.classList.remove('open')
+                el.profileDrawer.classList.remove('open')
+            } else if (drawer === 'profile') {
+                el.profileDrawer.classList.add('open')
+                el.channelsDrawer.classList.remove('open')
+                el.searchDrawer.classList.remove('open')
             }
-        }
-
-        function updateNavTabs() {
-            el.navChannels.classList.toggle('active', state.activeDrawer === 'channels')
-            el.navSearch.classList.toggle('active', state.activeDrawer === 'search')
         }
 
         function applySortButtonStyles() {
@@ -1136,6 +1135,8 @@
                 if (state.user.is_admin === 1) {
                     el.btnReports.classList.remove('hidden')
                 }
+                el.profileUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
+                el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
 
                 const fromQuery = new URLSearchParams(location.search).get('channel')
                 if (fromQuery) state.currentChannel = fromQuery
@@ -1213,7 +1214,27 @@
         }
 
         el.btnLogout.addEventListener('click', doLogout)
-        el.btnBack.addEventListener('click', closeDrawer)
+        el.btnBack.addEventListener('click', () => {
+            if (state.activeDrawer === 'channels') {
+                closeDrawer()
+                return
+            }
+            openDrawer('channels')
+        })
+        el.btnSearch.addEventListener('click', () => {
+            if (state.activeDrawer === 'search') {
+                closeDrawer()
+            } else {
+                openDrawer('search')
+            }
+        })
+        el.btnProfile.addEventListener('click', () => {
+            if (state.activeDrawer === 'profile') {
+                closeDrawer()
+            } else {
+                openDrawer('profile')
+            }
+        })
         el.drawerOverlay.addEventListener('click', closeDrawer)
 
         // Jump to latest messages button
@@ -1230,32 +1251,6 @@
             el.reportsDialog.showModal()
         })
         el.closeReports.addEventListener('click', () => el.reportsDialog.close())
-
-        el.navChannels.addEventListener('click', () => {
-            if (state.activeDrawer === 'channels') {
-                closeDrawer()
-            } else {
-                openDrawer('channels')
-            }
-            updateNavTabs()
-        })
-
-        el.navSearch.addEventListener('click', () => {
-            if (state.activeDrawer === 'search') {
-                closeDrawer()
-            } else {
-                openDrawer('search')
-            }
-            updateNavTabs()
-        })
-
-        el.navMentions.addEventListener('click', () => {
-            alert('Mentions feature coming soon')
-        })
-
-        el.navMe.addEventListener('click', () => {
-            alert('Profile feature coming soon')
-        })
 
         el.messages.addEventListener('scroll', () => {
             const distanceToBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight
