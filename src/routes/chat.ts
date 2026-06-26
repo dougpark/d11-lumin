@@ -38,6 +38,7 @@ chat.get('/messages', async (c) => {
     const q = c.req.query('q')?.trim() ?? ''
     const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '50', 10) || 50, 1), 100)
     const offset = Math.max(parseInt(c.req.query('offset') ?? '0', 10) || 0, 0)
+    const before_id = c.req.query('before_id') ? parseInt(c.req.query('before_id')!, 10) : undefined
 
     const channel = await getChannelBySlug(c.env.DB, channelSlug)
     if (!channel) return c.json({ error: 'Channel not found' }, 404)
@@ -49,6 +50,7 @@ chat.get('/messages', async (c) => {
         q,
         limit,
         offset,
+        before_id,
     })
 
     return c.json({
@@ -58,6 +60,7 @@ chat.get('/messages', async (c) => {
             total: result.total,
             limit,
             offset,
+            before_id,
             sort,
             q,
         },

@@ -157,6 +157,7 @@ export async function listMessages(
         q?: string
         limit?: number
         offset?: number
+        before_id?: number
         include_hidden?: boolean
     },
 ): Promise<{ messages: ChatMessageView[]; total: number }> {
@@ -170,6 +171,12 @@ export async function listMessages(
 
     if (!opts.include_hidden) {
         filters.push('c.is_hidden = 0')
+    }
+
+    // Cursor-based pagination: before_id means load older messages
+    if (opts.before_id) {
+        filters.push('c.id < ?')
+        bindings.push(opts.before_id)
     }
 
     let from = 'FROM chats c JOIN channels ch ON ch.id = c.channel_id JOIN users u ON u.id = c.user_id'
@@ -186,14 +193,17 @@ export async function listMessages(
 
     const where = filters.join(' AND ')
 
-    let orderBy = 'c.created_at ASC'
+    // For initial load (no before_id), load newest first. Otherwise, load oldest first in cursor range.
+    let orderBy = opts.before_id ? 'c.id DESC' : 'c.id DESC'
     if (sort === 'popularity') {
-        orderBy = '(c.upvotes - c.downvotes) DESC, c.created_at DESC'
+        orderBy = opts.before_id
+            ? '(c.upvotes - c.downvotes) DESC, c.id DESC'
+            : '(c.upvotes - c.downvotes) DESC, c.id DESC'
     }
     if (sort === 'relevance') {
         orderBy = q.length > 0
-            ? 'relevance_score ASC, (c.upvotes - c.downvotes) DESC, c.created_at DESC'
-            : '(c.upvotes - c.downvotes) DESC, c.created_at DESC'
+            ? 'relevance_score ASC, (c.upvotes - c.downvotes) DESC, c.id DESC'
+            : '(c.upvotes - c.downvotes) DESC, c.id DESC'
     }
 
     const listSql = `
@@ -206,7 +216,7 @@ export async function listMessages(
         LEFT JOIN chat_votes cv ON cv.chat_id = c.id AND cv.user_id = ?
         WHERE ${where}
         ORDER BY ${orderBy}
-        LIMIT ? OFFSET ?`
+        LIMIT ?`
 
     const countSql = `
         SELECT COUNT(*) AS cnt
@@ -214,17 +224,19 @@ export async function listMessages(
         WHERE ${where}`
 
     const [listResult, countRow] = await Promise.all([
-        db.prepare(listSql).bind(opts.user_id, ...bindings, limit, offset).all<RawMessageRow>(),
+        db.prepare(listSql).bind(opts.user_id, ...bindings, limit).all<RawMessageRow>(),
         db.prepare(countSql).bind(...bindings).first<{ cnt: number }>(),
     ])
 
-    const topRows = listResult.results.map((r) => ({
-        ...r,
-        user_vote: r.user_vote ?? 0,
-        upvoters: [] as string[],
-        downvoters: [] as string[],
-        replies: [] as ChatMessageView[],
-    }))
+    const topRows = listResult.results
+        .map((r) => ({
+            ...r,
+            user_vote: r.user_vote ?? 0,
+            upvoters: [] as string[],
+            downvoters: [] as string[],
+            replies: [] as ChatMessageView[],
+        }))
+        .reverse() // Reverse so they display oldest-to-newest
 
     if (topRows.length === 0) {
         return { messages: [], total: countRow?.cnt ?? 0 }

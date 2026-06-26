@@ -441,6 +441,9 @@
             sort: 'date',
             q: '',
             messages: [],
+            minMessageId: null,
+            maxMessageId: null,
+            loadingOlder: false,
             pollTimer: null,
             stickToBottom: true,
             openReplyId: null,
@@ -562,6 +565,8 @@
                     state.q = ''
                     state.openReplyId = null
                     state.replyDrafts = {}
+                    state.minMessageId = null
+                    state.maxMessageId = null
                     el.searchInput.value = ''
                     closeDrawer()
                     loadMessages()
@@ -847,7 +852,10 @@
             renderChannels()
         }
 
-        async function loadMessages({ silent = false, forceScrollBottom = false } = {}) {
+        async function loadMessages({ silent = false, forceScrollBottom = false, loadOlder = false } = {}) {
+            if (loadOlder && state.loadingOlder) return
+            if (loadOlder) state.loadingOlder = true
+
             const activeReplyInput = document.activeElement?.matches?.('[data-reply-input]')
                 ? document.activeElement
                 : null
@@ -861,13 +869,39 @@
                 sort: state.sort,
             })
             if (state.q) params.set('q', state.q)
+            if (loadOlder && state.minMessageId) {
+                params.set('before_id', state.minMessageId.toString())
+            }
 
             const res = await api(`/api/chat/messages?${params.toString()}`)
-            if (!res) return
-            state.messages = res.data || []
-            if (state.openReplyId !== null && !state.messages.some((m) => m.id === state.openReplyId)) {
-                state.openReplyId = null
+            if (!res) {
+                state.loadingOlder = false
+                return
             }
+
+            if (loadOlder) {
+                // Prepend older messages
+                state.messages = [...(res.data || []), ...state.messages]
+                const oldScrollHeight = el.messages.scrollHeight
+                // Wait for DOM to update
+                await new Promise((resolve) => requestAnimationFrame(resolve))
+                // Maintain scroll position relative to new content
+                el.messages.scrollTop = el.messages.scrollHeight - oldScrollHeight
+            } else {
+                // Initial load or refresh - replace all messages
+                state.messages = res.data || []
+                if (state.openReplyId !== null && !state.messages.some((m) => m.id === state.openReplyId)) {
+                    state.openReplyId = null
+                }
+            }
+
+            // Track message ID bounds
+            if (state.messages.length > 0) {
+                const ids = state.messages.map((m) => m.id).filter((id) => typeof id === 'number')
+                state.minMessageId = Math.min(...ids)
+                state.maxMessageId = Math.max(...ids)
+            }
+
             renderChannels()
             renderMessages()
 
@@ -881,8 +915,11 @@
                 }
             }
 
-            scrollMessagesToBottom(forceScrollBottom)
+            if (!loadOlder) {
+                scrollMessagesToBottom(forceScrollBottom)
+            }
             el.statusText.textContent = `${res.meta.total || 0} messages`
+            state.loadingOlder = false
         }
 
         async function postMessage(content) {
@@ -1006,6 +1043,8 @@
             if (event.key === 'Enter') {
                 event.preventDefault()
                 state.q = el.searchInput.value.trim()
+                state.minMessageId = null
+                state.maxMessageId = null
                 await loadMessages({ forceScrollBottom: true })
             }
         })
@@ -1065,6 +1104,12 @@
         el.messages.addEventListener('scroll', () => {
             const distanceToBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight
             state.stickToBottom = distanceToBottom < 32
+
+            // Load older messages when user scrolls near top
+            const distanceToTop = el.messages.scrollTop
+            if (distanceToTop < 256 && !state.loadingOlder && state.messages.length > 0) {
+                loadMessages({ silent: true, loadOlder: true })
+            }
         })
 
         // Close voter popup when clicking elsewhere
