@@ -85,51 +85,61 @@
             flex-direction: column;
         }
 
-        /* Drawer animations */
-        .drawer-overlay {
+        /* Stacked page transitions */
+        .stack-page {
             position: absolute;
             inset: 0;
-            z-index: 40;
-            background-color: rgba(0, 0, 0, 0.3);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 300ms ease;
+            width: 100%;
+            min-width: 100%;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
         }
 
-        .drawer-overlay.active {
-            opacity: 1;
+        #channels-page {
+            transform: translate3d(-100%, 0, 0);
+            z-index: 35;
+            background-color: #ffffff;
+            pointer-events: none;
+        }
+
+        #chat-shell[data-view='channels'] #channels-page {
+            transform: translate3d(0, 0, 0);
             pointer-events: auto;
         }
 
-        .drawer {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 224px;
-            background-color: white;
-            border-right: 1px solid rgba(0, 0, 0, 0.08);
-            z-index: 50;
-            transition: transform 300ms ease;
-            overflow-y: auto;
-            padding-top: 0;
+        #messages-page {
+            transform: translate3d(0, 0, 0);
+            z-index: 30;
+            background-color: #f0f2f5;
         }
 
-        .drawer-left {
-            left: 0;
-            transform: translateX(-100%);
+        #search-page,
+        #profile-page {
+            z-index: 40;
+            background-color: #ffffff;
+            transform: translate3d(110%, 0, 0);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+                transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 220ms ease,
+                visibility 0s linear 300ms;
         }
 
-        .drawer-left.open {
-            transform: translateX(0);
-        }
-
-        .drawer-right {
-            right: 0;
-            transform: translateX(100%);
-        }
-
-        .drawer-right.open {
-            transform: translateX(0);
+        #chat-shell[data-view='search'] #search-page,
+        #chat-shell[data-view='profile'] #profile-page {
+            transform: translate3d(0, 0, 0);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+                transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 220ms ease,
+                visibility 0s linear 0s;
         }
 
         .header-icon-btn {
@@ -140,6 +150,21 @@
 
         .header-icon-btn:hover {
             background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .channels-brand-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #1565c0 0%, #4fc3f7 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            letter-spacing: 0.02em;
+            box-shadow: 0 6px 18px rgba(21, 101, 192, 0.28);
         }
 
         /* Message bubble styles */
@@ -160,11 +185,6 @@
             background-color: white;
             color: #1a1a2e;
             border: 1px solid rgba(0, 0, 0, 0.08);
-        }
-
-        /* Tab active state */
-        .nav-tab.active {
-            color: #1565c0;
         }
 
         /* Message actions */
@@ -301,79 +321,25 @@
 
 <body class="bg-[#f5f5f5] text-[#1a1a2e] font-sans">
     <div id="chat-shell">
-        <!-- Top Bar / Header -->
-        <header
-            class="flex-shrink-0 bg-primary text-white px-4 py-3 flex items-center justify-between border-b border-primary/20">
-            <div class="flex items-center gap-3 flex-1 min-w-0">
-                <button id="btn-back" class="p-1 hover:bg-white/20 rounded-lg" title="Channels"
-                    aria-label="Open channels">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
-                        </path>
-                    </svg>
-                </button>
-                <div class="min-w-0">
-                    <h1 id="channel-title" class="text-base font-semibold">#general</h1>
-                    <p id="status-text" class="text-xs opacity-90">Loading messages...</p>
+        <section id="channels-page" class="stack-page">
+            <header class="px-4 py-4 border-b border-border bg-white">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="channels-brand-icon" aria-hidden="true">L</div>
+                        <div class="min-w-0">
+                            <h1 class="text-base font-semibold text-[#1a1a2e]">Lumin Chat</h1>
+                            <p id="channels-user-name" class="text-xs text-muted-fg truncate">Loading user...</p>
+                        </div>
+                    </div>
+                    <a href="https://d11.me" target="_blank" rel="noopener noreferrer"
+                        class="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary transition whitespace-nowrap">Dashboard</a>
                 </div>
-            </div>
-            <div class="flex items-center gap-1 ml-2">
-                <button id="btn-search" class="header-icon-btn" title="Search" aria-label="Open search">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd"
-                            d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                            clip-rule="evenodd"></path>
-                    </svg>
-                </button>
-                <button id="btn-profile" class="header-icon-btn" title="Profile" aria-label="Open profile">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                            clip-rule="evenodd"></path>
-                    </svg>
-                </button>
-            </div>
-        </header>
-
-        <!-- Messages Container -->
-        <div class="flex-1 relative overflow-hidden flex flex-col">
-            <div id="messages" class="flex-1 overflow-y-auto space-y-2 p-3 flex flex-col relative"></div>
-            <!-- New Messages Badge -->
-            <div id="new-messages-badge" class="absolute bottom-3 left-1/2 transform -translate-x-1/2 hidden">
-                <button id="jump-to-latest-btn"
-                    class="bg-info text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[#F09E0F] shadow-lg whitespace-nowrap">
-                    <span id="new-count">1</span> new message
-                </button>
-            </div>
-        </div>
-
-        <!-- Composer -->
-        <form id="composer"
-            class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5 overflow-x-hidden w-full max-w-full">
-            <div class="flex items-end gap-2 w-full max-w-full min-w-0">
-                <div
-                    class="flex-1 bg-muted rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
-                    <textarea id="message-input" maxlength="4000" placeholder="Message"
-                        class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0"></textarea>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4">
+                <div>
+                    <h2 class="text-xs uppercase tracking-wide text-muted-fg mb-3">Channels</h2>
+                    <div id="channels" class="space-y-1"></div>
                 </div>
-                <button type="submit"
-                    class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-[#0d47a1] flex-shrink-0">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                            d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5.951-1.429 5.951 1.429a1 1 0 001.169-1.409l-7-14z">
-                        </path>
-                    </svg>
-                </button>
-            </div>
-        </form>
-
-        <!-- Drawer Overlay -->
-        <div id="drawer-overlay" class="drawer-overlay"></div>
-
-        <!-- Channels Drawer (Left) -->
-        <div id="channels-drawer" class="drawer drawer-left">
-            <div class="p-4">
-                <h2 class="text-sm font-semibold text-[#1a1a2e] mb-3">Channels</h2>
-                <div id="channels" class="space-y-1"></div>
 
                 <div class="mt-6 pt-4 border-t border-border">
                     <h3 class="text-xs uppercase tracking-wide text-muted-fg mb-3">Direct Messages</h3>
@@ -387,13 +353,89 @@
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Search/Sort Drawer (Right) -->
-        <div id="search-drawer" class="drawer drawer-right">
-            <div class="p-4">
-                <h2 class="text-sm font-semibold text-[#1a1a2e] mb-3">Search & Sort</h2>
+        <section id="messages-page" class="stack-page">
+            <!-- Top Bar / Header -->
+            <header
+                class="flex-shrink-0 bg-primary text-white px-4 py-3 flex items-center justify-between border-b border-primary/20">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <button id="btn-back" class="p-1 hover:bg-white/20 rounded-lg" title="Channels"
+                        aria-label="Open channels">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                            </path>
+                        </svg>
+                    </button>
+                    <div class="min-w-0">
+                        <h1 id="channel-title" class="text-base font-semibold">#general</h1>
+                        <p id="status-text" class="text-xs opacity-90">Loading messages...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 ml-2">
+                    <button id="btn-search" class="header-icon-btn" title="Search" aria-label="Open search">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                                clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                    <button id="btn-profile" class="header-icon-btn" title="Profile" aria-label="Open profile">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
 
+            <!-- Messages Container -->
+            <div class="flex-1 relative overflow-hidden flex flex-col">
+                <div id="messages" class="flex-1 overflow-y-auto space-y-2 p-3 flex flex-col relative"></div>
+                <!-- New Messages Badge -->
+                <div id="new-messages-badge" class="absolute bottom-3 left-1/2 transform -translate-x-1/2 hidden">
+                    <button id="jump-to-latest-btn"
+                        class="bg-info text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[#F09E0F] shadow-lg whitespace-nowrap">
+                        <span id="new-count">1</span> new message
+                    </button>
+                </div>
+            </div>
+
+            <!-- Composer -->
+            <form id="composer"
+                class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5 overflow-x-hidden w-full max-w-full">
+                <div class="flex items-end gap-2 w-full max-w-full min-w-0">
+                    <div
+                        class="flex-1 bg-muted rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
+                        <textarea id="message-input" maxlength="4000" placeholder="Message"
+                            class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0"></textarea>
+                    </div>
+                    <button type="submit"
+                        class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-[#0d47a1] flex-shrink-0">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5.951-1.429 5.951 1.429a1 1 0 001.169-1.409l-7-14z">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section id="search-page" class="stack-page">
+            <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button id="btn-search-back" class="p-1.5 rounded-lg hover:bg-muted" title="Back"
+                        aria-label="Back to messages">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                            </path>
+                        </svg>
+                    </button>
+                    <h2 class="text-base font-semibold text-[#1a1a2e]">Search & Sort</h2>
+                </div>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4">
                 <div class="mb-4">
                     <label class="text-xs uppercase tracking-wide text-muted-fg block mb-2">Messages</label>
                     <input id="search-input" type="search" placeholder="Search messages"
@@ -420,12 +462,22 @@
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Temporary Profile Drawer (Right) -->
-        <div id="profile-drawer" class="drawer drawer-right">
-            <div class="p-4">
-                <h2 class="text-sm font-semibold text-[#1a1a2e] mb-3">Profile</h2>
+        <section id="profile-page" class="stack-page">
+            <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button id="btn-profile-back" class="p-1.5 rounded-lg hover:bg-muted" title="Back"
+                        aria-label="Back to messages">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                            </path>
+                        </svg>
+                    </button>
+                    <h2 class="text-base font-semibold text-[#1a1a2e]">Profile</h2>
+                </div>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4">
                 <div class="rounded-xl border border-border bg-white p-4">
                     <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">User</p>
                     <p id="profile-user-name" class="text-base font-semibold text-[#1a1a2e]">Loading...</p>
@@ -433,7 +485,7 @@
                 </div>
                 <p class="text-xs text-muted-fg mt-4">Temporary profile page. More account settings coming soon.</p>
             </div>
-        </div>
+        </section>
     </div>
 
     <dialog id="reports-dialog" class="rounded-2xl p-0 backdrop:bg-black/50">
@@ -473,15 +525,18 @@
             stickToBottom: true,
             openReplyId: null,
             replyDrafts: {},
-            activeDrawer: null,
+            activePage: 'channels',
             aiProcessing: false,
             aiProcessingTimeout: null,
         }
 
         const el = {
             shell: document.getElementById('chat-shell'),
+            channelsPage: document.getElementById('channels-page'),
+            messagesPage: document.getElementById('messages-page'),
             channels: document.getElementById('channels'),
             dms: document.getElementById('dms'),
+            channelsUserName: document.getElementById('channels-user-name'),
             channelTitle: document.getElementById('channel-title'),
             statusText: document.getElementById('status-text'),
             composer: document.getElementById('composer'),
@@ -493,16 +548,16 @@
             btnBack: document.getElementById('btn-back'),
             btnSearch: document.getElementById('btn-search'),
             btnProfile: document.getElementById('btn-profile'),
+            btnSearchBack: document.getElementById('btn-search-back'),
+            btnProfileBack: document.getElementById('btn-profile-back'),
             btnReports: document.getElementById('btn-reports'),
             reportsDialog: document.getElementById('reports-dialog'),
             reportsList: document.getElementById('reports-list'),
             closeReports: document.getElementById('close-reports'),
-            channelsDrawer: document.getElementById('channels-drawer'),
-            searchDrawer: document.getElementById('search-drawer'),
-            profileDrawer: document.getElementById('profile-drawer'),
+            searchPage: document.getElementById('search-page'),
+            profilePage: document.getElementById('profile-page'),
             profileUserName: document.getElementById('profile-user-name'),
             profileUserHandle: document.getElementById('profile-user-handle'),
-            drawerOverlay: document.getElementById('drawer-overlay'),
             voterPopup: document.getElementById('voter-popup'),
             voterPopupTitle: document.getElementById('voter-popup-title'),
             voterPopupList: document.getElementById('voter-popup-list'),
@@ -550,32 +605,43 @@
             location.href = '/'
         }
 
-        function closeDrawer() {
-            state.activeDrawer = null
-            el.channelsDrawer.classList.remove('open')
-            el.searchDrawer.classList.remove('open')
-            el.profileDrawer.classList.remove('open')
-            el.drawerOverlay.classList.remove('active')
+        function syncUrlState() {
+            const params = new URLSearchParams()
+            const activeView = state.activePage === 'channels' ? '' : state.activePage
+
+            if (activeView) params.set('view', activeView)
+            if (state.currentChannel) params.set('channel', state.currentChannel)
+            if (state.q) params.set('q', state.q)
+            if (state.sort && state.sort !== 'date') params.set('sort', state.sort)
+
+            const next = params.toString()
+            const nextUrl = next ? `/chat?${next}` : '/chat'
+            history.replaceState(null, '', nextUrl)
         }
 
-        function openDrawer(drawer) {
-            state.activeDrawer = drawer
-            el.drawerOverlay.classList.add('active')
-            el.btnBack.classList.remove('hidden')
+        function setActivePage(page, { sync = true } = {}) {
+            state.activePage = page
+            el.shell.dataset.view = page
 
-            if (drawer === 'channels') {
-                el.channelsDrawer.classList.add('open')
-                el.searchDrawer.classList.remove('open')
-                el.profileDrawer.classList.remove('open')
-            } else if (drawer === 'search') {
-                el.searchDrawer.classList.add('open')
-                el.channelsDrawer.classList.remove('open')
-                el.profileDrawer.classList.remove('open')
-            } else if (drawer === 'profile') {
-                el.profileDrawer.classList.add('open')
-                el.channelsDrawer.classList.remove('open')
-                el.searchDrawer.classList.remove('open')
+            if (sync) {
+                syncUrlState()
             }
+        }
+
+        function resetOverlayPages() {
+            // data-view controls visibility; no per-page open classes to clear.
+        }
+
+        function goToMessagesPage({ sync = true } = {}) {
+            // Defensive reset in case a stale overlay class remains after rapid taps.
+            resetOverlayPages()
+            setActivePage('messages', { sync })
+        }
+
+        function goToChannelsPage({ sync = true } = {}) {
+            // Defensive reset in case a stale overlay class remains after rapid taps.
+            resetOverlayPages()
+            setActivePage('channels', { sync })
         }
 
         function applySortButtonStyles() {
@@ -600,7 +666,7 @@
                     state.minMessageId = null
                     state.maxMessageId = null
                     el.searchInput.value = ''
-                    closeDrawer()
+                    goToMessagesPage()
                     loadMessages()
                     el.messageInput.focus()
                 })
@@ -1135,16 +1201,36 @@
                 if (state.user.is_admin === 1) {
                     el.btnReports.classList.remove('hidden')
                 }
+                el.channelsUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
                 el.profileUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
                 el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
 
-                const fromQuery = new URLSearchParams(location.search).get('channel')
+                const query = new URLSearchParams(location.search)
+                const fromQuery = query.get('channel')
                 if (fromQuery) state.currentChannel = fromQuery
+                const fromSort = query.get('sort')
+                if (fromSort === 'date' || fromSort === 'popularity' || fromSort === 'relevance') {
+                    state.sort = fromSort
+                }
+                const fromQ = query.get('q')
+                if (fromQ) {
+                    state.q = fromQ
+                    el.searchInput.value = fromQ
+                }
+                const fromView = query.get('view')
 
                 applySortButtonStyles()
                 await loadChannels()
                 await loadMessages({ forceScrollBottom: true })
-                el.messageInput.focus()
+                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels') {
+                    setActivePage(fromView, { sync: false })
+                } else if (fromQuery) {
+                    goToMessagesPage({ sync: false })
+                    el.messageInput.focus()
+                } else {
+                    goToChannelsPage({ sync: false })
+                }
+                syncUrlState()
 
                 // Smart polling: faster when AI is processing
                 const startPolling = () => {
@@ -1215,27 +1301,30 @@
 
         el.btnLogout.addEventListener('click', doLogout)
         el.btnBack.addEventListener('click', () => {
-            if (state.activeDrawer === 'channels') {
-                closeDrawer()
-                return
+            if (state.activePage === 'search' || state.activePage === 'profile') {
+                goToMessagesPage()
+            } else {
+                goToChannelsPage()
             }
-            openDrawer('channels')
         })
         el.btnSearch.addEventListener('click', () => {
-            if (state.activeDrawer === 'search') {
-                closeDrawer()
+            if (state.activePage === 'search') {
+                goToMessagesPage()
             } else {
-                openDrawer('search')
+                resetOverlayPages()
+                setActivePage('search')
             }
         })
         el.btnProfile.addEventListener('click', () => {
-            if (state.activeDrawer === 'profile') {
-                closeDrawer()
+            if (state.activePage === 'profile') {
+                goToMessagesPage()
             } else {
-                openDrawer('profile')
+                resetOverlayPages()
+                setActivePage('profile')
             }
         })
-        el.drawerOverlay.addEventListener('click', closeDrawer)
+        el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
+        el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
 
         // Jump to latest messages button
         el.jumpToLatestBtn.addEventListener('click', async () => {
