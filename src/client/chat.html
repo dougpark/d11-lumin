@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Lumin Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/chat/styles/theme.css">
@@ -50,7 +50,6 @@
             margin: 0;
             padding: 0;
             width: 100%;
-            max-width: 100vw;
             overflow-x: hidden;
         }
 
@@ -296,8 +295,9 @@
         </div>
 
         <!-- Composer -->
-        <form id="composer" class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5 overflow-x-hidden w-full">
-            <div class="flex items-end gap-2 w-full min-w-0">
+        <form id="composer"
+            class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5 overflow-x-hidden w-full max-w-full">
+            <div class="flex items-end gap-2 w-full max-w-full min-w-0">
                 <div
                     class="flex-1 bg-muted rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
                     <textarea id="message-input" maxlength="4000" placeholder="Message"
@@ -650,7 +650,7 @@
             let prevDate = null
             el.messages.innerHTML = state.messages.map((msg) => {
                 const msgDate = new Date(msg.created_at)
-                const msgDateStr = msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })
+                const msgDateStr = msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
 
                 let dateSeparator = ''
                 if (prevDate !== msgDateStr) {
