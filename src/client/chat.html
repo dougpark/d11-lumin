@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
     <title>Lumin Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/chat/styles/theme.css">
@@ -40,22 +40,40 @@
         }
     </script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         html,
         body {
             height: 100%;
             margin: 0;
             padding: 0;
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
         }
 
         body {
             background-color: #f0f2f5;
             font-family: 'Inter', 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Prevent iOS zoom on input focus */
+        input,
+        textarea,
+        select,
+        button {
+            font-size: 16px;
         }
 
         /* Phone shell container */
         #chat-shell {
             position: relative;
             width: 100%;
+            max-width: 430px;
             height: 100dvh;
             background-color: #f0f2f5;
             border-radius: 0;
@@ -278,11 +296,12 @@
         </div>
 
         <!-- Composer -->
-        <form id="composer" class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5">
-            <div class="flex items-end gap-2">
-                <div class="flex-1 bg-muted rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px]">
-                    <textarea id="message-input" maxlength="4000" placeholder="Message #general"
-                        class="flex-1 bg-transparent text-sm text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24">
+        <form id="composer" class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5 overflow-x-hidden w-full">
+            <div class="flex items-end gap-2 w-full min-w-0">
+                <div
+                    class="flex-1 bg-muted rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
+                    <textarea id="message-input" maxlength="4000" placeholder="Message"
+                        class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0">
                     </textarea>
                 </div>
                 <button type="submit"
@@ -408,7 +427,7 @@
 
     <!-- Voter Popup -->
     <div id="voter-popup" class="voter-popup">
-        <div class="voter-popup-arrow"></div>
+        <!-- <div class="voter-popup-arrow"></div> -->
         <div class="voter-popup-title" id="voter-popup-title">Upvotes</div>
         <div class="voter-list" id="voter-popup-list"></div>
         <div class="voter-more" id="voter-popup-more"></div>
@@ -547,6 +566,7 @@
                     el.searchInput.value = ''
                     closeDrawer()
                     loadMessages()
+                    el.messageInput.focus()
                 })
             }
 
@@ -948,6 +968,7 @@
                 applySortButtonStyles()
                 await loadChannels()
                 await loadMessages({ forceScrollBottom: true })
+                el.messageInput.focus()
 
                 state.pollTimer = setInterval(() => {
                     loadMessages({ silent: true }).catch(() => null)
