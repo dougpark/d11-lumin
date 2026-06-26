@@ -907,8 +907,14 @@
             }
 
             if (loadOlder) {
+                const newOlderMessages = res.data || []
+                if (newOlderMessages.length === 0) {
+                    // No more older messages — don't modify scroll at all
+                    state.loadingOlder = false
+                    return
+                }
                 // Prepend older messages
-                state.messages = [...(res.data || []), ...state.messages]
+                state.messages = [...newOlderMessages, ...state.messages]
                 const oldScrollHeight = el.messages.scrollHeight
                 // Wait for DOM to update
                 await new Promise((resolve) => requestAnimationFrame(resolve))
