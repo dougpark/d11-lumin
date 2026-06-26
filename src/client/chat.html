@@ -291,7 +291,14 @@
 
         <!-- Messages Container -->
         <div class="flex-1 relative overflow-hidden flex flex-col">
-            <div id="messages" class="flex-1 overflow-y-auto space-y-2 p-3 flex flex-col"></div>
+            <div id="messages" class="flex-1 overflow-y-auto space-y-2 p-3 flex flex-col relative"></div>
+            <!-- New Messages Badge -->
+            <div id="new-messages-badge" class="absolute bottom-3 left-1/2 transform -translate-x-1/2 hidden">
+                <button id="jump-to-latest-btn"
+                    class="bg-primary text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[#0d47a1] shadow-lg whitespace-nowrap">
+                    <span id="new-count">1</span> new message
+                </button>
+            </div>
         </div>
 
         <!-- Composer -->
@@ -444,6 +451,8 @@
             minMessageId: null,
             maxMessageId: null,
             loadingOlder: false,
+            newMessageCount: 0,
+            hasNewMessages: false,
             pollTimer: null,
             stickToBottom: true,
             openReplyId: null,
@@ -479,6 +488,9 @@
             voterPopupTitle: document.getElementById('voter-popup-title'),
             voterPopupList: document.getElementById('voter-popup-list'),
             voterPopupMore: document.getElementById('voter-popup-more'),
+            newMessagesBadge: document.getElementById('new-messages-badge'),
+            jumpToLatestBtn: document.getElementById('jump-to-latest-btn'),
+            newCount: document.getElementById('new-count'),
         }
 
         function authHeaders() {
@@ -617,6 +629,21 @@
         function hideVoterPopup() {
             el.voterPopup.classList.remove('show')
             clearTimeout(el.voterPopup._hideTimer)
+        }
+
+        function updateNewMessagesBadge() {
+            if (state.hasNewMessages && state.newMessageCount > 0) {
+                el.newCount.textContent = state.newMessageCount
+                const plural = state.newMessageCount === 1 ? 'message' : 'messages'
+                el.jumpToLatestBtn.textContent = `${state.newMessageCount} new ${plural}`
+                el.newMessagesBadge.classList.remove('hidden')
+            }
+        }
+
+        function hideNewMessagesBadge() {
+            el.newMessagesBadge.classList.add('hidden')
+            state.hasNewMessages = false
+            state.newMessageCount = 0
         }
 
         function renderReply(reply, parentId) {
@@ -888,6 +915,20 @@
                 // Maintain scroll position relative to new content
                 el.messages.scrollTop = el.messages.scrollHeight - oldScrollHeight
             } else {
+                // For polling: if user is scrolled back, show badge instead of jumping
+                if (!state.stickToBottom && !forceScrollBottom && state.messages.length > 0) {
+                    // Count new messages (those with ID > maxMessageId)
+                    const newMessages = (res.data || []).filter((m) => !state.messages.some((existing) => existing.id === m.id))
+                    if (newMessages.length > 0) {
+                        state.newMessageCount = newMessages.length
+                        state.hasNewMessages = true
+                        updateNewMessagesBadge()
+                    }
+                    state.loadingOlder = false
+                    el.statusText.textContent = `${res.meta.total || 0} messages`
+                    return // Don't update messages yet, just show badge
+                }
+
                 // Initial load or refresh - replace all messages
                 state.messages = res.data || []
                 if (state.openReplyId !== null && !state.messages.some((m) => m.id === state.openReplyId)) {
@@ -1069,6 +1110,15 @@
         el.btnBack.addEventListener('click', closeDrawer)
         el.drawerOverlay.addEventListener('click', closeDrawer)
 
+        // Jump to latest messages button
+        el.jumpToLatestBtn.addEventListener('click', async () => {
+            hideNewMessagesBadge()
+            state.messages = []
+            state.minMessageId = null
+            state.maxMessageId = null
+            await loadMessages({ silent: true, forceScrollBottom: true })
+        })
+
         el.btnReports.addEventListener('click', async () => {
             await loadReports()
             el.reportsDialog.showModal()
@@ -1104,6 +1154,11 @@
         el.messages.addEventListener('scroll', () => {
             const distanceToBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight
             state.stickToBottom = distanceToBottom < 32
+
+            // Hide badge when user scrolls back to bottom
+            if (state.stickToBottom && state.hasNewMessages) {
+                hideNewMessagesBadge()
+            }
 
             // Load older messages when user scrolls near top
             const distanceToTop = el.messages.scrollTop
