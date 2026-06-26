@@ -152,6 +152,26 @@
             background-color: rgba(255, 255, 255, 0.2);
         }
 
+        .header-icon-btn.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .header-icon-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        #channel-title,
+        #status-text {
+            transition: opacity 180ms ease, transform 180ms ease;
+        }
+
+        .header-copy-swap {
+            opacity: 0.35;
+            transform: translateY(2px);
+        }
+
         .channels-brand-icon {
             width: 2rem;
             height: 2rem;
@@ -165,6 +185,23 @@
             font-size: 0.9rem;
             letter-spacing: 0.02em;
             box-shadow: 0 6px 18px rgba(21, 101, 192, 0.28);
+        }
+
+        /* Safari: prevent phantom horizontal scrollbar in composer flex row */
+        #composer {
+            overflow-x: clip;
+            overflow-y: visible;
+        }
+
+        #composer>div {
+            min-width: 0;
+            overflow-x: clip;
+        }
+
+        #message-input {
+            width: 100%;
+            min-width: 0;
+            overflow-x: hidden;
         }
 
         /* Message bubble styles */
@@ -403,10 +440,10 @@
 
             <!-- Composer -->
             <form id="composer"
-                class="flex-shrink-0 bg-white border-t border-muted px-3 py-2.5 overflow-x-hidden w-full max-w-full">
-                <div class="flex items-end gap-2 w-full max-w-full min-w-0">
+                class="flex-shrink-0 bg-[#f0f2f5] border-t border-border px-3 py-2.5 overflow-hidden w-full max-w-full">
+                <div class="flex items-end gap-2 min-w-0">
                     <div
-                        class="flex-1 bg-muted rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
+                        class="flex-1 bg-white border border-border rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
                         <textarea id="message-input" maxlength="4000" placeholder="Message"
                             class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0"></textarea>
                     </div>
@@ -424,16 +461,15 @@
 
         <section id="search-page" class="stack-page">
             <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
-                <div class="flex items-center gap-3 min-w-0">
-                    <button id="btn-search-back" class="p-1.5 rounded-lg hover:bg-muted" title="Back"
-                        aria-label="Back to messages">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
-                            </path>
-                        </svg>
-                    </button>
+                <div class="flex items-center min-w-0">
                     <h2 class="text-base font-semibold text-[#1a1a2e]">Search & Sort</h2>
                 </div>
+                <button id="btn-search-back" class="p-1.5 rounded-lg hover:bg-muted" title="Dismiss"
+                    aria-label="Dismiss to messages">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
             </header>
             <div class="flex-1 overflow-y-auto p-4">
                 <div class="mb-4">
@@ -466,16 +502,15 @@
 
         <section id="profile-page" class="stack-page">
             <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
-                <div class="flex items-center gap-3 min-w-0">
-                    <button id="btn-profile-back" class="p-1.5 rounded-lg hover:bg-muted" title="Back"
-                        aria-label="Back to messages">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
-                            </path>
-                        </svg>
-                    </button>
+                <div class="flex items-center min-w-0">
                     <h2 class="text-base font-semibold text-[#1a1a2e]">Profile</h2>
                 </div>
+                <button id="btn-profile-back" class="p-1.5 rounded-lg hover:bg-muted" title="Dismiss"
+                    aria-label="Dismiss to messages">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
             </header>
             <div class="flex-1 overflow-y-auto p-4">
                 <div class="rounded-xl border border-border bg-white p-4">
@@ -526,6 +561,7 @@
             openReplyId: null,
             replyDrafts: {},
             activePage: 'channels',
+            lastMessageStatus: 'Loading messages...',
             aiProcessing: false,
             aiProcessingTimeout: null,
         }
@@ -622,25 +658,67 @@
         function setActivePage(page, { sync = true } = {}) {
             state.activePage = page
             el.shell.dataset.view = page
+            applyHeaderContext(page)
+            updateHeaderActionButtons()
 
             if (sync) {
                 syncUrlState()
             }
         }
 
-        function resetOverlayPages() {
-            // data-view controls visibility; no per-page open classes to clear.
+        function setMessageHeader(title, subtitle, { animate = true } = {}) {
+            if (!animate) {
+                el.channelTitle.textContent = title
+                el.statusText.textContent = subtitle
+                return
+            }
+
+            el.channelTitle.classList.add('header-copy-swap')
+            el.statusText.classList.add('header-copy-swap')
+
+            requestAnimationFrame(() => {
+                el.channelTitle.textContent = title
+                el.statusText.textContent = subtitle
+                requestAnimationFrame(() => {
+                    el.channelTitle.classList.remove('header-copy-swap')
+                    el.statusText.classList.remove('header-copy-swap')
+                })
+            })
+        }
+
+        function applyHeaderContext(page, { animate = true } = {}) {
+            if (page === 'search') {
+                setMessageHeader('Search', 'Find and sort messages', { animate })
+                return
+            }
+
+            if (page === 'profile') {
+                const subtitle = state.user?.slug_prefix ? `@${state.user.slug_prefix}` : 'Your account'
+                setMessageHeader('Profile', subtitle, { animate })
+                return
+            }
+
+            setMessageHeader(`#${state.currentChannel}`, state.lastMessageStatus, { animate })
+        }
+
+        function updateHeaderActionButtons() {
+            const searchActive = state.activePage === 'search'
+            const profileActive = state.activePage === 'profile'
+
+            el.btnSearch.classList.toggle('active', searchActive)
+            el.btnProfile.classList.toggle('active', profileActive)
+
+            el.btnSearch.disabled = searchActive
+            el.btnProfile.disabled = profileActive
+            el.btnSearch.setAttribute('aria-pressed', searchActive ? 'true' : 'false')
+            el.btnProfile.setAttribute('aria-pressed', profileActive ? 'true' : 'false')
         }
 
         function goToMessagesPage({ sync = true } = {}) {
-            // Defensive reset in case a stale overlay class remains after rapid taps.
-            resetOverlayPages()
             setActivePage('messages', { sync })
         }
 
         function goToChannelsPage({ sync = true } = {}) {
-            // Defensive reset in case a stale overlay class remains after rapid taps.
-            resetOverlayPages()
             setActivePage('channels', { sync })
         }
 
@@ -672,7 +750,9 @@
                 })
             }
 
-            el.channelTitle.textContent = `#${state.currentChannel}`
+            if (state.activePage !== 'search' && state.activePage !== 'profile') {
+                applyHeaderContext(state.activePage, { animate: true })
+            }
         }
 
         function createAvatarInitials(fullName, slugPrefix) {
@@ -1023,7 +1103,12 @@
             const focusSelectionStart = activeReplyInput ? activeReplyInput.selectionStart : null
             const focusSelectionEnd = activeReplyInput ? activeReplyInput.selectionEnd : null
 
-            if (!silent) el.statusText.textContent = 'Loading...'
+            if (!silent) {
+                state.lastMessageStatus = 'Loading...'
+                if (state.activePage === 'messages' || state.activePage === 'channels') {
+                    el.statusText.textContent = state.lastMessageStatus
+                }
+            }
             const params = new URLSearchParams({
                 channel: state.currentChannel,
                 sort: state.sort,
@@ -1064,7 +1149,10 @@
                         updateNewMessagesBadge()
                     }
                     state.loadingOlder = false
-                    el.statusText.textContent = `${res.meta.total || 0} messages`
+                    state.lastMessageStatus = `${res.meta.total || 0} messages`
+                    if (state.activePage === 'messages' || state.activePage === 'channels') {
+                        el.statusText.textContent = state.lastMessageStatus
+                    }
                     return // Don't update messages yet, just show badge
                 }
 
@@ -1109,7 +1197,10 @@
             if (!loadOlder) {
                 scrollMessagesToBottom(forceScrollBottom)
             }
-            el.statusText.textContent = `${res.meta.total || 0} messages`
+            state.lastMessageStatus = `${res.meta.total || 0} messages`
+            if (state.activePage === 'messages' || state.activePage === 'channels') {
+                el.statusText.textContent = state.lastMessageStatus
+            }
             state.loadingOlder = false
         }
 
@@ -1201,6 +1292,7 @@
                 if (state.user.is_admin === 1) {
                     el.btnReports.classList.remove('hidden')
                 }
+                state.lastMessageStatus = 'Loading messages...'
                 el.channelsUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
                 el.profileUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
                 el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
@@ -1230,6 +1322,8 @@
                 } else {
                     goToChannelsPage({ sync: false })
                 }
+                applyHeaderContext(state.activePage, { animate: false })
+                updateHeaderActionButtons()
                 syncUrlState()
 
                 // Smart polling: faster when AI is processing
@@ -1311,7 +1405,6 @@
             if (state.activePage === 'search') {
                 goToMessagesPage()
             } else {
-                resetOverlayPages()
                 setActivePage('search')
             }
         })
@@ -1319,7 +1412,6 @@
             if (state.activePage === 'profile') {
                 goToMessagesPage()
             } else {
-                resetOverlayPages()
                 setActivePage('profile')
             }
         })
