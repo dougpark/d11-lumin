@@ -376,3 +376,61 @@ export async function setMessageHidden(db: D1Database, input: { chat_id: number;
         .run()
     return (result.meta.changes ?? 0) > 0
 }
+
+export async function createAiMessage(db: D1Database, input: {
+    channel_id: number
+    parent_id: number
+    content: string
+}): Promise<number> {
+    const content = input.content.trim()
+    if (content.length === 0) throw new Error('AI message content is required')
+
+    // Verify parent message exists
+    const parent = await db
+        .prepare('SELECT id, channel_id FROM chats WHERE id = ? LIMIT 1')
+        .bind(input.parent_id)
+        .first<{ id: number; channel_id: number }>()
+
+    if (!parent) throw new Error('Parent message not found')
+    if (parent.channel_id !== input.channel_id) throw new Error('Parent is in a different channel')
+
+    // Create AI message as a reply to the user's message
+    // We use user_id = 1 as a placeholder for "AI Assistant" — adjust if you have a dedicated AI user
+    const result = await db
+        .prepare(
+            `INSERT INTO chats (channel_id, user_id, parent_id, content)
+             VALUES (?, ?, ?, ?)`
+        )
+        .bind(input.channel_id, 1, input.parent_id, content)
+        .run()
+
+    return Number(result.meta.last_row_id)
+}
+
+export async function trackAiRequest(db: D1Database, input: {
+    channel_id: number
+    message_id: number
+    user_id: number
+    ai_message_id?: number | null
+    status: 'pending' | 'success' | 'timeout' | 'error'
+    response_time_ms?: number
+    error_message?: string
+}): Promise<number> {
+    const result = await db
+        .prepare(
+            `INSERT INTO ai_requests (channel_id, message_id, user_id, ai_message_id, status, response_time_ms, error_message)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+            input.channel_id,
+            input.message_id,
+            input.user_id,
+            input.ai_message_id ?? null,
+            input.status,
+            input.response_time_ms ?? null,
+            input.error_message ?? null,
+        )
+        .run()
+
+    return Number(result.meta.last_row_id)
+}

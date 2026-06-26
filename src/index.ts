@@ -45,6 +45,9 @@ export type Env = {
   ENVIRONMENT: string
   AI: Ai
   AI_BOOKMARK_MODEL: string
+  OLLAMA_URL: string
+  CF_ACCESS_CLIENT_ID: string
+  CF_ACCESS_CLIENT_SECRET: string
 }
 
 // ─── Context variables set by middleware ──────────────────────────────────────

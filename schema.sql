@@ -170,6 +170,23 @@ CREATE TABLE IF NOT EXISTS chat_votes (
 CREATE INDEX IF NOT EXISTS idx_chat_votes_chat_id ON chat_votes (chat_id);
 CREATE INDEX IF NOT EXISTS idx_chat_votes_user_id ON chat_votes (user_id);
 
+-- ─── AI Requests (track Ollama call usage and performance) ────────────────────
+CREATE TABLE IF NOT EXISTS ai_requests (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel_id          INTEGER NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+  message_id          INTEGER NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
+  user_id             INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  ai_message_id       INTEGER REFERENCES chats (id) ON DELETE CASCADE,
+  status              TEXT    NOT NULL CHECK (status IN ('pending', 'success', 'timeout', 'error')),
+  response_time_ms    INTEGER,
+  error_message       TEXT,
+  created_at          TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_requests_user_id     ON ai_requests (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_requests_message_id  ON ai_requests (message_id);
+CREATE INDEX IF NOT EXISTS idx_ai_requests_channel_id  ON ai_requests (channel_id);
+
 -- ─── RSS Feeds (seed rows managed via SQL, admin UI in V2) ───────────────────
 CREATE TABLE IF NOT EXISTS rss_feeds (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,

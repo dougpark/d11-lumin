@@ -13,7 +13,10 @@ import {
     reportMessage,
     setMessageHidden,
     voteMessage,
+    createAiMessage,
+    trackAiRequest,
 } from '../db/chat.ts'
+import { callOllama, checkRateLimit, SYSTEM_PROMPT } from '../utils/ollama.ts'
 
 const chat = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -96,6 +99,70 @@ chat.post('/messages', async (c) => {
 
         const created = await getMessageById(c.env.DB, id)
         if (!created) return c.json({ error: 'Failed to load created message' }, 500)
+
+        // Trigger AI response for #ai channel (fire-and-forget)
+        if (channel.slug === 'ai') {
+            c.executionCtx.waitUntil(
+                (async () => {
+                    try {
+                        // Check rate limit
+                        if (!checkRateLimit(user.id)) {
+                            await trackAiRequest(c.env.DB, {
+                                channel_id: channel.id,
+                                message_id: id,
+                                user_id: user.id,
+                                status: 'error',
+                                error_message: 'Rate limit exceeded (max 6 requests per minute)',
+                            })
+                            return
+                        }
+
+                        // Call Ollama
+                        console.log(`Calling Ollama for user ${user.id} message ${id}...`)
+                        const ollamaResult = await callOllama(c.env, content, SYSTEM_PROMPT)
+
+                        if (!ollamaResult.success) {
+                            await trackAiRequest(c.env.DB, {
+                                channel_id: channel.id,
+                                message_id: id,
+                                user_id: user.id,
+                                status: 'error',
+                                response_time_ms: ollamaResult.duration,
+                                error_message: ollamaResult.error,
+                            })
+                            return
+                        }
+
+                        // Create AI message as a reply
+                        const aiMessageId = await createAiMessage(c.env.DB, {
+                            channel_id: channel.id,
+                            parent_id: id,
+                            content: ollamaResult.response || '(No response)',
+                        })
+
+                        // Track successful request
+                        await trackAiRequest(c.env.DB, {
+                            channel_id: channel.id,
+                            message_id: id,
+                            user_id: user.id,
+                            ai_message_id: aiMessageId,
+                            status: 'success',
+                            response_time_ms: ollamaResult.duration,
+                        })
+                    } catch (err) {
+                        // Log error but don't throw — fire-and-forget should not block the response
+                        console.error('AI processing error:', err)
+                        await trackAiRequest(c.env.DB, {
+                            channel_id: channel.id,
+                            message_id: id,
+                            user_id: user.id,
+                            status: 'error',
+                            error_message: err instanceof Error ? err.message : String(err),
+                        }).catch(() => null)
+                    }
+                })(),
+            )
+        }
 
         return c.json({ data: { ...created, user_vote: 0, upvoters: [], downvoters: [], replies: [] } }, 201)
     } catch (err) {

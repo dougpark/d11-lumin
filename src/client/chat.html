@@ -266,6 +266,24 @@
                 pointer-events: auto;
             }
         }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translateY(-8px);
+                opacity: 0.7;
+            }
+        }
+
+        .animate-bounce {
+            animation: bounce 1.4s infinite;
+        }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -459,6 +477,8 @@
             openReplyId: null,
             replyDrafts: {},
             activeDrawer: null,
+            aiProcessing: false,
+            aiProcessingTimeout: null,
         }
 
         const el = {
@@ -760,6 +780,24 @@
                     </article>`
             }).join('')
 
+            // Add AI typing indicator when processing
+            if (state.aiProcessing && state.currentChannel === 'ai') {
+                el.messages.innerHTML += `
+                    <article class="message-container flex justify-start gap-2 mb-3 opacity-60">
+                        <div class="w-8 h-8 rounded-full text-white text-xs font-semibold flex items-center justify-center flex-shrink-0" style="background-color: #9c27b0">🤖</div>
+                        <div>
+                            <div class="text-xs font-medium text-[#1a1a2e] mb-1">AI Assistant</div>
+                            <div class="message-bubble message-theirs">
+                                <div class="flex gap-1">
+                                    <div class="w-2 h-2 rounded-full bg-muted-fg animate-bounce" style="animation-delay: 0s"></div>
+                                    <div class="w-2 h-2 rounded-full bg-muted-fg animate-bounce" style="animation-delay: 0.2s"></div>
+                                    <div class="w-2 h-2 rounded-full bg-muted-fg animate-bounce" style="animation-delay: 0.4s"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>`
+            }
+
             wireMessageActions()
         }
 
@@ -980,6 +1018,17 @@
             }
 
             renderChannels()
+
+            // Detect when AI response appears and clear processing flag
+            if (state.aiProcessing && state.currentChannel === 'ai' && state.messages.length > 0) {
+                const lastMsg = state.messages[state.messages.length - 1]
+                if (lastMsg && lastMsg.replies && lastMsg.replies.length > 0) {
+                    // AI response detected - stop processing
+                    state.aiProcessing = false
+                    clearTimeout(state.aiProcessingTimeout)
+                }
+            }
+
             renderMessages()
 
             if (focusReplyId !== null) {
@@ -1017,6 +1066,17 @@
             renderMessages()
             scrollMessagesToBottom(true)
 
+            // Activate AI processing mode for #ai channel
+            if (state.currentChannel === 'ai') {
+                state.aiProcessing = true
+                // Auto-clear after 60 seconds as a timeout
+                clearTimeout(state.aiProcessingTimeout)
+                state.aiProcessingTimeout = setTimeout(() => {
+                    state.aiProcessing = false
+                    renderMessages()
+                }, 60000)
+            }
+
             try {
                 await api('/api/chat/messages', {
                     method: 'POST',
@@ -1028,6 +1088,8 @@
                 await loadMessages({ silent: true, forceScrollBottom: true })
             } catch (err) {
                 state.messages = state.messages.filter((m) => m.id !== tempId)
+                state.aiProcessing = false
+                clearTimeout(state.aiProcessingTimeout)
                 renderMessages()
                 alert(err.message)
             }
@@ -1083,9 +1145,17 @@
                 await loadMessages({ forceScrollBottom: true })
                 el.messageInput.focus()
 
-                state.pollTimer = setInterval(() => {
-                    loadMessages({ silent: true }).catch(() => null)
-                }, 10000)
+                // Smart polling: faster when AI is processing
+                const startPolling = () => {
+                    if (state.pollTimer) clearInterval(state.pollTimer)
+                    const interval = state.aiProcessing ? 2000 : 10000
+                    state.pollTimer = setInterval(() => {
+                        loadMessages({ silent: true }).catch(() => null)
+                        // Re-evaluate polling speed
+                        startPolling()
+                    }, interval)
+                }
+                startPolling()
             } catch {
                 doLogout()
             }

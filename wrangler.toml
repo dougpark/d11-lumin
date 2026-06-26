@@ -17,10 +17,15 @@ binding = "AI"
 # ─── Environment variables ───────────────────────────────────────────────────
 # Set TOKEN_SECRET with: wrangler secret put TOKEN_SECRET
 # (used to sign/verify API tokens – keep it out of source control)
+# Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET with:
+#   wrangler secret put CF_ACCESS_CLIENT_ID
+#   wrangler secret put CF_ACCESS_CLIENT_SECRET
 [vars]
 ENVIRONMENT = "production"
 # Model used for real-time bookmark enrichment (fast/cheap 1B model)
 AI_BOOKMARK_MODEL = "@cf/meta/llama-3.2-1b-instruct"
+# Ollama remote server URL (accessed via Cloudflare tunnel)
+OLLAMA_URL = "https://ollama.d11.me/api/generate"
 
 # ─── Custom domain routing ───────────────────────────────────────────────────
 # Uncomment and fill in after adding d11.me to your Cloudflare account.
