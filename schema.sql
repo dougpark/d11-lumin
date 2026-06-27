@@ -125,8 +125,12 @@ CREATE TABLE IF NOT EXISTS channels (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   name       TEXT    NOT NULL,
   slug       TEXT    NOT NULL UNIQUE,
+  type       TEXT    NOT NULL DEFAULT 'chat',
   created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
+
+-- run once
+-- ALTER TABLE channels ADD COLUMN type TEXT NOT NULL DEFAULT 'chat';
 
 CREATE INDEX IF NOT EXISTS idx_channels_slug ON channels (slug);
 
@@ -135,6 +139,70 @@ INSERT OR IGNORE INTO channels (name, slug) VALUES ('General', 'general');
 INSERT OR IGNORE INTO channels (name, slug) VALUES ('Links', 'links');
 INSERT OR IGNORE INTO channels (name, slug) VALUES ('AI', 'ai');
 INSERT OR IGNORE INTO channels (name, slug) VALUES ('Meta', 'meta');
+
+-- ─── Private Note Channels (V1) ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS note_channels (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id          INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  name             TEXT    NOT NULL,
+  created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  last_modified_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  UNIQUE (user_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_note_channels_user_id ON note_channels (user_id, last_modified_at DESC);
+
+-- ─── Private Notes (V1) ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS notes (
+  note_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id           INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  channel_id        INTEGER NOT NULL REFERENCES note_channels (id) ON DELETE CASCADE,
+  pinned            INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+  type              TEXT    NOT NULL DEFAULT 'note' CHECK (type IN ('note', 'tidbit')),
+  content           TEXT    NOT NULL,
+  upvotes           INTEGER NOT NULL DEFAULT 0,
+  downvotes         INTEGER NOT NULL DEFAULT 0,
+  tag_list          TEXT    NOT NULL DEFAULT '[]',
+  ai_tags           TEXT    NOT NULL DEFAULT '[]',
+  ai_summary        TEXT    NOT NULL DEFAULT '',
+  ai_processed_at   TEXT    DEFAULT NULL,
+  is_hidden         INTEGER NOT NULL DEFAULT 0 CHECK (is_hidden IN (0, 1)),
+  created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  last_modified_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  is_public         INTEGER NOT NULL DEFAULT 0 CHECK (is_public IN (0, 1)),
+  is_archived       INTEGER NOT NULL DEFAULT 0 CHECK (is_archived IN (0, 1)),
+  share_url         TEXT    NOT NULL DEFAULT '',
+  share_expires_at  TEXT,
+  attachment_count  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_user_channel_sort ON notes (user_id, channel_id, pinned DESC, last_modified_at DESC, note_id DESC);
+CREATE INDEX IF NOT EXISTS idx_notes_user_archived     ON notes (user_id, is_archived);
+CREATE INDEX IF NOT EXISTS idx_notes_user_modified     ON notes (user_id, last_modified_at DESC);
+
+-- ─── Note Attachments (V1 schema only; feature later) ──────────────────────
+CREATE TABLE IF NOT EXISTS attachments (
+  attachment_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename         TEXT    NOT NULL,
+  content_type     TEXT    NOT NULL,
+  size             INTEGER NOT NULL,
+  url              TEXT    NOT NULL,
+  tag_list         TEXT    NOT NULL DEFAULT '[]',
+  summary          TEXT    NOT NULL DEFAULT '',
+  ai_tags          TEXT    NOT NULL DEFAULT '[]',
+  ai_summary       TEXT    NOT NULL DEFAULT '',
+  ai_processed_at  TEXT    DEFAULT NULL,
+  created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS attachment_list (
+  note_id        INTEGER NOT NULL REFERENCES notes (note_id) ON DELETE CASCADE,
+  sort_order     INTEGER NOT NULL DEFAULT 0,
+  attachment_id  INTEGER NOT NULL REFERENCES attachments (attachment_id) ON DELETE CASCADE,
+  PRIMARY KEY (note_id, attachment_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachment_list_note_id ON attachment_list (note_id, sort_order ASC);
 
 -- ─── Chats (V1) ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chats (
@@ -320,4 +388,34 @@ CREATE TRIGGER IF NOT EXISTS chats_fts_au
     VALUES ('delete', old.id, old.content);
     INSERT INTO chats_fts(rowid, content)
     VALUES (new.id, new.content);
+  END;
+
+-- ─── Notes Full-Text Search (FTS5) ──────────────────────────────────────────
+CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+  content,
+  tag_list,
+  ai_tags,
+  ai_summary,
+  content=notes,
+  content_rowid=note_id
+);
+
+CREATE TRIGGER IF NOT EXISTS notes_fts_ai
+  AFTER INSERT ON notes BEGIN
+    INSERT INTO notes_fts(rowid, content, tag_list, ai_tags, ai_summary)
+    VALUES (new.note_id, new.content, new.tag_list, new.ai_tags, new.ai_summary);
+  END;
+
+CREATE TRIGGER IF NOT EXISTS notes_fts_ad
+  AFTER DELETE ON notes BEGIN
+    INSERT INTO notes_fts(notes_fts, rowid, content, tag_list, ai_tags, ai_summary)
+    VALUES ('delete', old.note_id, old.content, old.tag_list, old.ai_tags, old.ai_summary);
+  END;
+
+CREATE TRIGGER IF NOT EXISTS notes_fts_au
+  AFTER UPDATE ON notes BEGIN
+    INSERT INTO notes_fts(notes_fts, rowid, content, tag_list, ai_tags, ai_summary)
+    VALUES ('delete', old.note_id, old.content, old.tag_list, old.ai_tags, old.ai_summary);
+    INSERT INTO notes_fts(rowid, content, tag_list, ai_tags, ai_summary)
+    VALUES (new.note_id, new.content, new.tag_list, new.ai_tags, new.ai_summary);
   END;

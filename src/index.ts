@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.ts'
 import bookmarkRoutes from './routes/bookmarks.ts'
 import v1Routes from './routes/v1.ts'
 import chatRoutes from './routes/chat.ts'
+import notesRoutes from './routes/notes.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { hashToken } from './utils/auth.ts'
@@ -162,9 +163,11 @@ app.get('/l/:slug', async (c) => {
 // ─── Authenticated API routes ─────────────────────────────────────────────────
 app.use('/api/bookmarks/*', authMiddleware)
 app.use('/api/chat/*', authMiddleware)
+app.use('/api/notes/*', authMiddleware)
 
 app.route('/api/bookmarks', bookmarkRoutes)
 app.route('/api/chat', chatRoutes)
+app.route('/api/notes', notesRoutes)
 
 // Convenience top-level aliases
 app.get('/api/tags', authMiddleware, async (c) => {

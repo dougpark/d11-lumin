@@ -117,7 +117,8 @@
         }
 
         #search-page,
-        #profile-page {
+        #profile-page,
+        #note-editor-page {
             z-index: 40;
             background-color: #ffffff;
             transform: translate3d(110%, 0, 0);
@@ -131,7 +132,8 @@
         }
 
         #chat-shell[data-view='search'] #search-page,
-        #chat-shell[data-view='profile'] #profile-page {
+        #chat-shell[data-view='profile'] #profile-page,
+        #chat-shell[data-view='note-editor'] #note-editor-page {
             transform: translate3d(0, 0, 0);
             opacity: 1;
             visibility: visible;
@@ -185,6 +187,46 @@
             font-size: 0.9rem;
             letter-spacing: 0.02em;
             box-shadow: 0 6px 18px rgba(21, 101, 192, 0.28);
+        }
+
+        .note-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 1rem;
+            padding: 0.9rem 1rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+        }
+
+        .note-card.pinned {
+            border-color: rgba(21, 101, 192, 0.3);
+            box-shadow: 0 10px 22px rgba(21, 101, 192, 0.08);
+        }
+
+        .note-ribbon {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.75rem;
+            align-items: center;
+        }
+
+        .note-tag {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: rgba(21, 101, 192, 0.1);
+            color: rgb(21 101 192);
+            padding: 0.2rem 0.55rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .note-search-bubble {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(180deg, rgba(240, 242, 245, 0.98), rgba(240, 242, 245, 0.9));
+            padding-bottom: 0.75rem;
         }
 
         /* Safari: prevent phantom horizontal scrollbar in composer flex row */
@@ -379,6 +421,15 @@
                 </div>
 
                 <div class="mt-6 pt-4 border-t border-border">
+                    <div class="flex items-center justify-between mb-3 gap-3">
+                        <h3 class="text-xs uppercase tracking-wide text-muted-fg">Private Notes</h3>
+                        <button id="btn-new-note-channel"
+                            class="text-xs px-2.5 py-1 rounded-lg border border-border hover:border-primary hover:text-primary transition">New</button>
+                    </div>
+                    <div id="note-channels" class="space-y-1"></div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-border">
                     <h3 class="text-xs uppercase tracking-wide text-muted-fg mb-3">Direct Messages</h3>
                     <div id="dms" class="space-y-1"></div>
                 </div>
@@ -447,10 +498,10 @@
                         <textarea id="message-input" maxlength="4000" placeholder="Message"
                             class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0"></textarea>
                     </div>
-                    <button type="submit"
+                    <button id="composer-submit" type="submit"
                         class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-[#0d47a1] flex-shrink-0">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path
+                        <svg id="composer-submit-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path id="composer-submit-path"
                                 d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5.951-1.429 5.951 1.429a1 1 0 001.169-1.409l-7-14z">
                             </path>
                         </svg>
@@ -521,6 +572,50 @@
                 <p class="text-xs text-muted-fg mt-4">Temporary profile page. More account settings coming soon.</p>
             </div>
         </section>
+
+        <section id="note-editor-page" class="stack-page">
+            <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
+                <div class="flex items-center min-w-0">
+                    <h2 class="text-base font-semibold text-[#1a1a2e]">Edit Note</h2>
+                </div>
+                <button id="btn-note-editor-back" class="p-1.5 rounded-lg hover:bg-muted" title="Dismiss"
+                    aria-label="Dismiss to notes">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
+                <div class="rounded-2xl border border-border bg-white p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
+                            <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
+                        </div>
+                        <button id="btn-note-pin"
+                            class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Pin</button>
+                    </div>
+                    <textarea id="note-editor-input" rows="12"
+                        class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Write your note..."></textarea>
+                    <div class="grid grid-cols-1 gap-3">
+                        <div>
+                            <label class="text-xs uppercase tracking-wide text-muted-fg block mb-2">Move to
+                                channel</label>
+                            <select id="note-editor-move-select"
+                                class="w-full text-sm px-3 py-2 rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"></select>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <button id="btn-note-archive"
+                            class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
+                        <button id="btn-note-save"
+                            class="text-xs px-4 py-2 rounded-lg bg-primary text-white hover:bg-[#0d47a1]">Save
+                            Note</button>
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <dialog id="reports-dialog" class="rounded-2xl p-0 backdrop:bg-black/50">
@@ -547,10 +642,18 @@
             token: localStorage.getItem('d11_token') || '',
             user: null,
             channels: [],
+            noteChannels: [],
             currentChannel: 'general',
+            currentNoteChannelId: null,
+            contentMode: 'chat',
             sort: 'date',
             q: '',
             messages: [],
+            notes: [],
+            noteSearchQuery: '',
+            noteSearchOpen: false,
+            noteDrafts: {},
+            editingNote: null,
             minMessageId: null,
             maxMessageId: null,
             loadingOlder: false,
@@ -562,6 +665,7 @@
             replyDrafts: {},
             activePage: 'channels',
             lastMessageStatus: 'Loading messages...',
+            lastNoteStatus: 'Loading notes...',
             aiProcessing: false,
             aiProcessingTimeout: null,
         }
@@ -571,11 +675,15 @@
             channelsPage: document.getElementById('channels-page'),
             messagesPage: document.getElementById('messages-page'),
             channels: document.getElementById('channels'),
+            noteChannels: document.getElementById('note-channels'),
+            btnNewNoteChannel: document.getElementById('btn-new-note-channel'),
             dms: document.getElementById('dms'),
             channelsUserName: document.getElementById('channels-user-name'),
             channelTitle: document.getElementById('channel-title'),
             statusText: document.getElementById('status-text'),
             composer: document.getElementById('composer'),
+            composerSubmit: document.getElementById('composer-submit'),
+            composerSubmitPath: document.getElementById('composer-submit-path'),
             messageInput: document.getElementById('message-input'),
             messages: document.getElementById('messages'),
             searchInput: document.getElementById('search-input'),
@@ -586,12 +694,20 @@
             btnProfile: document.getElementById('btn-profile'),
             btnSearchBack: document.getElementById('btn-search-back'),
             btnProfileBack: document.getElementById('btn-profile-back'),
+            btnNoteEditorBack: document.getElementById('btn-note-editor-back'),
             btnReports: document.getElementById('btn-reports'),
             reportsDialog: document.getElementById('reports-dialog'),
             reportsList: document.getElementById('reports-list'),
             closeReports: document.getElementById('close-reports'),
             searchPage: document.getElementById('search-page'),
             profilePage: document.getElementById('profile-page'),
+            noteEditorPage: document.getElementById('note-editor-page'),
+            noteEditorInput: document.getElementById('note-editor-input'),
+            noteEditorMoveSelect: document.getElementById('note-editor-move-select'),
+            noteEditorChannelName: document.getElementById('note-editor-channel-name'),
+            btnNoteSave: document.getElementById('btn-note-save'),
+            btnNotePin: document.getElementById('btn-note-pin'),
+            btnNoteArchive: document.getElementById('btn-note-archive'),
             profileUserName: document.getElementById('profile-user-name'),
             profileUserHandle: document.getElementById('profile-user-handle'),
             voterPopup: document.getElementById('voter-popup'),
@@ -646,13 +762,23 @@
             const activeView = state.activePage === 'channels' ? '' : state.activePage
 
             if (activeView) params.set('view', activeView)
-            if (state.currentChannel) params.set('channel', state.currentChannel)
-            if (state.q) params.set('q', state.q)
-            if (state.sort && state.sort !== 'date') params.set('sort', state.sort)
+            params.set('mode', state.contentMode)
+            if (state.contentMode === 'chat') {
+                if (state.currentChannel) params.set('channel', state.currentChannel)
+                if (state.q) params.set('q', state.q)
+                if (state.sort && state.sort !== 'date') params.set('sort', state.sort)
+            } else {
+                if (state.currentNoteChannelId) params.set('note_channel', String(state.currentNoteChannelId))
+                if (state.noteSearchQuery) params.set('note_q', state.noteSearchQuery)
+            }
 
             const next = params.toString()
             const nextUrl = next ? `/chat?${next}` : '/chat'
             history.replaceState(null, '', nextUrl)
+        }
+
+        function getCurrentNoteChannel() {
+            return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
         }
 
         function setActivePage(page, { sync = true } = {}) {
@@ -687,6 +813,13 @@
         }
 
         function applyHeaderContext(page, { animate = true } = {}) {
+            if (page === 'note-editor') {
+                const noteTitle = state.editingNote?.pinned === 1 ? 'Pinned Note' : 'Edit Note'
+                const noteSubtitle = getCurrentNoteChannel()?.name || 'Private Notes'
+                setMessageHeader(noteTitle, noteSubtitle, { animate })
+                return
+            }
+
             if (page === 'search') {
                 setMessageHeader('Search', 'Find and sort messages', { animate })
                 return
@@ -698,20 +831,39 @@
                 return
             }
 
+            if (state.contentMode === 'notes') {
+                const channel = getCurrentNoteChannel()
+                setMessageHeader(channel?.name || 'My Notes', state.lastNoteStatus, { animate })
+                return
+            }
+
             setMessageHeader(`#${state.currentChannel}`, state.lastMessageStatus, { animate })
         }
 
         function updateHeaderActionButtons() {
-            const searchActive = state.activePage === 'search'
+            const searchActive = state.contentMode === 'notes' ? state.noteSearchOpen : state.activePage === 'search'
             const profileActive = state.activePage === 'profile'
 
             el.btnSearch.classList.toggle('active', searchActive)
             el.btnProfile.classList.toggle('active', profileActive)
 
-            el.btnSearch.disabled = searchActive
+            el.btnSearch.disabled = state.contentMode === 'chat' && searchActive
             el.btnProfile.disabled = profileActive
             el.btnSearch.setAttribute('aria-pressed', searchActive ? 'true' : 'false')
             el.btnProfile.setAttribute('aria-pressed', profileActive ? 'true' : 'false')
+        }
+
+        function updateComposerMode() {
+            const isNotes = state.contentMode === 'notes'
+            el.messageInput.placeholder = isNotes ? 'Save a quick note' : 'Message'
+            el.composerSubmit.title = isNotes ? 'Save note' : 'Send message'
+            el.composerSubmit.setAttribute('aria-label', isNotes ? 'Save note' : 'Send message')
+            el.composerSubmitPath.setAttribute(
+                'd',
+                isNotes
+                    ? 'M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    : 'M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5.951-1.429 5.951 1.429a1 1 0 001.169-1.409l-7-14z',
+            )
         }
 
         function goToMessagesPage({ sync = true } = {}) {
@@ -731,12 +883,13 @@
 
         function renderChannels() {
             el.channels.innerHTML = state.channels.map((ch) => {
-                const active = ch.slug === state.currentChannel
+                const active = state.contentMode === 'chat' && ch.slug === state.currentChannel
                 return `<button data-channel="${esc(ch.slug)}" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}"># ${esc(ch.slug)}</button>`
             }).join('')
 
             for (const btn of el.channels.querySelectorAll('button[data-channel]')) {
                 btn.addEventListener('click', () => {
+                    state.contentMode = 'chat'
                     state.currentChannel = btn.dataset.channel
                     state.q = ''
                     state.openReplyId = null
@@ -744,6 +897,10 @@
                     state.minMessageId = null
                     state.maxMessageId = null
                     el.searchInput.value = ''
+                    state.noteSearchOpen = false
+                    updateComposerMode()
+                    renderChannels()
+                    renderNoteChannels()
                     goToMessagesPage()
                     loadMessages()
                     el.messageInput.focus()
@@ -753,6 +910,150 @@
             if (state.activePage !== 'search' && state.activePage !== 'profile') {
                 applyHeaderContext(state.activePage, { animate: true })
             }
+        }
+
+        function renderNoteChannels() {
+            el.noteChannels.innerHTML = state.noteChannels.map((channel) => {
+                const active = state.contentMode === 'notes' && channel.id === state.currentNoteChannelId
+                return `<button data-note-channel-id="${channel.id}" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}">${esc(channel.name)}</button>`
+            }).join('')
+
+            for (const btn of el.noteChannels.querySelectorAll('button[data-note-channel-id]')) {
+                btn.addEventListener('click', () => {
+                    state.contentMode = 'notes'
+                    state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
+                    state.noteSearchOpen = false
+                    state.editingNote = null
+                    updateComposerMode()
+                    renderChannels()
+                    renderNoteChannels()
+                    goToMessagesPage()
+                    loadNotes()
+                    el.messageInput.focus()
+                })
+            }
+        }
+
+        function parseJsonArray(raw) {
+            if (!raw || typeof raw !== 'string') return []
+            try {
+                const parsed = JSON.parse(raw)
+                return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []
+            } catch {
+                return []
+            }
+        }
+
+        function renderNotes() {
+            const bubble = state.noteSearchOpen ? `
+                <div class="note-search-bubble">
+                    <div class="rounded-2xl border border-border bg-white p-3 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <input id="note-search-inline" type="search" value="${esc(state.noteSearchQuery)}" placeholder="Search notes, tags, summaries"
+                                class="flex-1 min-w-0 text-sm px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <button id="note-search-dismiss" class="text-xs px-3 py-2 rounded-xl border border-border hover:border-primary">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''
+
+            if (!state.notes.length) {
+                el.messages.innerHTML = `${bubble}<div class="text-sm text-muted-fg text-center py-6">No notes yet. Save the first note in this channel.</div>`
+            } else {
+                el.messages.innerHTML = `${bubble}${state.notes.map((note) => {
+                    const tags = [
+                        ...parseJsonArray(note.tag_list),
+                        ...parseJsonArray(note.ai_tags).slice(0, 3),
+                    ].slice(0, 5)
+                    const summary = note.ai_summary?.trim() || ''
+                    return `
+                        <article class="note-card ${note.pinned === 1 ? 'pinned' : ''} mb-3" data-note-open="${note.note_id}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs text-muted-fg mb-2">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div class="text-sm whitespace-pre-wrap text-[#1a1a2e] line-clamp-6">${linkifyUrls(note.content)}</div>
+                                </div>
+                                ${note.pinned === 1 ? '<span class="text-xs text-primary font-semibold">Pinned</span>' : ''}
+                            </div>
+                            <div class="note-ribbon">
+                                ${summary ? `<span class="text-xs text-muted-fg">${esc(summary)}</span>` : ''}
+                                ${tags.map((tag) => `<span class="note-tag">${esc(tag)}</span>`).join('')}
+                                <span class="text-xs text-muted-fg">${note.attachment_count} attachments</span>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between gap-2">
+                                <button data-note-pin="${note.note_id}" data-pinned="${note.pinned}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">${note.pinned === 1 ? 'Unpin' : 'Pin'}</button>
+                                <button data-note-archive="${note.note_id}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
+                            </div>
+                        </article>
+                    `
+                }).join('')}`
+            }
+
+            const searchInput = el.messages.querySelector('#note-search-inline')
+            if (searchInput) {
+                searchInput.addEventListener('input', async () => {
+                    state.noteSearchQuery = searchInput.value.trim()
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            const dismiss = el.messages.querySelector('#note-search-dismiss')
+            if (dismiss) {
+                dismiss.addEventListener('click', async () => {
+                    state.noteSearchOpen = false
+                    state.noteSearchQuery = ''
+                    updateHeaderActionButtons()
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            for (const card of el.messages.querySelectorAll('[data-note-open]')) {
+                card.addEventListener('click', async (event) => {
+                    if (event.target.closest('[data-note-pin]') || event.target.closest('[data-note-archive]') || event.target.closest('a')) return
+                    const id = Number(card.dataset.noteOpen)
+                    const note = state.notes.find((item) => item.note_id === id)
+                    if (!note) return
+                    openNoteEditor(note)
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('[data-note-pin]')) {
+                btn.addEventListener('click', async (event) => {
+                    event.stopPropagation()
+                    const id = Number(btn.dataset.notePin)
+                    const pinned = btn.dataset.pinned === '1'
+                    await api(`/api/notes/${id}/pin`, {
+                        method: 'POST',
+                        body: JSON.stringify({ pinned: !pinned }),
+                    })
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('[data-note-archive]')) {
+                btn.addEventListener('click', async (event) => {
+                    event.stopPropagation()
+                    const id = Number(btn.dataset.noteArchive)
+                    await api(`/api/notes/${id}/archive`, {
+                        method: 'POST',
+                        body: JSON.stringify({ is_archived: true }),
+                    })
+                    await loadNotes({ silent: true })
+                })
+            }
+        }
+
+        function openNoteEditor(note) {
+            state.editingNote = note
+            el.noteEditorInput.value = note.content
+            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+            el.btnNotePin.textContent = note.pinned === 1 ? 'Unpin' : 'Pin'
+            el.btnNoteArchive.textContent = note.is_archived === 1 ? 'Restore' : 'Archive'
+            el.noteEditorMoveSelect.innerHTML = state.noteChannels.map((channel) => `
+                <option value="${channel.id}" ${channel.id === note.channel_id ? 'selected' : ''}>${esc(channel.name)}</option>
+            `).join('')
+            setActivePage('note-editor')
+            requestAnimationFrame(() => el.noteEditorInput.focus())
         }
 
         function createAvatarInitials(fullName, slugPrefix) {
@@ -1095,6 +1396,43 @@
             renderChannels()
         }
 
+        async function loadNoteChannels() {
+            const res = await api('/api/notes/channels')
+            if (!res) return
+            state.noteChannels = res.data || []
+            if ((!state.currentNoteChannelId || !state.noteChannels.some((channel) => channel.id === state.currentNoteChannelId)) && state.noteChannels[0]) {
+                state.currentNoteChannelId = state.noteChannels[0].id
+            }
+            renderNoteChannels()
+        }
+
+        async function loadNotes({ silent = false } = {}) {
+            if (!state.currentNoteChannelId) return
+
+            if (!silent) {
+                state.lastNoteStatus = 'Loading...'
+                if (state.activePage === 'messages' || state.activePage === 'channels') {
+                    el.statusText.textContent = state.lastNoteStatus
+                }
+            }
+
+            const params = new URLSearchParams({ channel_id: String(state.currentNoteChannelId) })
+            if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
+
+            const res = await api(`/api/notes?${params.toString()}`)
+            if (!res) return
+
+            state.notes = res.data || []
+            state.lastNoteStatus = `${res.meta.total || 0} notes`
+            renderChannels()
+            renderNoteChannels()
+            renderNotes()
+
+            if (state.activePage === 'messages' || state.activePage === 'channels') {
+                el.statusText.textContent = state.lastNoteStatus
+            }
+        }
+
         async function loadMessages({ silent = false, forceScrollBottom = false, loadOlder = false } = {}) {
             if (loadOlder && state.loadingOlder) return
             if (loadOlder) state.loadingOlder = true
@@ -1254,6 +1592,18 @@
             }
         }
 
+        async function createNote(content) {
+            if (!state.currentNoteChannelId) return
+            await api('/api/notes', {
+                method: 'POST',
+                body: JSON.stringify({
+                    channel_id: state.currentNoteChannelId,
+                    content,
+                }),
+            })
+            await loadNotes({ silent: true })
+        }
+
         async function loadReports() {
             const res = await api('/api/chat/reports')
             if (!res) return
@@ -1301,8 +1651,11 @@
                 el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
 
                 const query = new URLSearchParams(location.search)
+                const fromMode = query.get('mode') === 'notes' ? 'notes' : 'chat'
                 const fromQuery = query.get('channel')
                 if (fromQuery) state.currentChannel = fromQuery
+                const fromNoteChannel = query.get('note_channel') ? parseInt(query.get('note_channel'), 10) : null
+                if (Number.isInteger(fromNoteChannel) && fromNoteChannel > 0) state.currentNoteChannelId = fromNoteChannel
                 const fromSort = query.get('sort')
                 if (fromSort === 'date' || fromSort === 'popularity' || fromSort === 'relevance') {
                     state.sort = fromSort
@@ -1312,18 +1665,41 @@
                     state.q = fromQ
                     el.searchInput.value = fromQ
                 }
+                const fromNoteQ = query.get('note_q')?.trim() ?? ''
+                if (fromNoteQ) {
+                    state.noteSearchQuery = fromNoteQ
+                    state.noteSearchOpen = true
+                }
                 const fromView = query.get('view')
 
                 applySortButtonStyles()
-                await loadChannels()
-                await loadMessages({ forceScrollBottom: true })
-                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels') {
-                    setActivePage(fromView, { sync: false })
+                await Promise.all([loadChannels(), loadNoteChannels()])
+                state.contentMode = fromMode
+                updateComposerMode()
+                renderChannels()
+                renderNoteChannels()
+
+                if (state.contentMode === 'notes') {
+                    await loadNotes()
+                } else {
+                    await loadMessages({ forceScrollBottom: true })
+                }
+
+                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels' || fromView === 'note-editor') {
+                    const safeView = state.contentMode === 'notes' && fromView === 'search' ? 'messages' : fromView
+                    const finalView = safeView === 'note-editor' && !state.editingNote ? 'messages' : safeView
+                    setActivePage(finalView, { sync: false })
+                } else if (state.contentMode === 'notes') {
+                    goToMessagesPage({ sync: false })
+                    el.messageInput.focus()
                 } else if (fromQuery) {
                     goToMessagesPage({ sync: false })
                     el.messageInput.focus()
                 } else {
                     goToChannelsPage({ sync: false })
+                }
+                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels') {
+                    // handled above; keep branch for structural continuity
                 }
                 applyHeaderContext(state.activePage, { animate: false })
                 updateHeaderActionButtons()
@@ -1334,7 +1710,10 @@
                     if (state.pollTimer) clearInterval(state.pollTimer)
                     const interval = state.aiProcessing ? 2000 : 10000
                     state.pollTimer = setInterval(() => {
-                        loadMessages({ silent: true }).catch(() => null)
+                        const loader = state.contentMode === 'notes'
+                            ? loadNotes({ silent: true })
+                            : loadMessages({ silent: true })
+                        loader.catch(() => null)
                         // Re-evaluate polling speed
                         startPolling()
                     }, interval)
@@ -1351,7 +1730,11 @@
             if (!content) return
             el.messageInput.value = ''
             el.messageInput.style.height = 'auto'
-            await postMessage(content)
+            if (state.contentMode === 'notes') {
+                await createNote(content)
+            } else {
+                await postMessage(content)
+            }
         })
 
         el.messageInput.addEventListener('keydown', async (event) => {
@@ -1361,7 +1744,11 @@
                 if (!content) return
                 el.messageInput.value = ''
                 el.messageInput.style.height = 'auto'
-                await postMessage(content)
+                if (state.contentMode === 'notes') {
+                    await createNote(content)
+                } else {
+                    await postMessage(content)
+                }
             }
         })
 
@@ -1405,6 +1792,23 @@
             }
         })
         el.btnSearch.addEventListener('click', () => {
+            if (state.contentMode === 'notes') {
+                state.noteSearchOpen = !state.noteSearchOpen
+                if (!state.noteSearchOpen && state.noteSearchQuery) {
+                    state.noteSearchQuery = ''
+                    loadNotes({ silent: true })
+                }
+                renderNotes()
+                updateHeaderActionButtons()
+                syncUrlState()
+                if (state.noteSearchOpen) {
+                    requestAnimationFrame(() => {
+                        const input = el.messages.querySelector('#note-search-inline')
+                        if (input) input.focus()
+                    })
+                }
+                return
+            }
             if (state.activePage === 'search') {
                 goToMessagesPage()
             } else {
@@ -1420,6 +1824,67 @@
         })
         el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
         el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
+        el.btnNoteEditorBack.addEventListener('click', () => goToMessagesPage())
+        el.btnNewNoteChannel.addEventListener('click', async () => {
+            const name = prompt('New private note channel name')?.trim()
+            if (!name) return
+            await api('/api/notes/channels', {
+                method: 'POST',
+                body: JSON.stringify({ name }),
+            })
+            await loadNoteChannels()
+        })
+        el.btnNoteSave.addEventListener('click', async () => {
+            if (!state.editingNote) return
+            const content = el.noteEditorInput.value.trim()
+            if (!content) return
+            const res = await api(`/api/notes/${state.editingNote.note_id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ content }),
+            })
+            state.editingNote = res?.data ?? state.editingNote
+            await loadNotes({ silent: true })
+            goToMessagesPage()
+        })
+        el.btnNotePin.addEventListener('click', async () => {
+            if (!state.editingNote) return
+            const pinned = state.editingNote.pinned === 1
+            const res = await api(`/api/notes/${state.editingNote.note_id}/pin`, {
+                method: 'POST',
+                body: JSON.stringify({ pinned: !pinned }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                el.btnNotePin.textContent = state.editingNote.pinned === 1 ? 'Unpin' : 'Pin'
+                await loadNotes({ silent: true })
+            }
+        })
+        el.btnNoteArchive.addEventListener('click', async () => {
+            if (!state.editingNote) return
+            const isArchived = state.editingNote.is_archived === 1
+            await api(`/api/notes/${state.editingNote.note_id}/archive`, {
+                method: 'POST',
+                body: JSON.stringify({ is_archived: !isArchived }),
+            })
+            state.editingNote = null
+            await loadNotes({ silent: true })
+            goToMessagesPage()
+        })
+        el.noteEditorMoveSelect.addEventListener('change', async () => {
+            if (!state.editingNote) return
+            const channelId = Number(el.noteEditorMoveSelect.value)
+            if (!Number.isInteger(channelId) || channelId < 1 || channelId === state.editingNote.channel_id) return
+            const res = await api(`/api/notes/${state.editingNote.note_id}/move`, {
+                method: 'POST',
+                body: JSON.stringify({ channel_id: channelId }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                state.currentNoteChannelId = channelId
+                el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+                await loadNotes({ silent: true })
+            }
+        })
 
         // Jump to latest messages button
         el.jumpToLatestBtn.addEventListener('click', async () => {
@@ -1437,6 +1902,7 @@
         el.closeReports.addEventListener('click', () => el.reportsDialog.close())
 
         el.messages.addEventListener('scroll', () => {
+            if (state.contentMode !== 'chat') return
             const distanceToBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight
             state.stickToBottom = distanceToBottom < 32
 

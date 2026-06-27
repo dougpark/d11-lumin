@@ -62,7 +62,39 @@ export type ChatChannel = {
     id: number
     name: string
     slug: string
+    type?: string
     created_at: string
+}
+
+export type NoteChannel = {
+    id: number
+    user_id: number
+    name: string
+    created_at: string
+    last_modified_at: string
+}
+
+export type Note = {
+    note_id: number
+    user_id: number
+    channel_id: number
+    pinned: number
+    type: string
+    content: string
+    upvotes: number
+    downvotes: number
+    tag_list: string
+    ai_tags: string
+    ai_summary: string
+    ai_processed_at: string | null
+    is_hidden: number
+    created_at: string
+    last_modified_at: string
+    is_public: number
+    is_archived: number
+    share_url: string
+    share_expires_at: string | null
+    attachment_count: number
 }
 
 export type ChatMessage = {
