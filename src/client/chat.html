@@ -842,8 +842,9 @@
         }
 
         function renderReply(reply, parentId) {
-            const initials = createAvatarInitials(reply.user_full_name, reply.user_slug_prefix)
-            const avatarColor = getAvatarColor(reply.user_slug_prefix || 'unknown')
+            const isAiUser = reply.user_slug_prefix === 'lumin-ai'
+            const initials = isAiUser ? '🤖' : createAvatarInitials(reply.user_full_name, reply.user_slug_prefix)
+            const avatarColor = isAiUser ? '#9c27b0' : getAvatarColor(reply.user_slug_prefix || 'unknown')
 
             return `
                 <div class="message-container mt-2 ml-3 pl-3 border-l border-border hover:bg-muted/30 rounded-r-lg p-2 -ml-1 pl-4">
@@ -886,13 +887,15 @@
                 }
 
                 const initials = createAvatarInitials(msg.user_full_name, msg.user_slug_prefix)
-                const avatarColor = getAvatarColor(msg.user_slug_prefix || 'unknown')
+                const isAiUser = msg.user_slug_prefix === 'lumin-ai'
+                const avatarInitial = isAiUser ? '🤖' : initials
+                const avatarColor = isAiUser ? '#9c27b0' : getAvatarColor(msg.user_slug_prefix || 'unknown')
                 const isOwn = msg.user_slug_prefix === state.user?.slug_prefix
 
                 return `
                     ${dateSeparator}
                     <article class="message-container flex ${isOwn ? 'justify-end' : 'justify-start'} gap-2 mb-3">
-                        ${!isOwn ? `<div class="w-8 h-8 rounded-full text-white text-xs font-semibold flex items-center justify-center flex-shrink-0" style="background-color: ${avatarColor}">${esc(initials)}</div>` : ''}
+                        ${!isOwn ? `<div class="w-8 h-8 rounded-full text-white text-xs font-semibold flex items-center justify-center flex-shrink-0" style="background-color: ${avatarColor}">${avatarInitial}</div>` : ''}
                         <div class="${isOwn ? 'mr-2' : ''}">
                             ${!isOwn ? `<div class="text-xs font-medium text-[#1a1a2e] mb-1">${esc(msg.user_full_name || msg.user_slug_prefix)}</div>` : ''}
                              <div class="text-xs text-muted-fg mt-1 ${isOwn ? 'text-right' : ''}">${msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
@@ -931,7 +934,7 @@
                     <article class="message-container flex justify-start gap-2 mb-3 opacity-60">
                         <div class="w-8 h-8 rounded-full text-white text-xs font-semibold flex items-center justify-center flex-shrink-0" style="background-color: #9c27b0">🤖</div>
                         <div>
-                            <div class="text-xs font-medium text-[#1a1a2e] mb-1">AI Assistant</div>
+                            <div class="text-xs font-medium text-[#1a1a2e] mb-1">Lumin AI</div>
                             <div class="message-bubble message-theirs">
                                 <div class="flex gap-1">
                                     <div class="w-2 h-2 rounded-full bg-muted-fg animate-bounce" style="animation-delay: 0s"></div>

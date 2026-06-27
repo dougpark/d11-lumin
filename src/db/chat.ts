@@ -94,7 +94,9 @@ export async function getMessageById(db: D1Database, id: number): Promise<RawMes
         .prepare(
             `SELECT c.id, c.channel_id, ch.slug AS channel_slug, c.user_id, c.parent_id, c.content,
                     c.upvotes, c.downvotes, c.reported, c.is_hidden, c.created_at,
-                    u.full_name AS user_full_name, u.slug_prefix AS user_slug_prefix, u.is_admin AS user_is_admin,
+                    CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'Lumin AI' ELSE u.full_name END AS user_full_name,
+                    CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'lumin-ai' ELSE u.slug_prefix END AS user_slug_prefix,
+                    u.is_admin AS user_is_admin,
                     0 AS user_vote
              FROM chats c
              JOIN channels ch ON ch.id = c.channel_id
@@ -209,7 +211,9 @@ export async function listMessages(
     const listSql = `
         SELECT c.id, c.channel_id, ch.slug AS channel_slug, c.user_id, c.parent_id, c.content,
                c.upvotes, c.downvotes, c.reported, c.is_hidden, c.created_at,
-               u.full_name AS user_full_name, u.slug_prefix AS user_slug_prefix, u.is_admin AS user_is_admin,
+             CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'Lumin AI' ELSE u.full_name END AS user_full_name,
+             CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'lumin-ai' ELSE u.slug_prefix END AS user_slug_prefix,
+             u.is_admin AS user_is_admin,
                COALESCE(cv.vote, 0) AS user_vote
                ${selectRank}
         ${from}
@@ -249,7 +253,9 @@ export async function listMessages(
         .prepare(
             `SELECT c.id, c.channel_id, ch.slug AS channel_slug, c.user_id, c.parent_id, c.content,
                     c.upvotes, c.downvotes, c.reported, c.is_hidden, c.created_at,
-                    u.full_name AS user_full_name, u.slug_prefix AS user_slug_prefix, u.is_admin AS user_is_admin,
+                    CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'Lumin AI' ELSE u.full_name END AS user_full_name,
+                    CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'lumin-ai' ELSE u.slug_prefix END AS user_slug_prefix,
+                    u.is_admin AS user_is_admin,
                     COALESCE(cv.vote, 0) AS user_vote
              FROM chats c
              JOIN channels ch ON ch.id = c.channel_id
@@ -356,7 +362,9 @@ export async function listReportedMessages(db: D1Database): Promise<ChatMessageV
         .prepare(
             `SELECT c.id, c.channel_id, ch.slug AS channel_slug, c.user_id, c.parent_id, c.content,
                     c.upvotes, c.downvotes, c.reported, c.is_hidden, c.created_at,
-                    u.full_name AS user_full_name, u.slug_prefix AS user_slug_prefix, u.is_admin AS user_is_admin,
+                    CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'Lumin AI' ELSE u.full_name END AS user_full_name,
+                    CASE WHEN ch.slug = 'ai' AND c.user_id = 1 THEN 'lumin-ai' ELSE u.slug_prefix END AS user_slug_prefix,
+                    u.is_admin AS user_is_admin,
                     0 AS user_vote
              FROM chats c
              JOIN channels ch ON ch.id = c.channel_id
@@ -366,7 +374,7 @@ export async function listReportedMessages(db: D1Database): Promise<ChatMessageV
         )
         .all<RawMessageRow>()
 
-    return result.results.map((r) => ({ ...r, user_vote: 0, replies: [] }))
+    return result.results.map((r) => ({ ...r, user_vote: 0, upvoters: [], downvoters: [], replies: [] }))
 }
 
 export async function setMessageHidden(db: D1Database, input: { chat_id: number; is_hidden: boolean }): Promise<boolean> {
