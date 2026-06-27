@@ -95,33 +95,13 @@
             display: flex;
             flex-direction: column;
             transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
-            will-change: transform;
+            will-change: auto;
         }
 
-        #channels-page {
-            transform: translate3d(-100%, 0, 0);
-            z-index: 35;
-            background-color: #ffffff;
-            pointer-events: none;
-        }
-
-        #chat-shell[data-view='channels'] #channels-page {
-            transform: translate3d(0, 0, 0);
-            pointer-events: auto;
-        }
-
-        #messages-page {
-            transform: translate3d(0, 0, 0);
-            z-index: 30;
-            background-color: #f0f2f5;
-        }
-
-        #search-page,
-        #profile-page,
-        #note-editor-page {
+        .overlay-page {
             z-index: 40;
             background-color: #ffffff;
-            transform: translate3d(110%, 0, 0);
+            transform: translateX(110%);
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -131,17 +111,38 @@
                 visibility 0s linear 300ms;
         }
 
-        #chat-shell[data-view='search'] #search-page,
-        #chat-shell[data-view='profile'] #profile-page,
-        #chat-shell[data-view='note-editor'] #note-editor-page {
-            transform: translate3d(0, 0, 0);
+        .overlay-page.is-active {
+            transform: translateX(0);
             opacity: 1;
+            z-index: 50;
             visibility: visible;
             pointer-events: auto;
             transition:
                 transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
                 opacity 220ms ease,
                 visibility 0s linear 0s;
+        }
+
+        .overlay-page[hidden] {
+            display: none !important;
+        }
+
+        #channels-page {
+            transform: translateX(-100%);
+            z-index: 35;
+            background-color: #ffffff;
+            pointer-events: none;
+        }
+
+        #chat-shell[data-view='channels'] #channels-page {
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        #messages-page {
+            transform: translateX(0);
+            z-index: 30;
+            background-color: #f0f2f5;
         }
 
         .header-icon-btn {
@@ -510,7 +511,7 @@
             </form>
         </section>
 
-        <section id="search-page" class="stack-page">
+        <section id="search-page" class="stack-page overlay-page" hidden>
             <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
                 <div class="flex items-center min-w-0">
                     <h2 class="text-base font-semibold text-[#1a1a2e]">Search & Sort</h2>
@@ -551,7 +552,7 @@
             </div>
         </section>
 
-        <section id="profile-page" class="stack-page">
+        <section id="profile-page" class="stack-page overlay-page" hidden>
             <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
                 <div class="flex items-center min-w-0">
                     <h2 class="text-base font-semibold text-[#1a1a2e]">Profile</h2>
@@ -573,7 +574,7 @@
             </div>
         </section>
 
-        <section id="note-editor-page" class="stack-page">
+        <section id="note-editor-page" class="stack-page overlay-page" hidden>
             <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
                 <div class="flex items-center min-w-0">
                     <h2 class="text-base font-semibold text-[#1a1a2e]">Edit Note</h2>
@@ -784,6 +785,19 @@
         function setActivePage(page, { sync = true } = {}) {
             state.activePage = page
             el.shell.dataset.view = page
+
+            const overlayPages = {
+                search: el.searchPage,
+                profile: el.profilePage,
+                'note-editor': el.noteEditorPage,
+            }
+
+            for (const [overlayName, overlayEl] of Object.entries(overlayPages)) {
+                const isActive = overlayName === page
+                overlayEl.hidden = !isActive
+                overlayEl.classList.toggle('is-active', isActive)
+            }
+
             applyHeaderContext(page)
             updateHeaderActionButtons()
 
