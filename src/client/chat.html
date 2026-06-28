@@ -123,6 +123,132 @@
                 visibility 0s linear 0s;
         }
 
+        #note-editor-page {
+            inset: auto 0 0 0;
+            height: min(92dvh, 920px);
+            max-height: 92dvh;
+            border-radius: 1.5rem 1.5rem 0 0;
+            box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.2);
+            transform: translate3d(0, 102%, 0);
+            opacity: 1;
+            visibility: hidden;
+            pointer-events: none;
+            overflow: hidden;
+            transition:
+                transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 380ms;
+        }
+
+        #note-editor-page.is-active {
+            transform: translate3d(0, 0, 0);
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+                transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 0s;
+        }
+
+        .note-sheet-handle {
+            width: 3rem;
+            height: 0.3rem;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, 0.16);
+            margin: 0.65rem auto 0.25rem;
+            flex-shrink: 0;
+        }
+
+        #note-editor-page>header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .note-editor-menu-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 58;
+            background: transparent;
+        }
+
+        .note-editor-menu {
+            position: fixed;
+            z-index: 59;
+            min-width: 14rem;
+            max-width: calc(100vw - 1.5rem);
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16);
+            overflow: hidden;
+        }
+
+        .note-editor-menu[hidden],
+        .note-editor-menu-scrim[hidden] {
+            display: none !important;
+        }
+
+        .note-editor-menu-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            color: #1a1a2e;
+            text-align: left;
+        }
+
+        .note-editor-menu-item:hover,
+        .note-editor-menu-item:focus-visible {
+            background: rgba(21, 101, 192, 0.08);
+            outline: none;
+        }
+
+        .note-editor-menu-item-danger {
+            color: #d32f2f;
+        }
+
+        .note-editor-menu-section-title {
+            padding: 0.75rem 1rem 0.375rem;
+            font-size: 0.625rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #78909c;
+        }
+
+        .note-editor-menu-divider {
+            height: 1px;
+            background: rgba(0, 0, 0, 0.08);
+            margin: 0.25rem 0;
+        }
+
+        .note-editor-menu-channel {
+            padding: 0.6rem 1rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            color: #1a1a2e;
+            text-align: left;
+        }
+
+        .note-editor-menu-channel:hover,
+        .note-editor-menu-channel:focus-visible {
+            background: rgba(21, 101, 192, 0.08);
+            outline: none;
+        }
+
+        .note-editor-menu-channel.is-selected {
+            color: #1565c0;
+            font-weight: 600;
+        }
+
         .overlay-page[hidden] {
             display: none !important;
         }
@@ -634,16 +760,23 @@
         </section>
 
         <section id="note-editor-page" class="stack-page overlay-page" hidden>
-            <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
-                <div class="flex items-center min-w-0">
-                    <h2 class="text-base font-semibold text-[#1a1a2e]">Edit Note</h2>
-                </div>
-                <button id="btn-note-editor-back" class="p-1.5 rounded-lg hover:bg-muted" title="Dismiss"
+            <div class="note-sheet-handle" aria-hidden="true"></div>
+            <header
+                class="px-4 pt-4 pb-3 border-b border-border bg-white grid grid-cols-[auto,1fr,auto] items-center gap-3">
+                <button id="btn-note-editor-back"
+                    class="w-9 h-9 rounded-full hover:bg-muted flex items-center justify-center" title="Dismiss"
                     aria-label="Dismiss to notes">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18">
+                        </path>
                     </svg>
                 </button>
+                <div class="min-w-0 text-center">
+                    <h2 class="text-base font-semibold text-[#1a1a2e] truncate">Edit Note</h2>
+                    <p class="text-[11px] text-muted-fg truncate">Make changes, attach files, then save.</p>
+                </div>
+                <button id="btn-note-save"
+                    class="text-sm font-semibold px-4 py-2 rounded-full bg-primary text-white hover:bg-[#0d47a1]">Save</button>
             </header>
             <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
                 <div class="rounded-2xl border border-border bg-white p-4 space-y-3">
@@ -652,8 +785,9 @@
                             <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
                             <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
                         </div>
-                        <button id="btn-note-pin"
-                            class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Pin</button>
+                        <button id="btn-note-menu" type="button"
+                            class="w-9 h-9 rounded-full border border-border hover:border-primary flex items-center justify-center text-xl leading-none text-[#1a1a2e]"
+                            aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
                     </div>
                     <textarea id="note-editor-input" rows="12"
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -677,24 +811,24 @@
                         <div id="note-upload-progress" class="space-y-2 mb-2"></div>
                         <div id="note-attachments-list" class="space-y-2"></div>
                     </div>
-                    <div class="grid grid-cols-1 gap-3">
-                        <div>
-                            <label class="text-xs uppercase tracking-wide text-muted-fg block mb-2">Move to
-                                channel</label>
-                            <select id="note-editor-move-select"
-                                class="w-full text-sm px-3 py-2 rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"></select>
-                        </div>
-                    </div>
                     <div class="flex items-center justify-between gap-3">
-                        <button id="btn-note-archive"
-                            class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
-                        <button id="btn-note-save"
-                            class="text-xs px-4 py-2 rounded-lg bg-primary text-white hover:bg-[#0d47a1]">Save
-                            Note</button>
+                        <p class="text-[11px] text-muted-fg">Use Save in the header when you’re done.</p>
                     </div>
                 </div>
             </div>
         </section>
+
+        <div id="note-editor-menu-scrim" class="note-editor-menu-scrim" hidden></div>
+        <div id="note-editor-menu" class="note-editor-menu" hidden role="menu" aria-label="Note actions">
+            <button id="note-editor-menu-pin" type="button" class="note-editor-menu-item" role="menuitem"
+                data-note-menu-action="pin"></button>
+            <button id="note-editor-menu-archive" type="button"
+                class="note-editor-menu-item note-editor-menu-item-danger" role="menuitem"
+                data-note-menu-action="archive"></button>
+            <div class="note-editor-menu-divider" aria-hidden="true"></div>
+            <div class="note-editor-menu-section-title">Move to channel</div>
+            <div id="note-editor-menu-channels"></div>
+        </div>
     </div>
 
     <dialog id="reports-dialog" class="rounded-2xl p-0 backdrop:bg-black/50">
@@ -736,6 +870,7 @@
             noteImagePreviews: [],
             noteUploadQueue: [],
             editingNote: null,
+            noteEditorMenuOpen: false,
             minMessageId: null,
             maxMessageId: null,
             loadingOlder: false,
@@ -786,7 +921,6 @@
             noteEditorPage: document.getElementById('note-editor-page'),
             noteEditorInput: document.getElementById('note-editor-input'),
             noteImagePreviews: document.getElementById('note-image-previews'),
-            noteEditorMoveSelect: document.getElementById('note-editor-move-select'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
             noteAttachmentInput: document.getElementById('note-attachment-input'),
             noteAttachmentDropzone: document.getElementById('note-attachment-dropzone'),
@@ -794,8 +928,12 @@
             noteAttachmentsList: document.getElementById('note-attachments-list'),
             btnNoteAttach: document.getElementById('btn-note-attach'),
             btnNoteSave: document.getElementById('btn-note-save'),
-            btnNotePin: document.getElementById('btn-note-pin'),
-            btnNoteArchive: document.getElementById('btn-note-archive'),
+            btnNoteMenu: document.getElementById('btn-note-menu'),
+            noteEditorMenuScrim: document.getElementById('note-editor-menu-scrim'),
+            noteEditorMenu: document.getElementById('note-editor-menu'),
+            noteEditorMenuPin: document.getElementById('note-editor-menu-pin'),
+            noteEditorMenuArchive: document.getElementById('note-editor-menu-archive'),
+            noteEditorMenuChannels: document.getElementById('note-editor-menu-channels'),
             profileUserName: document.getElementById('profile-user-name'),
             profileUserHandle: document.getElementById('profile-user-handle'),
             voterPopup: document.getElementById('voter-popup'),
@@ -876,9 +1014,118 @@
             return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
         }
 
+        function closeNoteEditorMenu() {
+            state.noteEditorMenuOpen = false
+            el.noteEditorMenuScrim.hidden = true
+            el.noteEditorMenu.hidden = true
+            el.btnNoteMenu.setAttribute('aria-expanded', 'false')
+        }
+
+        function renderNoteEditorMenu() {
+            if (!state.editingNote) return
+
+            const pinned = state.editingNote.pinned === 1
+            const archived = state.editingNote.is_archived === 1
+
+            el.noteEditorMenuPin.textContent = pinned ? 'Unpin' : 'Pin'
+            el.noteEditorMenuArchive.textContent = archived ? 'Restore' : 'Archive'
+            el.noteEditorMenuChannels.innerHTML = state.noteChannels.map((channel) => {
+                const selected = channel.id === state.editingNote.channel_id
+                return `
+                    <button type="button" class="note-editor-menu-channel ${selected ? 'is-selected' : ''}" role="menuitemradio" aria-checked="${selected ? 'true' : 'false'}" data-note-channel-id="${channel.id}">
+                        <span class="truncate">${esc(channel.name)}</span>
+                        ${selected ? '<span aria-hidden="true">✓</span>' : ''}
+                    </button>
+                `
+            }).join('')
+        }
+
+        function positionNoteEditorMenu() {
+            const anchorRect = el.btnNoteMenu.getBoundingClientRect()
+            const gutter = 12
+            const menuWidth = 224
+
+            let left = anchorRect.left
+            if (left + menuWidth > window.innerWidth - gutter) {
+                left = anchorRect.right - menuWidth
+            }
+            left = Math.max(gutter, Math.min(left, window.innerWidth - menuWidth - gutter))
+
+            const menu = el.noteEditorMenu
+            menu.style.left = `${left}px`
+            menu.style.top = `${anchorRect.bottom + 8}px`
+
+            const menuRect = menu.getBoundingClientRect()
+            if (menuRect.bottom > window.innerHeight - gutter) {
+                const flippedTop = anchorRect.top - menuRect.height - 8
+                menu.style.top = `${Math.max(gutter, flippedTop)}px`
+            }
+        }
+
+        function openNoteEditorMenu() {
+            if (!state.editingNote) return
+
+            renderNoteEditorMenu()
+            el.noteEditorMenuScrim.hidden = false
+            el.noteEditorMenu.hidden = false
+            el.btnNoteMenu.setAttribute('aria-expanded', 'true')
+            state.noteEditorMenuOpen = true
+
+            requestAnimationFrame(() => {
+                positionNoteEditorMenu()
+            })
+        }
+
+        async function toggleEditingNotePin() {
+            if (!state.editingNote) return
+
+            const pinned = state.editingNote.pinned === 1
+            const res = await api(`/api/notes/${state.editingNote.note_id}/pin`, {
+                method: 'POST',
+                body: JSON.stringify({ pinned: !pinned }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                await loadNotes({ silent: true })
+            }
+        }
+
+        async function toggleEditingNoteArchive() {
+            if (!state.editingNote) return
+
+            const isArchived = state.editingNote.is_archived === 1
+            await api(`/api/notes/${state.editingNote.note_id}/archive`, {
+                method: 'POST',
+                body: JSON.stringify({ is_archived: !isArchived }),
+            })
+            state.editingNote = null
+            await loadNotes({ silent: true })
+            goToMessagesPage()
+        }
+
+        async function moveEditingNoteToChannel(channelId) {
+            if (!state.editingNote) return
+            if (!Number.isInteger(channelId) || channelId < 1 || channelId === state.editingNote.channel_id) return
+
+            const res = await api(`/api/notes/${state.editingNote.note_id}/move`, {
+                method: 'POST',
+                body: JSON.stringify({ channel_id: channelId }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                state.currentNoteChannelId = channelId
+                el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+                await loadNotes({ silent: true })
+            }
+        }
+
         function setActivePage(page, { sync = true } = {}) {
             state.activePage = page
             el.shell.dataset.view = page
+
+            if (page !== 'note-editor') {
+                closeNoteEditorMenu()
+            }
 
             const overlayPages = {
                 search: el.searchPage,
@@ -888,6 +1135,25 @@
 
             for (const [overlayName, overlayEl] of Object.entries(overlayPages)) {
                 const isActive = overlayName === page
+                if (overlayName === 'note-editor') {
+                    if (isActive) {
+                        overlayEl.hidden = false
+                        requestAnimationFrame(() => overlayEl.classList.add('is-active'))
+                    } else if (!overlayEl.hidden) {
+                        overlayEl.classList.remove('is-active')
+                        const onTransitionEnd = (event) => {
+                            if (event.target !== overlayEl || event.propertyName !== 'transform') return
+                            overlayEl.hidden = true
+                            overlayEl.removeEventListener('transitionend', onTransitionEnd)
+                        }
+                        overlayEl.addEventListener('transitionend', onTransitionEnd)
+                    } else {
+                        overlayEl.hidden = true
+                        overlayEl.classList.remove('is-active')
+                    }
+                    continue
+                }
+
                 overlayEl.hidden = !isActive
                 overlayEl.classList.toggle('is-active', isActive)
             }
@@ -1090,12 +1356,12 @@
                             </div>
                             <div class="mt-3 flex items-center justify-between gap-2">
                                 <button data-note-pin="${note.note_id}" data-pinned="${note.pinned}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">${note.pinned === 1 ? 'Unpin' : 'Pin'}</button>
-                                <button data-note-archive="${note.note_id}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
-                            </div>
+                                                        </div>
                         </article>
                     `
                 }).join('')}`
             }
+            //     <button data-note-archive="${note.note_id}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
 
             const searchInput = el.messages.querySelector('#note-search-inline')
             if (searchInput) {
@@ -1154,16 +1420,22 @@
         function openNoteEditor(note) {
             state.editingNote = note
             state.noteAttachments = []
+            closeNoteEditorMenu()
             el.noteEditorInput.value = note.content
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
-            el.btnNotePin.textContent = note.pinned === 1 ? 'Unpin' : 'Pin'
-            el.btnNoteArchive.textContent = note.is_archived === 1 ? 'Restore' : 'Archive'
-            el.noteEditorMoveSelect.innerHTML = state.noteChannels.map((channel) => `
-                <option value="${channel.id}" ${channel.id === note.channel_id ? 'selected' : ''}>${esc(channel.name)}</option>
-            `).join('')
             setActivePage('note-editor')
             loadNoteAttachments(note.note_id).catch(() => null)
-            requestAnimationFrame(() => el.noteEditorInput.focus())
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const { scrollX, scrollY } = window
+                    try {
+                        el.noteEditorInput.focus({ preventScroll: true })
+                    } catch {
+                        el.noteEditorInput.focus()
+                    }
+                    window.scrollTo(scrollX, scrollY)
+                })
+            })
         }
 
         function formatBytes(bytes) {
@@ -2201,6 +2473,33 @@
                 alert(err.message || 'Clipboard image upload failed')
             })
         })
+        el.btnNoteMenu.addEventListener('click', (event) => {
+            event.stopPropagation()
+            if (state.noteEditorMenuOpen) {
+                closeNoteEditorMenu()
+            } else {
+                openNoteEditorMenu()
+            }
+        })
+        el.noteEditorMenuScrim.addEventListener('click', closeNoteEditorMenu)
+        el.noteEditorMenu.addEventListener('click', async (event) => {
+            const channelButton = event.target.closest('[data-note-channel-id]')
+            if (channelButton) {
+                await moveEditingNoteToChannel(Number(channelButton.dataset.noteChannelId))
+                closeNoteEditorMenu()
+                return
+            }
+
+            const actionButton = event.target.closest('[data-note-menu-action]')
+            if (!actionButton) return
+
+            closeNoteEditorMenu()
+            if (actionButton.dataset.noteMenuAction === 'pin') {
+                await toggleEditingNotePin()
+            } else if (actionButton.dataset.noteMenuAction === 'archive') {
+                await toggleEditingNoteArchive()
+            }
+        })
         el.btnNewNoteChannel.addEventListener('click', async () => {
             const name = prompt('New private note channel name')?.trim()
             if (!name) return
@@ -2221,45 +2520,6 @@
             state.editingNote = res?.data ?? state.editingNote
             await loadNotes({ silent: true })
             goToMessagesPage()
-        })
-        el.btnNotePin.addEventListener('click', async () => {
-            if (!state.editingNote) return
-            const pinned = state.editingNote.pinned === 1
-            const res = await api(`/api/notes/${state.editingNote.note_id}/pin`, {
-                method: 'POST',
-                body: JSON.stringify({ pinned: !pinned }),
-            })
-            if (res?.data) {
-                state.editingNote = res.data
-                el.btnNotePin.textContent = state.editingNote.pinned === 1 ? 'Unpin' : 'Pin'
-                await loadNotes({ silent: true })
-            }
-        })
-        el.btnNoteArchive.addEventListener('click', async () => {
-            if (!state.editingNote) return
-            const isArchived = state.editingNote.is_archived === 1
-            await api(`/api/notes/${state.editingNote.note_id}/archive`, {
-                method: 'POST',
-                body: JSON.stringify({ is_archived: !isArchived }),
-            })
-            state.editingNote = null
-            await loadNotes({ silent: true })
-            goToMessagesPage()
-        })
-        el.noteEditorMoveSelect.addEventListener('change', async () => {
-            if (!state.editingNote) return
-            const channelId = Number(el.noteEditorMoveSelect.value)
-            if (!Number.isInteger(channelId) || channelId < 1 || channelId === state.editingNote.channel_id) return
-            const res = await api(`/api/notes/${state.editingNote.note_id}/move`, {
-                method: 'POST',
-                body: JSON.stringify({ channel_id: channelId }),
-            })
-            if (res?.data) {
-                state.editingNote = res.data
-                state.currentNoteChannelId = channelId
-                el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
-                await loadNotes({ silent: true })
-            }
         })
 
         // Jump to latest messages button
@@ -2298,6 +2558,18 @@
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.vote-count') && !e.target.closest('.voter-popup')) {
                 hideVoterPopup()
+            }
+        })
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && state.noteEditorMenuOpen) {
+                closeNoteEditorMenu()
+            }
+        })
+
+        window.addEventListener('resize', () => {
+            if (state.noteEditorMenuOpen) {
+                positionNoteEditorMenu()
             }
         })
 
