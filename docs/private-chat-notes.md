@@ -78,3 +78,50 @@ To avoid the "messy chat" problem, differentiate your notes from regular message
 - Store attachments in Cloudflare R2 for scalability and reliability.
 - non-public access to attachments should be managed via signed URLs, ensuring that only the Lumin app can access them. This prevents unauthorized access to sensitive content.
 - stream attachments directly to R2 from the client side, reducing server load and improving upload speeds. Use Cloudflare Workers to generate signed URLs for secure uploads.
+
+## Attachments Implementation Checklist
+
+### Foundation
+- [x] Add an R2 bucket binding in [wrangler.toml](wrangler.toml) as `ATTACHMENTS`.
+- [x] Add Worker env typing for `ATTACHMENTS: R2Bucket` in [src/index.ts](src/index.ts).
+- [x] Run `bun run cf-typegen` after bucket creation to regenerate [worker-configuration.d.ts](worker-configuration.d.ts).
+
+### Backend API (MVP)
+- [x] Add note attachment DB helpers in [src/db/notes.ts](src/db/notes.ts):
+  - [x] `listNoteAttachments`
+  - [x] `addNoteAttachment`
+  - [x] `getNoteAttachment`
+  - [x] `removeNoteAttachment`
+- [x] Ensure ownership checks route through note ownership (`user_id + note_id`).
+- [x] Keep `notes.attachment_count` synchronized on add/remove.
+- [x] Add authenticated attachment routes in [src/routes/notes.ts](src/routes/notes.ts):
+  - [x] `GET /api/notes/:id/attachments`
+  - [x] `POST /api/notes/:id/attachments` (multipart upload)
+  - [x] `DELETE /api/notes/:id/attachments/:attachmentId`
+  - [x] `GET /api/notes/:id/attachments/:attachmentId/download`
+
+### Frontend Integration (MVP)
+- [x] Add note editor attachment controls in [src/client/chat.html](src/client/chat.html):
+  - [x] Attach button
+  - [x] Hidden file input
+  - [x] Attachment list panel
+- [x] Add client helpers in [src/client/chat.html](src/client/chat.html):
+  - [x] `loadNoteAttachments`
+  - [x] `renderNoteAttachments`
+  - [x] `uploadNoteAttachment`
+- [x] Refresh notes list after attachment add/remove so `attachment_count` stays in sync in card ribbons.
+- [x] Make `api()` multipart-safe (do not force `Content-Type: application/json` for `FormData`).
+
+### Remaining Work
+- [ ] Add explicit attachment validation allowlist (MIME + extension policy).
+- [ ] Add max attachments per note and total per-user storage guardrails.
+- [ ] Add signed URL/tokenized access path (replace direct authenticated download endpoint).
+- [ ] Add attachment orphan cleanup job for failed/abandoned flows.
+- [ ] Add AI enrichment pipeline for attachments (`summary`, `ai_tags`, `ai_summary`).
+- [ ] Add drag-and-drop uploads and progress indicators.
+
+### Manual Validation
+- [ ] Upload an attachment to a note and verify list + `attachment_count` increment.
+- [ ] Download attachment via note editor.
+- [ ] Remove attachment and verify list + `attachment_count` decrement.
+- [ ] Confirm cross-user access is denied for list/download/delete routes.

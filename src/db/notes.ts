@@ -1,5 +1,5 @@
 import { toFtsQuery } from '../utils/search.ts'
-import type { Note, NoteChannel } from './types.ts'
+import type { Attachment, Note, NoteChannel } from './types.ts'
 
 export async function ensureDefaultNoteChannel(db: D1Database, userId: number): Promise<NoteChannel> {
     const existing = await db
@@ -187,4 +187,120 @@ export async function setNoteArchived(db: D1Database, input: { user_id: number; 
         .bind(input.is_archived ? 1 : 0, input.note_id, input.user_id)
         .first<Note>()
     return updated ?? null
+}
+
+export async function listNoteAttachments(db: D1Database, userId: number, noteId: number): Promise<Attachment[]> {
+    const note = await getNoteById(db, userId, noteId)
+    if (!note) throw new Error('Note not found')
+
+    const result = await db
+        .prepare(
+            `SELECT a.*
+             FROM attachment_list al
+             JOIN attachments a ON a.attachment_id = al.attachment_id
+             WHERE al.note_id = ?
+             ORDER BY al.sort_order ASC, a.attachment_id ASC`,
+        )
+        .bind(noteId)
+        .all<Attachment>()
+
+    return result.results
+}
+
+export async function addNoteAttachment(
+    db: D1Database,
+    input: { user_id: number; note_id: number; filename: string; content_type: string; size: number; url: string },
+): Promise<Attachment> {
+    const note = await getNoteById(db, input.user_id, input.note_id)
+    if (!note) throw new Error('Note not found')
+
+    const created = await db
+        .prepare(
+            `INSERT INTO attachments (filename, content_type, size, url)
+             VALUES (?, ?, ?, ?)
+             RETURNING *`,
+        )
+        .bind(input.filename, input.content_type, input.size, input.url)
+        .first<Attachment>()
+
+    if (!created) throw new Error('Failed to create attachment record')
+
+    const maxRow = await db
+        .prepare('SELECT COALESCE(MAX(sort_order), -1) AS max_sort FROM attachment_list WHERE note_id = ?')
+        .bind(input.note_id)
+        .first<{ max_sort: number }>()
+
+    const nextSort = (maxRow?.max_sort ?? -1) + 1
+
+    await db
+        .prepare(
+            `INSERT INTO attachment_list (note_id, sort_order, attachment_id)
+             VALUES (?, ?, ?)`,
+        )
+        .bind(input.note_id, nextSort, created.attachment_id)
+        .run()
+
+    await db
+        .prepare(
+            `UPDATE notes
+             SET attachment_count = (
+               SELECT COUNT(*) FROM attachment_list WHERE note_id = ?
+             ),
+             last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE note_id = ? AND user_id = ?`,
+        )
+        .bind(input.note_id, input.note_id, input.user_id)
+        .run()
+
+    return created
+}
+
+export async function getNoteAttachment(db: D1Database, userId: number, noteId: number, attachmentId: number): Promise<Attachment | null> {
+    const note = await getNoteById(db, userId, noteId)
+    if (!note) return null
+
+    const attachment = await db
+        .prepare(
+            `SELECT a.*
+             FROM attachment_list al
+             JOIN attachments a ON a.attachment_id = al.attachment_id
+             WHERE al.note_id = ? AND a.attachment_id = ?
+             LIMIT 1`,
+        )
+        .bind(noteId, attachmentId)
+        .first<Attachment>()
+
+    return attachment ?? null
+}
+
+export async function removeNoteAttachment(
+    db: D1Database,
+    input: { user_id: number; note_id: number; attachment_id: number },
+): Promise<Attachment | null> {
+    const attachment = await getNoteAttachment(db, input.user_id, input.note_id, input.attachment_id)
+    if (!attachment) return null
+
+    await db
+        .prepare('DELETE FROM attachment_list WHERE note_id = ? AND attachment_id = ?')
+        .bind(input.note_id, input.attachment_id)
+        .run()
+
+    await db
+        .prepare('DELETE FROM attachments WHERE attachment_id = ?')
+        .bind(input.attachment_id)
+        .run()
+
+    await db
+        .prepare(
+            `UPDATE notes
+             SET attachment_count = (
+               SELECT COUNT(*) FROM attachment_list WHERE note_id = ?
+             ),
+             last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE note_id = ? AND user_id = ?`,
+        )
+        .bind(input.note_id, input.note_id, input.user_id)
+        .run()
+
+    return attachment
 }

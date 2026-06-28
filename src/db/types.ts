@@ -97,6 +97,20 @@ export type Note = {
     attachment_count: number
 }
 
+export type Attachment = {
+    attachment_id: number
+    filename: string
+    content_type: string
+    size: number
+    url: string
+    tag_list: string
+    summary: string
+    ai_tags: string
+    ai_summary: string
+    ai_processed_at: string | null
+    created_at: string
+}
+
 export type ChatMessage = {
     id: number
     channel_id: number

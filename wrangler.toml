@@ -10,6 +10,13 @@ binding = "DB"
 database_name = "d11-db"
 database_id = "394823da-d08b-496d-963d-298729aee84d"
 
+# ─── R2 Attachment storage ───────────────────────────────────────────────────
+# Create bucket first, then set bucket_name (and preview_bucket_name if used).
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "d11-note-attachments"
+preview_bucket_name = "d11-note-attachments-dev"
+
 # ─── Workers AI binding ─────────────────────────────────────────────────────
 [ai]
 binding = "AI"

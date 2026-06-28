@@ -42,6 +42,7 @@ import chatHtml from './client/chat.html'
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
   DB: D1Database
+  ATTACHMENTS: R2Bucket
   TOKEN_SECRET: string
   ENVIRONMENT: string
   AI: Ai

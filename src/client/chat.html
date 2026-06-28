@@ -222,6 +222,17 @@
             font-weight: 600;
         }
 
+        .attachment-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.65rem;
+            background: #fff;
+        }
+
         .note-search-bubble {
             position: sticky;
             top: 0;
@@ -599,6 +610,16 @@
                     <textarea id="note-editor-input" rows="12"
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
+                    <div>
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <label class="text-xs uppercase tracking-wide text-muted-fg">Attachments</label>
+                            <button id="btn-note-attach" type="button"
+                                class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Attach
+                                file</button>
+                        </div>
+                        <input id="note-attachment-input" type="file" class="hidden">
+                        <div id="note-attachments-list" class="space-y-2"></div>
+                    </div>
                     <div class="grid grid-cols-1 gap-3">
                         <div>
                             <label class="text-xs uppercase tracking-wide text-muted-fg block mb-2">Move to
@@ -654,6 +675,7 @@
             noteSearchQuery: '',
             noteSearchOpen: false,
             noteDrafts: {},
+            noteAttachments: [],
             editingNote: null,
             minMessageId: null,
             maxMessageId: null,
@@ -706,6 +728,9 @@
             noteEditorInput: document.getElementById('note-editor-input'),
             noteEditorMoveSelect: document.getElementById('note-editor-move-select'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
+            noteAttachmentInput: document.getElementById('note-attachment-input'),
+            noteAttachmentsList: document.getElementById('note-attachments-list'),
+            btnNoteAttach: document.getElementById('btn-note-attach'),
             btnNoteSave: document.getElementById('btn-note-save'),
             btnNotePin: document.getElementById('btn-note-pin'),
             btnNoteArchive: document.getElementById('btn-note-archive'),
@@ -723,7 +748,6 @@
         function authHeaders() {
             return {
                 'Authorization': `Bearer ${state.token}`,
-                'Content-Type': 'application/json'
             }
         }
 
@@ -734,12 +758,20 @@
         }
 
         async function api(path, options = {}) {
+            const headers = {
+                ...(options.headers || {}),
+                ...authHeaders(),
+            }
+
+            const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type')
+            const isFormData = options.body instanceof FormData
+            if (!hasContentType && !isFormData) {
+                headers['Content-Type'] = 'application/json'
+            }
+
             const res = await fetch(path, {
                 ...options,
-                headers: {
-                    ...(options.headers || {}),
-                    ...authHeaders(),
-                },
+                headers,
             })
 
             if (res.status === 401) {
@@ -1059,6 +1091,7 @@
 
         function openNoteEditor(note) {
             state.editingNote = note
+            state.noteAttachments = []
             el.noteEditorInput.value = note.content
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
             el.btnNotePin.textContent = note.pinned === 1 ? 'Unpin' : 'Pin'
@@ -1067,7 +1100,107 @@
                 <option value="${channel.id}" ${channel.id === note.channel_id ? 'selected' : ''}>${esc(channel.name)}</option>
             `).join('')
             setActivePage('note-editor')
+            loadNoteAttachments(note.note_id).catch(() => null)
             requestAnimationFrame(() => el.noteEditorInput.focus())
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes < 1) return '0 B'
+            const units = ['B', 'KB', 'MB', 'GB']
+            let size = bytes
+            let index = 0
+            while (size >= 1024 && index < units.length - 1) {
+                size /= 1024
+                index += 1
+            }
+            return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
+        }
+
+        function renderNoteAttachments() {
+            if (!state.noteAttachments.length) {
+                el.noteAttachmentsList.innerHTML = '<p class="text-xs text-muted-fg">No attachments yet.</p>'
+                return
+            }
+
+            el.noteAttachmentsList.innerHTML = state.noteAttachments.map((attachment) => {
+                return `
+                    <div class="attachment-chip">
+                        <div class="min-w-0 flex-1">
+                            <button type="button" data-note-attachment-download="${attachment.attachment_id}" data-note-attachment-filename="${esc(attachment.filename)}" class="text-xs font-medium text-primary hover:underline truncate block text-left w-full">${esc(attachment.filename)}</button>
+                            <p class="text-[11px] text-muted-fg mt-0.5">${formatBytes(attachment.size)} • ${esc(attachment.content_type)}</p>
+                        </div>
+                        <button type="button" data-note-attachment-delete="${attachment.attachment_id}" class="text-xs px-2 py-1 rounded border border-border hover:border-primary">Remove</button>
+                    </div>
+                `
+            }).join('')
+
+            for (const btn of el.noteAttachmentsList.querySelectorAll('[data-note-attachment-download]')) {
+                btn.addEventListener('click', async () => {
+                    if (!state.editingNote) return
+                    const attachmentId = Number(btn.dataset.noteAttachmentDownload)
+                    const filename = btn.dataset.noteAttachmentFilename || 'attachment'
+                    try {
+                        await downloadNoteAttachment(state.editingNote.note_id, attachmentId, filename)
+                    } catch (err) {
+                        alert(err.message || 'Attachment download failed')
+                    }
+                })
+            }
+
+            for (const btn of el.noteAttachmentsList.querySelectorAll('[data-note-attachment-delete]')) {
+                btn.addEventListener('click', async () => {
+                    if (!state.editingNote) return
+                    const attachmentId = Number(btn.dataset.noteAttachmentDelete)
+                    await api(`/api/notes/${state.editingNote.note_id}/attachments/${attachmentId}`, { method: 'DELETE' })
+                    await loadNoteAttachments(state.editingNote.note_id)
+                    await loadNotes({ silent: true })
+                })
+            }
+        }
+
+        async function loadNoteAttachments(noteId) {
+            const res = await api(`/api/notes/${noteId}/attachments`)
+            state.noteAttachments = res?.data || []
+            renderNoteAttachments()
+        }
+
+        async function uploadNoteAttachment(file) {
+            if (!state.editingNote || !(file instanceof File)) return
+            const form = new FormData()
+            form.set('file', file)
+            await api(`/api/notes/${state.editingNote.note_id}/attachments`, {
+                method: 'POST',
+                body: form,
+            })
+            await loadNoteAttachments(state.editingNote.note_id)
+            await loadNotes({ silent: true })
+        }
+
+        async function downloadNoteAttachment(noteId, attachmentId, filename) {
+            const res = await fetch(`/api/notes/${noteId}/attachments/${attachmentId}/download`, {
+                method: 'GET',
+                headers: authHeaders(),
+            })
+
+            if (res.status === 401) {
+                doLogout()
+                return
+            }
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}))
+                throw new Error(body.error || 'Download failed')
+            }
+
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = url
+            anchor.download = filename
+            document.body.appendChild(anchor)
+            anchor.click()
+            anchor.remove()
+            URL.revokeObjectURL(url)
         }
 
         function createAvatarInitials(fullName, slugPrefix) {
@@ -1838,7 +1971,26 @@
         })
         el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
         el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
-        el.btnNoteEditorBack.addEventListener('click', () => goToMessagesPage())
+        el.btnNoteEditorBack.addEventListener('click', () => {
+            state.noteAttachments = []
+            renderNoteAttachments()
+            goToMessagesPage()
+        })
+        el.btnNoteAttach.addEventListener('click', () => {
+            if (!state.editingNote) return
+            el.noteAttachmentInput.click()
+        })
+        el.noteAttachmentInput.addEventListener('change', async () => {
+            const file = el.noteAttachmentInput.files?.[0]
+            if (!file) return
+            try {
+                await uploadNoteAttachment(file)
+            } catch (err) {
+                alert(err.message || 'Attachment upload failed')
+            } finally {
+                el.noteAttachmentInput.value = ''
+            }
+        })
         el.btnNewNoteChannel.addEventListener('click', async () => {
             const name = prompt('New private note channel name')?.trim()
             if (!name) return
