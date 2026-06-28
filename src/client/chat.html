@@ -233,6 +233,27 @@
             background: #fff;
         }
 
+        .note-image-previews {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .note-image-preview {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.65rem;
+            overflow: hidden;
+            background: #fff;
+            aspect-ratio: 1 / 1;
+        }
+
+        .note-image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
         .attachment-dropzone {
             border: 1px dashed rgba(21, 101, 192, 0.45);
             border-radius: 0.75rem;
@@ -638,6 +659,10 @@
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
                     <div>
+                        <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">Image Previews</p>
+                        <div id="note-image-previews" class="note-image-previews"></div>
+                    </div>
+                    <div>
                         <div class="flex items-center justify-between gap-3 mb-2">
                             <label class="text-xs uppercase tracking-wide text-muted-fg">Attachments</label>
                             <button id="btn-note-attach" type="button"
@@ -708,6 +733,7 @@
             noteSearchOpen: false,
             noteDrafts: {},
             noteAttachments: [],
+            noteImagePreviews: [],
             noteUploadQueue: [],
             editingNote: null,
             minMessageId: null,
@@ -759,6 +785,7 @@
             profilePage: document.getElementById('profile-page'),
             noteEditorPage: document.getElementById('note-editor-page'),
             noteEditorInput: document.getElementById('note-editor-input'),
+            noteImagePreviews: document.getElementById('note-image-previews'),
             noteEditorMoveSelect: document.getElementById('note-editor-move-select'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
             noteAttachmentInput: document.getElementById('note-attachment-input'),
@@ -1152,6 +1179,8 @@
         }
 
         function renderNoteAttachments() {
+            renderNoteImagePreviews()
+
             if (!state.noteAttachments.length) {
                 el.noteAttachmentsList.innerHTML = '<p class="text-xs text-muted-fg">No attachments yet.</p>'
                 return
@@ -1196,7 +1225,43 @@
         async function loadNoteAttachments(noteId) {
             const res = await api(`/api/notes/${noteId}/attachments`)
             state.noteAttachments = res?.data || []
+            await loadNoteImagePreviews(noteId)
             renderNoteAttachments()
+        }
+
+        function renderNoteImagePreviews() {
+            if (!state.noteImagePreviews.length) {
+                el.noteImagePreviews.innerHTML = '<p class="text-xs text-muted-fg">No image attachments yet.</p>'
+                return
+            }
+
+            el.noteImagePreviews.innerHTML = state.noteImagePreviews.map((preview) => `
+                <a class="note-image-preview" href="${esc(preview.url)}" target="_blank" rel="noopener noreferrer" title="${esc(preview.filename)}">
+                    <img src="${esc(preview.url)}" alt="${esc(preview.filename)}" loading="lazy">
+                </a>
+            `).join('')
+        }
+
+        async function loadNoteImagePreviews(noteId) {
+            const imageAttachments = state.noteAttachments.filter((attachment) =>
+                typeof attachment.content_type === 'string' && attachment.content_type.startsWith('image/'))
+
+            const previews = []
+            for (const attachment of imageAttachments) {
+                try {
+                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
+                    if (access?.data?.url) {
+                        previews.push({
+                            attachment_id: attachment.attachment_id,
+                            filename: attachment.filename,
+                            url: access.data.url,
+                        })
+                    }
+                } catch {
+                    // Ignore token fetch failure for preview and keep editor usable.
+                }
+            }
+            state.noteImagePreviews = previews
         }
 
         function renderUploadQueue() {
@@ -2098,6 +2163,7 @@
         el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
         el.btnNoteEditorBack.addEventListener('click', () => {
             state.noteAttachments = []
+            state.noteImagePreviews = []
             renderNoteAttachments()
             goToMessagesPage()
         })
