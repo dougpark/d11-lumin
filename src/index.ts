@@ -164,7 +164,6 @@ app.get('/l/:slug', async (c) => {
 // ─── Authenticated API routes ─────────────────────────────────────────────────
 app.use('/api/bookmarks/*', authMiddleware)
 app.use('/api/chat/*', authMiddleware)
-app.use('/api/notes/*', authMiddleware)
 
 app.route('/api/bookmarks', bookmarkRoutes)
 app.route('/api/chat', chatRoutes)

@@ -233,6 +233,33 @@
             background: #fff;
         }
 
+        .attachment-dropzone {
+            border: 1px dashed rgba(21, 101, 192, 0.45);
+            border-radius: 0.75rem;
+            padding: 0.6rem;
+            background: rgba(21, 101, 192, 0.04);
+            transition: background-color 120ms ease, border-color 120ms ease;
+        }
+
+        .attachment-dropzone.drag-over {
+            background: rgba(21, 101, 192, 0.12);
+            border-color: rgba(21, 101, 192, 0.9);
+        }
+
+        .upload-progress-track {
+            width: 100%;
+            height: 0.35rem;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-top: 0.35rem;
+        }
+
+        .upload-progress-fill {
+            height: 100%;
+            background: rgb(21 101 192);
+        }
+
         .note-search-bubble {
             position: sticky;
             top: 0;
@@ -617,7 +644,12 @@
                                 class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Attach
                                 file</button>
                         </div>
-                        <input id="note-attachment-input" type="file" class="hidden">
+                        <div id="note-attachment-dropzone" class="attachment-dropzone mb-2">
+                            <p class="text-xs text-muted-fg">Drag and drop files here, paste an image, or use Attach
+                                file.</p>
+                        </div>
+                        <input id="note-attachment-input" type="file" class="hidden" multiple>
+                        <div id="note-upload-progress" class="space-y-2 mb-2"></div>
                         <div id="note-attachments-list" class="space-y-2"></div>
                     </div>
                     <div class="grid grid-cols-1 gap-3">
@@ -676,6 +708,7 @@
             noteSearchOpen: false,
             noteDrafts: {},
             noteAttachments: [],
+            noteUploadQueue: [],
             editingNote: null,
             minMessageId: null,
             maxMessageId: null,
@@ -729,6 +762,8 @@
             noteEditorMoveSelect: document.getElementById('note-editor-move-select'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
             noteAttachmentInput: document.getElementById('note-attachment-input'),
+            noteAttachmentDropzone: document.getElementById('note-attachment-dropzone'),
+            noteUploadProgress: document.getElementById('note-upload-progress'),
             noteAttachmentsList: document.getElementById('note-attachments-list'),
             btnNoteAttach: document.getElementById('btn-note-attach'),
             btnNoteSave: document.getElementById('btn-note-save'),
@@ -1164,43 +1199,133 @@
             renderNoteAttachments()
         }
 
-        async function uploadNoteAttachment(file) {
-            if (!state.editingNote || !(file instanceof File)) return
-            const form = new FormData()
-            form.set('file', file)
-            await api(`/api/notes/${state.editingNote.note_id}/attachments`, {
-                method: 'POST',
-                body: form,
-            })
-            await loadNoteAttachments(state.editingNote.note_id)
-            await loadNotes({ silent: true })
-        }
-
-        async function downloadNoteAttachment(noteId, attachmentId, filename) {
-            const res = await fetch(`/api/notes/${noteId}/attachments/${attachmentId}/download`, {
-                method: 'GET',
-                headers: authHeaders(),
-            })
-
-            if (res.status === 401) {
-                doLogout()
+        function renderUploadQueue() {
+            if (!state.noteUploadQueue.length) {
+                el.noteUploadProgress.innerHTML = ''
                 return
             }
 
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}))
-                throw new Error(body.error || 'Download failed')
+            el.noteUploadProgress.innerHTML = state.noteUploadQueue.map((item) => {
+                const pct = Math.max(0, Math.min(100, Math.round(item.progress)))
+                return `
+                    <div class="rounded-lg border border-border bg-white px-3 py-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs text-[#1a1a2e] truncate">${esc(item.name)}</p>
+                            <span class="text-[11px] text-muted-fg">${item.status}</span>
+                        </div>
+                        <div class="upload-progress-track">
+                            <div class="upload-progress-fill" style="width:${pct}%"></div>
+                        </div>
+                    </div>
+                `
+            }).join('')
+        }
+
+        async function uploadNoteAttachment(file, onProgress) {
+            if (!state.editingNote || !(file instanceof File)) return
+            const noteId = state.editingNote.note_id
+
+            await new Promise((resolve, reject) => {
+                const form = new FormData()
+                form.set('file', file)
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `/api/notes/${noteId}/attachments`)
+                xhr.setRequestHeader('Authorization', `Bearer ${state.token}`)
+
+                xhr.upload.onprogress = (event) => {
+                    if (!event.lengthComputable) return
+                    const percent = (event.loaded / event.total) * 100
+                    onProgress(percent)
+                }
+
+                xhr.onerror = () => reject(new Error('Upload failed'))
+                xhr.onload = () => {
+                    let payload = {}
+                    try { payload = JSON.parse(xhr.responseText || '{}') } catch { /* ignore */ }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve(payload)
+                    } else if (xhr.status === 401) {
+                        doLogout()
+                        reject(new Error('Unauthorized'))
+                    } else {
+                        reject(new Error(payload.error || 'Upload failed'))
+                    }
+                }
+
+                xhr.send(form)
+            })
+
+            await loadNoteAttachments(noteId)
+            await loadNotes({ silent: true })
+        }
+
+        async function uploadFilesWithProgress(files) {
+            if (!state.editingNote || !files.length) return
+
+            for (const file of files) {
+                const uploadItem = {
+                    id: `${Date.now()}-${Math.random()}`,
+                    name: file.name,
+                    progress: 0,
+                    status: 'Uploading...'
+                }
+                state.noteUploadQueue = [...state.noteUploadQueue, uploadItem]
+                renderUploadQueue()
+
+                try {
+                    await uploadNoteAttachment(file, (progress) => {
+                        uploadItem.progress = progress
+                        renderUploadQueue()
+                    })
+                    uploadItem.progress = 100
+                    uploadItem.status = 'Done'
+                } catch (err) {
+                    uploadItem.status = 'Failed'
+                    renderUploadQueue()
+                    alert(err.message || 'Attachment upload failed')
+                }
+
+                renderUploadQueue()
             }
 
-            const blob = await res.blob()
-            const url = URL.createObjectURL(blob)
+            setTimeout(() => {
+                state.noteUploadQueue = state.noteUploadQueue.filter((item) => item.status === 'Uploading...')
+                renderUploadQueue()
+            }, 1000)
+        }
+
+        function getPastedImageFiles(event) {
+            const data = event.clipboardData
+            if (!data?.items?.length) return []
+
+            const files = []
+            for (const item of data.items) {
+                if (item.kind !== 'file') continue
+                if (!item.type || !item.type.startsWith('image/')) continue
+                const file = item.getAsFile()
+                if (file) files.push(file)
+            }
+            return files
+        }
+
+        async function handleNoteEditorPaste(event) {
+            if (state.activePage !== 'note-editor' || !state.editingNote) return
+            const files = getPastedImageFiles(event)
+            if (!files.length) return
+
+            event.preventDefault()
+            await uploadFilesWithProgress(files)
+        }
+
+        async function downloadNoteAttachment(noteId, attachmentId, filename) {
+            const access = await api(`/api/notes/${noteId}/attachments/${attachmentId}/access`)
+            if (!access?.data?.url) throw new Error('Download token unavailable')
             const anchor = document.createElement('a')
-            anchor.href = url
+            anchor.href = access.data.url
             anchor.download = filename
             document.body.appendChild(anchor)
             anchor.click()
             anchor.remove()
-            URL.revokeObjectURL(url)
         }
 
         function createAvatarInitials(fullName, slugPrefix) {
@@ -1981,15 +2106,34 @@
             el.noteAttachmentInput.click()
         })
         el.noteAttachmentInput.addEventListener('change', async () => {
-            const file = el.noteAttachmentInput.files?.[0]
-            if (!file) return
-            try {
-                await uploadNoteAttachment(file)
-            } catch (err) {
-                alert(err.message || 'Attachment upload failed')
-            } finally {
-                el.noteAttachmentInput.value = ''
-            }
+            const files = Array.from(el.noteAttachmentInput.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+            el.noteAttachmentInput.value = ''
+        })
+            ;['dragenter', 'dragover'].forEach((eventName) => {
+                el.noteAttachmentDropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    el.noteAttachmentDropzone.classList.add('drag-over')
+                })
+            })
+            ;['dragleave', 'drop'].forEach((eventName) => {
+                el.noteAttachmentDropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    el.noteAttachmentDropzone.classList.remove('drag-over')
+                })
+            })
+        el.noteAttachmentDropzone.addEventListener('drop', async (event) => {
+            const files = Array.from(event.dataTransfer?.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+        })
+        el.noteEditorInput.addEventListener('paste', (event) => {
+            handleNoteEditorPaste(event).catch((err) => {
+                alert(err.message || 'Clipboard image upload failed')
+            })
         })
         el.btnNewNoteChannel.addEventListener('click', async () => {
             const name = prompt('New private note channel name')?.trim()

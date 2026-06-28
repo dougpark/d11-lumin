@@ -304,3 +304,19 @@ export async function removeNoteAttachment(
 
     return attachment
 }
+
+export async function getAttachmentForDownload(db: D1Database, noteId: number, attachmentId: number): Promise<(Attachment & { owner_user_id: number }) | null> {
+    const attachment = await db
+        .prepare(
+            `SELECT a.*, n.user_id AS owner_user_id
+             FROM attachment_list al
+             JOIN attachments a ON a.attachment_id = al.attachment_id
+             JOIN notes n ON n.note_id = al.note_id
+             WHERE al.note_id = ? AND a.attachment_id = ?
+             LIMIT 1`,
+        )
+        .bind(noteId, attachmentId)
+        .first<Attachment & { owner_user_id: number }>()
+
+    return attachment ?? null
+}

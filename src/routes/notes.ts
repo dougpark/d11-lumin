@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../index.ts'
+import { authMiddleware } from '../middleware/authMiddleware.ts'
 import {
     addNoteAttachment,
     createNote,
     createNoteChannel,
+    getAttachmentForDownload,
     getNoteAttachment,
     getNoteById,
     listNoteAttachments,
@@ -19,6 +21,19 @@ import {
 const notes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+const MAX_ATTACHMENTS_PER_NOTE = 12
+const DOWNLOAD_TOKEN_TTL_SECONDS = 300
+
+const ALLOWED_ATTACHMENT_TYPES: Record<string, string[]> = {
+    'image/png': ['png'],
+    'image/jpeg': ['jpg', 'jpeg'],
+    'image/webp': ['webp'],
+    'image/gif': ['gif'],
+    'application/pdf': ['pdf'],
+    'text/plain': ['txt'],
+    'text/markdown': ['md'],
+    'text/csv': ['csv'],
+}
 
 type UploadFileLike = {
     name: string
@@ -47,6 +62,105 @@ function sanitizeFilename(filename: string): string {
 
     return cleaned || 'attachment'
 }
+
+function getExtension(filename: string): string {
+    const idx = filename.lastIndexOf('.')
+    if (idx < 0) return ''
+    return filename.slice(idx + 1).toLowerCase()
+}
+
+function isAllowedAttachment(filename: string, contentType: string): boolean {
+    const extension = getExtension(filename)
+    if (!extension) return false
+    const allowedExtensions = ALLOWED_ATTACHMENT_TYPES[contentType.toLowerCase()]
+    if (!allowedExtensions) return false
+    return allowedExtensions.includes(extension)
+}
+
+function encodeBase64Url(bytes: Uint8Array): string {
+    let binary = ''
+    for (const byte of bytes) binary += String.fromCharCode(byte)
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4)
+    const binary = atob(padded)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+    return bytes
+}
+
+async function signToken(secret: string, payload: string): Promise<string> {
+    const key = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+    )
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload))
+    return encodeBase64Url(new Uint8Array(sig))
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false
+    let diff = 0
+    for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i]
+    return diff === 0
+}
+
+async function createDownloadToken(secret: string, userId: number, noteId: number, attachmentId: number): Promise<{ token: string; exp: number }> {
+    const exp = Math.floor(Date.now() / 1000) + DOWNLOAD_TOKEN_TTL_SECONDS
+    const payload = `${userId}.${noteId}.${attachmentId}.${exp}`
+    const signature = await signToken(secret, payload)
+    return { token: `${payload}.${signature}`, exp }
+}
+
+async function verifyDownloadToken(secret: string, token: string): Promise<{ userId: number; noteId: number; attachmentId: number; exp: number } | null> {
+    const parts = token.split('.')
+    if (parts.length !== 5) return null
+    const [userPart, notePart, attachmentPart, expPart, signaturePart] = parts
+
+    const userId = parseInt(userPart, 10)
+    const noteId = parseInt(notePart, 10)
+    const attachmentId = parseInt(attachmentPart, 10)
+    const exp = parseInt(expPart, 10)
+    if (!Number.isInteger(userId) || !Number.isInteger(noteId) || !Number.isInteger(attachmentId) || !Number.isInteger(exp)) return null
+    if (exp < Math.floor(Date.now() / 1000)) return null
+
+    const payload = `${userId}.${noteId}.${attachmentId}.${exp}`
+    const expectedSig = await signToken(secret, payload)
+    const expectedBytes = decodeBase64Url(expectedSig)
+    const actualBytes = decodeBase64Url(signaturePart)
+    if (!timingSafeEqual(expectedBytes, actualBytes)) return null
+
+    return { userId, noteId, attachmentId, exp }
+}
+
+notes.get('/attachments/download', async (c) => {
+    const token = c.req.query('t')?.trim() ?? ''
+    if (!token) return c.json({ error: 'Unauthorized' }, 401)
+    if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments storage is not configured' }, 500)
+
+    const parsed = await verifyDownloadToken(c.env.TOKEN_SECRET, token)
+    if (!parsed) return c.json({ error: 'Unauthorized' }, 401)
+
+    const attachment = await getAttachmentForDownload(c.env.DB, parsed.noteId, parsed.attachmentId)
+    if (!attachment) return c.json({ error: 'Attachment not found' }, 404)
+    if (attachment.owner_user_id !== parsed.userId) return c.json({ error: 'Unauthorized' }, 401)
+
+    const object = await c.env.ATTACHMENTS.get(attachment.url)
+    if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
+
+    c.header('Content-Type', attachment.content_type || 'application/octet-stream')
+    c.header('Content-Length', String(attachment.size))
+    c.header('Content-Disposition', `attachment; filename="${attachment.filename.replace(/"/g, '')}"`)
+    c.header('Cache-Control', 'private, max-age=60')
+    return c.body(object.body)
+})
+
+notes.use('*', authMiddleware)
 
 notes.get('/channels', async (c) => {
     const user = c.get('user')
@@ -238,6 +352,14 @@ notes.post('/:id/attachments', async (c) => {
     const size = filePart.size
     if (!size || size < 1) return c.json({ error: 'File is empty' }, 400)
     if (size > MAX_ATTACHMENT_BYTES) return c.json({ error: 'File exceeds 20MB limit' }, 400)
+    if (!isAllowedAttachment(filename, contentType)) {
+        return c.json({ error: 'Attachment type is not allowed' }, 400)
+    }
+
+    const currentAttachments = await listNoteAttachments(c.env.DB, user.id, id)
+    if (currentAttachments.length >= MAX_ATTACHMENTS_PER_NOTE) {
+        return c.json({ error: `Maximum ${MAX_ATTACHMENTS_PER_NOTE} attachments per note` }, 400)
+    }
 
     const objectKey = `notes/${user.id}/${id}/${Date.now()}-${crypto.randomUUID()}-${filename}`
 
@@ -290,26 +412,29 @@ notes.delete('/:id/attachments/:attachmentId', async (c) => {
     return c.json({ data: { attachment_id: attachmentId } })
 })
 
-notes.get('/:id/attachments/:attachmentId/download', async (c) => {
+notes.get('/:id/attachments/:attachmentId/access', async (c) => {
     const user = c.get('user')
     const id = parseInt(c.req.param('id') ?? '', 10)
     const attachmentId = parseInt(c.req.param('attachmentId') ?? '', 10)
 
     if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid note id' }, 400)
     if (!Number.isInteger(attachmentId) || attachmentId < 1) return c.json({ error: 'Invalid attachment id' }, 400)
-    if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments storage is not configured' }, 500)
 
     const attachment = await getNoteAttachment(c.env.DB, user.id, id, attachmentId)
     if (!attachment) return c.json({ error: 'Attachment not found' }, 404)
 
-    const object = await c.env.ATTACHMENTS.get(attachment.url)
-    if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
+    const signed = await createDownloadToken(c.env.TOKEN_SECRET, user.id, id, attachmentId)
+    const downloadUrl = new URL('/api/notes/attachments/download', c.req.url)
+    downloadUrl.searchParams.set('t', signed.token)
 
-    c.header('Content-Type', attachment.content_type || 'application/octet-stream')
-    c.header('Content-Length', String(attachment.size))
-    c.header('Content-Disposition', `inline; filename="${attachment.filename.replace(/"/g, '')}"`)
-    c.header('Cache-Control', 'private, max-age=60')
-    return c.body(object.body)
+    return c.json({
+        data: {
+            url: downloadUrl.toString(),
+            expires_at: new Date(signed.exp * 1000).toISOString(),
+            attachment_id: attachmentId,
+            filename: attachment.filename,
+        },
+    })
 })
 
 export default notes
