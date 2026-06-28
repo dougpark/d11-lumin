@@ -615,7 +615,7 @@
                     <div id="note-channels" class="space-y-1"></div>
                 </div>
 
-                <div class="mt-6 pt-4 border-t border-border">
+                <!-- <div class="mt-6 pt-4 border-t border-border">
                     <h3 class="text-xs uppercase tracking-wide text-muted-fg mb-3">Direct Messages</h3>
                     <div id="dms" class="space-y-1"></div>
                 </div>
@@ -625,7 +625,7 @@
                         class="w-full text-left text-sm px-3 py-2 rounded-xl border border-border hover:border-primary hover:text-primary transition">
                         Log out
                     </button>
-                </div>
+                </div> -->
             </div>
         </section>
 
@@ -1367,8 +1367,30 @@
             const searchInput = el.messages.querySelector('#note-search-inline')
             if (searchInput) {
                 searchInput.addEventListener('input', async () => {
+                    const isFocused = document.activeElement === searchInput
+                    const selectionStart = searchInput.selectionStart
+                    const selectionEnd = searchInput.selectionEnd
                     state.noteSearchQuery = searchInput.value.trim()
                     await loadNotes({ silent: true })
+
+                    if (isFocused && state.noteSearchOpen) {
+                        requestAnimationFrame(() => {
+                            const restoredInput = el.messages.querySelector('#note-search-inline')
+                            if (!restoredInput) return
+                            try {
+                                restoredInput.focus({ preventScroll: true })
+                            } catch {
+                                restoredInput.focus()
+                            }
+                            if (selectionStart !== null && selectionEnd !== null) {
+                                try {
+                                    restoredInput.setSelectionRange(selectionStart, selectionEnd)
+                                } catch {
+                                    // Ignore browsers that do not support selection ranges on search inputs.
+                                }
+                            }
+                        })
+                    }
                 })
             }
 
@@ -2393,7 +2415,7 @@
             })
         }
 
-        el.btnLogout.addEventListener('click', doLogout)
+        // el.btnLogout.addEventListener('click', doLogout)
         el.btnBack.addEventListener('click', () => {
             if (state.activePage === 'search' || state.activePage === 'profile') {
                 goToMessagesPage()
