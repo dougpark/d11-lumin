@@ -773,7 +773,7 @@
                 </button>
                 <div class="min-w-0 text-center">
                     <h2 class="text-base font-semibold text-[#1a1a2e] truncate">Edit Note</h2>
-                    <p class="text-[11px] text-muted-fg truncate">Make changes, attach files, then save.</p>
+
                 </div>
                 <button id="btn-note-save"
                     class="text-sm font-semibold px-4 py-2 rounded-full bg-primary text-white hover:bg-[#0d47a1]">Save</button>
@@ -826,7 +826,7 @@
                 class="note-editor-menu-item note-editor-menu-item-danger" role="menuitem"
                 data-note-menu-action="archive"></button>
             <div class="note-editor-menu-divider" aria-hidden="true"></div>
-            <div class="note-editor-menu-section-title">Move to channel</div>
+            <div class="note-editor-menu-section-title">Move to</div>
             <div id="note-editor-menu-channels"></div>
         </div>
     </div>
@@ -1354,13 +1354,14 @@
                                 ${tags.map((tag) => `<span class="note-tag">${esc(tag)}</span>`).join('')}
                                 <span class="text-xs text-muted-fg">${note.attachment_count} attachments</span>
                             </div>
-                            <div class="mt-3 flex items-center justify-between gap-2">
-                                <button data-note-pin="${note.note_id}" data-pinned="${note.pinned}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">${note.pinned === 1 ? 'Unpin' : 'Pin'}</button>
-                                                        </div>
+                            
                         </article>
                     `
                 }).join('')}`
             }
+            // <div class="mt-3 flex items-center justify-between gap-2">
+            //                     <button data-note-pin="${note.note_id}" data-pinned="${note.pinned}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">${note.pinned === 1 ? 'Unpin' : 'Pin'}</button>
+            //                                             </div>
             //     <button data-note-archive="${note.note_id}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
 
             const searchInput = el.messages.querySelector('#note-search-inline')
