@@ -1594,7 +1594,7 @@
             if (!state.editingNote || !(file instanceof File)) return
             const noteId = state.editingNote.note_id
 
-            await new Promise((resolve, reject) => {
+            const payload = await new Promise((resolve, reject) => {
                 const form = new FormData()
                 form.set('file', file)
                 const xhr = new XMLHttpRequest()
@@ -1623,6 +1623,11 @@
 
                 xhr.send(form)
             })
+
+            if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
+                state.editingNote = payload.note
+                el.noteEditorInput.value = payload.note.content || ''
+            }
 
             await loadNoteAttachments(noteId)
             await loadNotes({ silent: true })

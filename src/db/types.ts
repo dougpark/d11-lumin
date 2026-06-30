@@ -99,10 +99,12 @@ export type Note = {
 
 export type Attachment = {
     attachment_id: number
+    attachment_slug: string
     filename: string
     content_type: string
     size: number
     url: string
+    cache_version: number
     tag_list: string
     summary: string
     ai_tags: string

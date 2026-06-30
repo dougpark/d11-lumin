@@ -1,6 +1,10 @@
 import { toFtsQuery } from '../utils/search.ts'
 import type { Attachment, Note, NoteChannel } from './types.ts'
 
+function createAttachmentSlug(): string {
+    return `att_${crypto.randomUUID().replace(/-/g, '').toLowerCase()}`
+}
+
 export async function ensureDefaultNoteChannel(db: D1Database, userId: number): Promise<NoteChannel> {
     const existing = await db
         .prepare('SELECT * FROM note_channels WHERE user_id = ? ORDER BY created_at ASC LIMIT 1')
@@ -214,14 +218,25 @@ export async function addNoteAttachment(
     const note = await getNoteById(db, input.user_id, input.note_id)
     if (!note) throw new Error('Note not found')
 
-    const created = await db
-        .prepare(
-            `INSERT INTO attachments (filename, content_type, size, url)
-             VALUES (?, ?, ?, ?)
-             RETURNING *`,
-        )
-        .bind(input.filename, input.content_type, input.size, input.url)
-        .first<Attachment>()
+    let created: Attachment | null = null
+    let attempts = 0
+    while (!created && attempts < 3) {
+        attempts += 1
+        const slug = createAttachmentSlug()
+        try {
+            created = await db
+                .prepare(
+                    `INSERT INTO attachments (attachment_slug, filename, content_type, size, url)
+                     VALUES (?, ?, ?, ?, ?)
+                     RETURNING *`,
+                )
+                .bind(slug, input.filename, input.content_type, input.size, input.url)
+                .first<Attachment>()
+        } catch (err) {
+            const message = (err as Error).message || ''
+            if (!message.includes('attachments.attachment_slug')) throw err
+        }
+    }
 
     if (!created) throw new Error('Failed to create attachment record')
 
@@ -319,4 +334,45 @@ export async function getAttachmentForDownload(db: D1Database, noteId: number, a
         .first<Attachment & { owner_user_id: number }>()
 
     return attachment ?? null
+}
+
+export async function getAttachmentBySlugForUser(
+    db: D1Database,
+    userId: number,
+    attachmentSlug: string,
+): Promise<(Attachment & { owner_user_id: number; note_id: number }) | null> {
+    const attachment = await db
+        .prepare(
+            `SELECT a.*, n.user_id AS owner_user_id, n.note_id AS note_id
+             FROM attachments a
+             JOIN attachment_list al ON al.attachment_id = a.attachment_id
+             JOIN notes n ON n.note_id = al.note_id
+             WHERE a.attachment_slug = ? AND n.user_id = ?
+             LIMIT 1`,
+        )
+        .bind(attachmentSlug, userId)
+        .first<Attachment & { owner_user_id: number; note_id: number }>()
+
+    return attachment ?? null
+}
+
+export async function appendAttachmentMarkdownToNote(
+    db: D1Database,
+    input: { user_id: number; note_id: number; markdown: string },
+): Promise<Note | null> {
+    const updated = await db
+        .prepare(
+            `UPDATE notes
+             SET content = CASE
+                 WHEN TRIM(content) = '' THEN ?
+                 ELSE content || '\n' || ?
+             END,
+             last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE note_id = ? AND user_id = ?
+             RETURNING *`,
+        )
+        .bind(input.markdown, input.markdown, input.note_id, input.user_id)
+        .first<Note>()
+
+    return updated ?? null
 }

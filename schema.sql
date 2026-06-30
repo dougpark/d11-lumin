@@ -183,10 +183,12 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_modified     ON notes (user_id, last_m
 -- ─── Note Attachments (V1 schema only; feature later) ──────────────────────
 CREATE TABLE IF NOT EXISTS attachments (
   attachment_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  attachment_slug  TEXT    NOT NULL UNIQUE,
   filename         TEXT    NOT NULL,
   content_type     TEXT    NOT NULL,
   size             INTEGER NOT NULL,
   url              TEXT    NOT NULL,
+  cache_version    INTEGER NOT NULL DEFAULT 1,
   tag_list         TEXT    NOT NULL DEFAULT '[]',
   summary          TEXT    NOT NULL DEFAULT '',
   ai_tags          TEXT    NOT NULL DEFAULT '[]',
@@ -194,6 +196,8 @@ CREATE TABLE IF NOT EXISTS attachments (
   ai_processed_at  TEXT    DEFAULT NULL,
   created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_attachments_attachment_slug ON attachments (attachment_slug);
 
 CREATE TABLE IF NOT EXISTS attachment_list (
   note_id        INTEGER NOT NULL REFERENCES notes (note_id) ON DELETE CASCADE,

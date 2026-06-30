@@ -3,8 +3,10 @@ import type { Env, Variables } from '../index.ts'
 import { authMiddleware } from '../middleware/authMiddleware.ts'
 import {
     addNoteAttachment,
+    appendAttachmentMarkdownToNote,
     createNote,
     createNoteChannel,
+    getAttachmentBySlugForUser,
     getAttachmentForDownload,
     getNoteAttachment,
     getNoteById,
@@ -23,6 +25,7 @@ const notes = new Hono<{ Bindings: Env; Variables: Variables }>()
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 const MAX_ATTACHMENTS_PER_NOTE = 12
 const DOWNLOAD_TOKEN_TTL_SECONDS = 300
+const ATTACHMENT_SLUG_PATTERN = /^att_[a-f0-9]{32}$/
 
 const ALLOWED_ATTACHMENT_TYPES: Record<string, string[]> = {
     'image/png': ['png'],
@@ -75,6 +78,21 @@ function isAllowedAttachment(filename: string, contentType: string): boolean {
     const allowedExtensions = ALLOWED_ATTACHMENT_TYPES[contentType.toLowerCase()]
     if (!allowedExtensions) return false
     return allowedExtensions.includes(extension)
+}
+
+function isImageContentType(contentType: string): boolean {
+    return contentType.toLowerCase().startsWith('image/')
+}
+
+function buildAttachmentPermalink(baseUrl: string, attachmentSlug: string): string {
+    return new URL(`/api/notes/attachments/p/${attachmentSlug}`, baseUrl).toString()
+}
+
+function buildAttachmentMarkdown(filename: string, contentType: string, permalinkUrl: string): string {
+    if (isImageContentType(contentType)) {
+        return `![${filename}](${permalinkUrl})`
+    }
+    return `[${filename}](${permalinkUrl})`
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
@@ -161,6 +179,38 @@ notes.get('/attachments/download', async (c) => {
 })
 
 notes.use('*', authMiddleware)
+
+notes.get('/attachments/p/:slug', async (c) => {
+    const user = c.get('user')
+    const slug = (c.req.param('slug') ?? '').trim().toLowerCase()
+    if (!ATTACHMENT_SLUG_PATTERN.test(slug)) return c.json({ error: 'Invalid attachment slug' }, 400)
+    if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments storage is not configured' }, 500)
+
+    const attachment = await getAttachmentBySlugForUser(c.env.DB, user.id, slug)
+    if (!attachment) return c.json({ error: 'Attachment not found' }, 404)
+
+    const object = await c.env.ATTACHMENTS.get(attachment.url)
+    if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
+
+    const etag = `"${attachment.attachment_slug}-${attachment.size}-${attachment.cache_version}"`
+    c.header('Cache-Control', 'private, no-cache, must-revalidate, max-age=31536000')
+    c.header('Vary', 'Authorization')
+    c.header('ETag', etag)
+    c.header('X-Robots-Tag', 'noindex, nofollow')
+
+    const ifNoneMatch = c.req.header('if-none-match')
+    if (ifNoneMatch && ifNoneMatch.split(',').map((v) => v.trim()).includes(etag)) {
+        return c.body(null, 304)
+    }
+
+    c.header('Content-Type', attachment.content_type || 'application/octet-stream')
+    c.header('Content-Length', String(attachment.size))
+    c.header(
+        'Content-Disposition',
+        `${isImageContentType(attachment.content_type) ? 'inline' : 'attachment'}; filename="${attachment.filename.replace(/"/g, '')}"`,
+    )
+    return c.body(object.body)
+})
 
 notes.get('/channels', async (c) => {
     const user = c.get('user')
@@ -321,7 +371,14 @@ notes.get('/:id/attachments', async (c) => {
     if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid note id' }, 400)
 
     try {
-        const data = await listNoteAttachments(c.env.DB, user.id, id)
+        const data = (await listNoteAttachments(c.env.DB, user.id, id)).map((attachment) => {
+            const permalink_url = buildAttachmentPermalink(c.req.url, attachment.attachment_slug)
+            return {
+                ...attachment,
+                permalink_url,
+                markdown: buildAttachmentMarkdown(attachment.filename, attachment.content_type, permalink_url),
+            }
+        })
         return c.json({ data })
     } catch (err) {
         return c.json({ error: (err as Error).message }, 404)
@@ -382,7 +439,22 @@ notes.post('/:id/attachments', async (c) => {
             url: objectKey,
         })
 
-        return c.json({ data: attachment }, 201)
+        const permalink_url = buildAttachmentPermalink(c.req.url, attachment.attachment_slug)
+        const markdown = buildAttachmentMarkdown(attachment.filename, attachment.content_type, permalink_url)
+        const updatedNote = await appendAttachmentMarkdownToNote(c.env.DB, {
+            user_id: user.id,
+            note_id: id,
+            markdown,
+        })
+
+        return c.json({
+            data: {
+                ...attachment,
+                permalink_url,
+                markdown,
+            },
+            note: updatedNote,
+        }, 201)
     } catch (err) {
         // Best-effort cleanup if DB insert fails after object upload.
         try { await c.env.ATTACHMENTS.delete(objectKey) } catch { /* ignore */ }
@@ -430,6 +502,7 @@ notes.get('/:id/attachments/:attachmentId/access', async (c) => {
     return c.json({
         data: {
             url: downloadUrl.toString(),
+            permalink_url: buildAttachmentPermalink(c.req.url, attachment.attachment_slug),
             expires_at: new Date(signed.exp * 1000).toISOString(),
             attachment_id: attachmentId,
             filename: attachment.filename,
