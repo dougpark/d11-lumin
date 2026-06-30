@@ -92,7 +92,7 @@ function buildAttachmentMarkdown(filename: string, contentType: string, permalin
     if (isImageContentType(contentType)) {
         return `![${filename}](${permalinkUrl})`
     }
-    return `[${filename}](${permalinkUrl})`
+    return `📄 [${filename}](${permalinkUrl})`
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
