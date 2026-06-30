@@ -407,6 +407,63 @@
             background: rgb(21 101 192);
         }
 
+        .note-markdown-preview {
+            width: 100%;
+            min-height: 13rem;
+            padding: 0.9rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            background: #ffffff;
+            color: #1a1a2e;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
+
+        .note-markdown-preview h1,
+        .note-markdown-preview h2,
+        .note-markdown-preview h3,
+        .note-markdown-preview h4 {
+            margin: 0.8rem 0 0.45rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .note-markdown-preview p,
+        .note-markdown-preview ul,
+        .note-markdown-preview ol,
+        .note-markdown-preview blockquote,
+        .note-markdown-preview pre {
+            margin: 0.55rem 0;
+        }
+
+        .note-markdown-preview code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.35rem;
+        }
+
+        .note-markdown-preview pre code {
+            display: block;
+            padding: 0.7rem;
+            overflow-x: auto;
+        }
+
+        .note-markdown-preview a {
+            color: rgb(21 101 192);
+            text-decoration: underline;
+        }
+
+        .note-markdown-preview img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
         .note-search-bubble {
             position: sticky;
             top: 0;
@@ -793,13 +850,19 @@
                             <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
                             <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
                         </div>
-                        <button id="btn-note-menu" type="button"
-                            class="w-9 h-9 rounded-full border border-border hover:border-primary flex items-center justify-center text-xl leading-none text-[#1a1a2e]"
-                            aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-note-preview" type="button"
+                                class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
+                                aria-pressed="false" aria-label="Toggle markdown preview">Preview</button>
+                            <button id="btn-note-menu" type="button"
+                                class="w-9 h-9 rounded-full border border-border hover:border-primary flex items-center justify-center text-xl leading-none text-[#1a1a2e]"
+                                aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
+                        </div>
                     </div>
                     <textarea id="note-editor-input" rows="12"
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
+                    <div id="note-editor-preview" class="note-markdown-preview" hidden></div>
                     <div>
                         <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">Image Previews</p>
                         <div id="note-image-previews" class="note-image-previews"></div>
@@ -859,6 +922,7 @@
         <div class="voter-more" id="voter-popup-more"></div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         const state = {
             token: localStorage.getItem('d11_token') || '',
@@ -878,6 +942,7 @@
             noteAttachments: [],
             noteImagePreviews: [],
             noteUploadQueue: [],
+            notePreviewOpen: false,
             editingNote: null,
             noteEditorMenuOpen: false,
             minMessageId: null,
@@ -929,6 +994,7 @@
             profilePage: document.getElementById('profile-page'),
             noteEditorPage: document.getElementById('note-editor-page'),
             noteEditorInput: document.getElementById('note-editor-input'),
+            noteEditorPreview: document.getElementById('note-editor-preview'),
             noteImagePreviews: document.getElementById('note-image-previews'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
             noteAttachmentInput: document.getElementById('note-attachment-input'),
@@ -937,6 +1003,7 @@
             noteAttachmentsList: document.getElementById('note-attachments-list'),
             btnNoteAttach: document.getElementById('btn-note-attach'),
             btnNoteSave: document.getElementById('btn-note-save'),
+            btnNotePreview: document.getElementById('btn-note-preview'),
             btnNoteMenu: document.getElementById('btn-note-menu'),
             noteEditorMenuScrim: document.getElementById('note-editor-menu-scrim'),
             noteEditorMenu: document.getElementById('note-editor-menu'),
@@ -1021,6 +1088,81 @@
 
         function getCurrentNoteChannel() {
             return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+        }
+
+        function normalizeUrlForMatch(url) {
+            try {
+                const parsed = new URL(url, location.origin)
+                return `${parsed.origin}${parsed.pathname}`
+            } catch {
+                return String(url || '').trim()
+            }
+        }
+
+        function renderNoteMarkdownPreview() {
+            if (!el.noteEditorPreview) return
+            const source = el.noteEditorInput.value || ''
+            if (!source.trim()) {
+                el.noteEditorPreview.innerHTML = '<p class="text-sm text-muted-fg">Nothing to preview yet.</p>'
+                return
+            }
+
+            const signedByAttachmentId = new Map(
+                state.noteImagePreviews.map((preview) => [preview.attachment_id, preview.url]),
+            )
+            const signedByPermalink = new Map()
+            for (const attachment of state.noteAttachments) {
+                const signedUrl = signedByAttachmentId.get(attachment.attachment_id)
+                if (!signedUrl) continue
+                if (typeof attachment.permalink_url !== 'string' || !attachment.permalink_url) continue
+                signedByPermalink.set(normalizeUrlForMatch(attachment.permalink_url), signedUrl)
+            }
+
+            if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                const rendered = marked.parse(safeSource, {
+                    gfm: true,
+                    breaks: true,
+                })
+
+                const template = document.createElement('template')
+                template.innerHTML = rendered
+
+                for (const image of template.content.querySelectorAll('img')) {
+                    const src = image.getAttribute('src') || ''
+                    const signedSrc = signedByPermalink.get(normalizeUrlForMatch(src))
+                    if (signedSrc) image.setAttribute('src', signedSrc)
+                }
+
+                for (const link of template.content.querySelectorAll('a')) {
+                    link.setAttribute('target', '_blank')
+                    link.setAttribute('rel', 'noopener noreferrer')
+                }
+
+                el.noteEditorPreview.replaceChildren(template.content.cloneNode(true))
+            } else {
+                el.noteEditorPreview.innerHTML = `<pre>${escapeHtml(source)}</pre>`
+            }
+        }
+
+        function setNotePreviewOpen(isOpen) {
+            state.notePreviewOpen = Boolean(isOpen)
+            el.noteEditorInput.hidden = state.notePreviewOpen
+            el.noteEditorPreview.hidden = !state.notePreviewOpen
+            el.btnNotePreview.textContent = state.notePreviewOpen ? 'Edit' : 'Preview'
+            el.btnNotePreview.setAttribute('aria-pressed', state.notePreviewOpen ? 'true' : 'false')
+            if (state.notePreviewOpen) {
+                renderNoteMarkdownPreview()
+            }
         }
 
         function closeNoteEditorMenu() {
@@ -1454,6 +1596,7 @@
             state.noteAttachments = []
             closeNoteEditorMenu()
             el.noteEditorInput.value = note.content
+            setNotePreviewOpen(false)
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
             setActivePage('note-editor')
             loadNoteAttachments(note.note_id).catch(() => null)
@@ -1531,6 +1674,7 @@
             state.noteAttachments = res?.data || []
             await loadNoteImagePreviews(noteId)
             renderNoteAttachments()
+            if (state.notePreviewOpen) renderNoteMarkdownPreview()
         }
 
         function renderNoteImagePreviews() {
@@ -1558,6 +1702,7 @@
                         previews.push({
                             attachment_id: attachment.attachment_id,
                             filename: attachment.filename,
+                            permalink_url: attachment.permalink_url || '',
                             url: access.data.url,
                         })
                     }
@@ -1627,6 +1772,7 @@
             if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
                 state.editingNote = payload.note
                 el.noteEditorInput.value = payload.note.content || ''
+                if (state.notePreviewOpen) renderNoteMarkdownPreview()
             }
 
             await loadNoteAttachments(noteId)
@@ -2509,6 +2655,14 @@
             handleNoteEditorPaste(event).catch((err) => {
                 alert(err.message || 'Clipboard image upload failed')
             })
+        })
+        el.noteEditorInput.addEventListener('input', () => {
+            if (state.notePreviewOpen) {
+                renderNoteMarkdownPreview()
+            }
+        })
+        el.btnNotePreview.addEventListener('click', () => {
+            setNotePreviewOpen(!state.notePreviewOpen)
         })
         el.btnNoteMenu.addEventListener('click', (event) => {
             event.stopPropagation()
