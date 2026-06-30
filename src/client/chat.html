@@ -982,6 +982,7 @@
             noteDrafts: {},
             noteAttachments: [],
             noteImagePreviews: [],
+            noteAttachmentAccessUrls: {},
             noteUploadQueue: [],
             notePreviewOpen: false,
             noteLastSavedContent: '',
@@ -1164,7 +1165,7 @@
             )
             const signedByPermalink = new Map()
             for (const attachment of state.noteAttachments) {
-                const signedUrl = signedByAttachmentId.get(attachment.attachment_id)
+                const signedUrl = state.noteAttachmentAccessUrls[attachment.attachment_id] || signedByAttachmentId.get(attachment.attachment_id)
                 if (!signedUrl) continue
                 if (typeof attachment.permalink_url !== 'string' || !attachment.permalink_url) continue
                 signedByPermalink.set(normalizeUrlForMatch(attachment.permalink_url), signedUrl)
@@ -1187,6 +1188,9 @@
                 }
 
                 for (const link of template.content.querySelectorAll('a')) {
+                    const href = link.getAttribute('href') || ''
+                    const signedHref = signedByPermalink.get(normalizeUrlForMatch(href))
+                    if (signedHref) link.setAttribute('href', signedHref)
                     link.setAttribute('target', '_blank')
                     link.setAttribute('rel', 'noopener noreferrer')
                 }
@@ -1204,7 +1208,12 @@
             el.btnNotePreview.textContent = state.notePreviewOpen ? 'Edit' : 'Preview'
             el.btnNotePreview.setAttribute('aria-pressed', state.notePreviewOpen ? 'true' : 'false')
             if (state.notePreviewOpen) {
-                renderNoteMarkdownPreview()
+                if (state.editingNote) {
+                    ensureNoteAttachmentAccessUrls(state.editingNote.note_id)
+                        .finally(() => renderNoteMarkdownPreview())
+                } else {
+                    renderNoteMarkdownPreview()
+                }
             }
         }
 
@@ -1639,6 +1648,7 @@
             state.noteAttachments = []
             state.noteLastSavedContent = (note.content || '').trim()
             state.noteSaveInFlight = false
+            state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
             el.noteEditorInput.value = note.content
             setNotePreviewOpen(false)
@@ -1717,9 +1727,26 @@
         async function loadNoteAttachments(noteId) {
             const res = await api(`/api/notes/${noteId}/attachments`)
             state.noteAttachments = res?.data || []
+            await ensureNoteAttachmentAccessUrls(noteId)
             await loadNoteImagePreviews(noteId)
             renderNoteAttachments()
             if (state.notePreviewOpen) renderNoteMarkdownPreview()
+        }
+
+        async function ensureNoteAttachmentAccessUrls(noteId) {
+            const nextUrls = { ...state.noteAttachmentAccessUrls }
+            for (const attachment of state.noteAttachments) {
+                if (typeof nextUrls[attachment.attachment_id] === 'string' && nextUrls[attachment.attachment_id]) continue
+                try {
+                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
+                    if (access?.data?.url) {
+                        nextUrls[attachment.attachment_id] = access.data.url
+                    }
+                } catch {
+                    // Ignore missing token fetch and keep editor usable.
+                }
+            }
+            state.noteAttachmentAccessUrls = nextUrls
         }
 
         function renderNoteImagePreviews() {
