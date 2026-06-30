@@ -923,7 +923,8 @@
                         <div id="note-attachments-list" class="space-y-2"></div>
                     </div>
                     <div class="flex items-center justify-between gap-3">
-                        <p class="text-[11px] text-muted-fg">Use Save in the header when you’re done.</p>
+                        <p class="text-[11px] text-muted-fg">Autosaves when focus leaves the editor. Save is optional.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -983,6 +984,8 @@
             noteImagePreviews: [],
             noteUploadQueue: [],
             notePreviewOpen: false,
+            noteLastSavedContent: '',
+            noteSaveInFlight: false,
             editingNote: null,
             noteEditorMenuOpen: false,
             minMessageId: null,
@@ -1634,6 +1637,8 @@
         function openNoteEditor(note) {
             state.editingNote = note
             state.noteAttachments = []
+            state.noteLastSavedContent = (note.content || '').trim()
+            state.noteSaveInFlight = false
             closeNoteEditorMenu()
             el.noteEditorInput.value = note.content
             setNotePreviewOpen(false)
@@ -1812,11 +1817,39 @@
             if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
                 state.editingNote = payload.note
                 el.noteEditorInput.value = payload.note.content || ''
+                state.noteLastSavedContent = (payload.note.content || '').trim()
                 if (state.notePreviewOpen) renderNoteMarkdownPreview()
             }
 
             await loadNoteAttachments(noteId)
             await loadNotes({ silent: true })
+        }
+
+        async function saveEditingNote({ force = false } = {}) {
+            if (!state.editingNote || state.noteSaveInFlight) return false
+
+            const content = el.noteEditorInput.value.trim()
+            if (!content) return false
+
+            const previousContent = (state.noteLastSavedContent || '').trim()
+            if (!force && content === previousContent) return false
+
+            state.noteSaveInFlight = true
+            try {
+                const res = await api(`/api/notes/${state.editingNote.note_id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ content }),
+                })
+                if (res?.data) {
+                    state.editingNote = res.data
+                    state.noteLastSavedContent = (res.data.content || content).trim()
+                    await loadNotes({ silent: true })
+                    return true
+                }
+                return false
+            } finally {
+                state.noteSaveInFlight = false
+            }
         }
 
         async function uploadFilesWithProgress(files) {
@@ -2656,7 +2689,8 @@
         })
         el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
         el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
-        el.btnNoteEditorBack.addEventListener('click', () => {
+        el.btnNoteEditorBack.addEventListener('click', async () => {
+            await saveEditingNote()
             state.noteAttachments = []
             state.noteImagePreviews = []
             renderNoteAttachments()
@@ -2701,6 +2735,10 @@
                 renderNoteMarkdownPreview()
             }
         })
+        el.noteEditorInput.addEventListener('blur', async () => {
+            if (state.activePage !== 'note-editor') return
+            await saveEditingNote()
+        })
         el.btnNotePreview.addEventListener('click', () => {
             setNotePreviewOpen(!state.notePreviewOpen)
         })
@@ -2741,15 +2779,7 @@
             await loadNoteChannels()
         })
         el.btnNoteSave.addEventListener('click', async () => {
-            if (!state.editingNote) return
-            const content = el.noteEditorInput.value.trim()
-            if (!content) return
-            const res = await api(`/api/notes/${state.editingNote.note_id}`, {
-                method: 'PATCH',
-                body: JSON.stringify({ content }),
-            })
-            state.editingNote = res?.data ?? state.editingNote
-            await loadNotes({ silent: true })
+            await saveEditingNote({ force: true })
             goToMessagesPage()
         })
 
