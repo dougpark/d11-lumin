@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Lumin Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css">
     <link rel="stylesheet" href="/chat/styles/theme.css">
     <script>
         tailwind.config = {
@@ -418,6 +419,45 @@
             font-size: 0.9rem;
             line-height: 1.55;
             overflow-wrap: anywhere;
+        }
+
+        .note-markdown-preview.markdown-body {
+            background: #ffffff;
+            color: #1a1a2e;
+        }
+
+        .note-markdown-preview.markdown-body> :first-child {
+            margin-top: 0;
+        }
+
+        .note-markdown-preview.markdown-body> :last-child {
+            margin-bottom: 0;
+        }
+
+        .note-markdown-preview.markdown-body ul {
+            list-style: disc !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .note-markdown-preview.markdown-body ol {
+            list-style: decimal !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .note-markdown-preview.markdown-body li {
+            display: list-item !important;
+        }
+
+        .note-markdown-preview.markdown-body li::marker {
+            color: #1f2937;
+        }
+
+        .note-markdown-preview.markdown-body ul ul {
+            list-style: circle !important;
+        }
+
+        .note-markdown-preview.markdown-body ul ul ul {
+            list-style: square !important;
         }
 
         .note-markdown-preview h1,
@@ -862,7 +902,7 @@
                     <textarea id="note-editor-input" rows="12"
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
-                    <div id="note-editor-preview" class="note-markdown-preview" hidden></div>
+                    <div id="note-editor-preview" class="note-markdown-preview markdown-body" hidden></div>
                     <div>
                         <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">Image Previews</p>
                         <div id="note-image-previews" class="note-image-previews"></div>
