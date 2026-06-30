@@ -964,6 +964,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/chat/notes-editor.js"></script>
     <script>
         const state = {
             token: localStorage.getItem('d11_token') || '',
@@ -2860,6 +2861,13 @@
                 positionNoteEditorMenu()
             }
         })
+
+        if (window.D11NotesEditorShortcuts?.init) {
+            window.D11NotesEditorShortcuts.init({
+                state,
+                input: el.noteEditorInput,
+            })
+        }
 
         bootstrap()
     </script>
