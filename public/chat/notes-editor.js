@@ -55,19 +55,23 @@
                 'heading',
                 '|',
                 'unordered-list',
+                'check-list',
                 '|',
                 'link',
                 'table',
                 '|',
-                'preview',
-                'side-by-side',
-                'fullscreen',
+                'undo',
+                'redo',
             ],
             status: false,
             spellChecker: false,
             autoDownloadFontAwesome: true,
             shortcuts: {
                 toggleHeadingBigger: null,
+                "toggleHeading1": "Cmd-Shift-T",
+                "toggleCodeBlock": "Cmd-Shift-C",
+                "drawImage": "Cmd-Shift-I",
+
             },
         })
 
