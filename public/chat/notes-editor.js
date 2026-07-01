@@ -78,7 +78,15 @@
                 'heading',
                 '|',
                 'unordered-list',
-                'check-list',
+                {
+                    name: 'check-list',
+                    action: (editor) => {
+                        const cm = editor?.codemirror || editor
+                        applyChecklistCycleOnCurrentLine(cm)
+                    },
+                    className: 'fa fa-check-square-o',
+                    title: 'Toggle Checklist',
+                },
                 '|',
                 'link',
                 'table',
@@ -91,6 +99,7 @@
             autoDownloadFontAwesome: true,
             shortcuts: {
                 toggleHeadingBigger: null,
+                toggleCheckList: null,
                 "toggleHeading1": "Cmd-Shift-T",
                 "toggleCodeBlock": "Cmd-Shift-C",
                 "drawImage": "Cmd-Shift-I",
@@ -104,6 +113,12 @@
         const cm = easyMDE.codemirror
         if (cm) {
             cm.addKeyMap({
+                'Shift-Cmd-L': (instance) => {
+                    applyChecklistCycleOnCurrentLine(instance)
+                },
+                'Shift-Ctrl-L': (instance) => {
+                    applyChecklistCycleOnCurrentLine(instance)
+                },
                 'Shift-Cmd-H': (instance) => {
                     applyFixedHeadingLevel(instance, 2)
                 },
@@ -133,6 +148,50 @@
         }
 
         return easyMDE
+    }
+
+    function applyChecklistCycleOnCurrentLine(cm) {
+        if (!cm) return
+
+        const doc = cm.getDoc()
+        const start = doc.getCursor('start')
+        const lineNo = start.line
+        const line = doc.getLine(lineNo) || ''
+        const match = line.match(/^(\s*)-\s\[( |x|X)\]\s?(.*)$/)
+
+        let nextLine = line
+        let oldPrefixLen = 0
+        let newPrefixLen = 0
+
+        if (!match) {
+            const indentMatch = line.match(/^(\s*)(.*)$/)
+            const indent = indentMatch ? indentMatch[1] : ''
+            const body = indentMatch ? indentMatch[2] : line
+            const prefix = '- [ ] '
+            nextLine = `${indent}${prefix}${body}`
+            oldPrefixLen = indent.length
+            newPrefixLen = indent.length + prefix.length
+        } else if (match[2] === ' ') {
+            const prefix = `${match[1]}- [x] `
+            nextLine = `${prefix}${match[3]}`
+            oldPrefixLen = line.length - match[3].length
+            newPrefixLen = prefix.length
+        } else {
+            nextLine = `${match[1]}${match[3]}`
+            oldPrefixLen = line.length - nextLine.length
+            newPrefixLen = match[1].length
+        }
+
+        if (nextLine === line) return
+
+        doc.replaceRange(nextLine, { line: lineNo, ch: 0 }, { line: lineNo, ch: line.length })
+
+        const oldCh = start.ch
+        const nextCh = oldCh <= oldPrefixLen
+            ? Math.min(oldCh, newPrefixLen)
+            : Math.min(newPrefixLen + (oldCh - oldPrefixLen), nextLine.length)
+
+        doc.setCursor({ line: lineNo, ch: nextCh })
     }
 
     function applyFixedHeadingLevel(cm, level) {
