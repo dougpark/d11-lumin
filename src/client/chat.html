@@ -7,6 +7,8 @@
     <title>Lumin Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="/chat/styles/theme.css">
     <script>
         tailwind.config = {
@@ -504,6 +506,35 @@
             margin: 0.5rem 0;
         }
 
+        #note-editor-page .EasyMDEContainer {
+            border: 0;
+            background: transparent;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-statusbar {
+            display: none;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            min-height: 13rem;
+            background: #ffffff;
+            color: #1a1a2e;
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-focused {
+            border-color: rgba(21, 101, 192, 0.5);
+            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.2);
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-scroll {
+            min-height: 13rem;
+            max-height: 52vh;
+        }
+
         .note-search-bubble {
             position: sticky;
             top: 0;
@@ -964,6 +995,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
     <script src="/chat/notes-editor.js"></script>
     <script>
         const state = {
@@ -1135,6 +1167,21 @@
             return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
         }
 
+        function getNoteEditorValue() {
+            if (window.D11NotesEditorShortcuts?.getValue) {
+                return window.D11NotesEditorShortcuts.getValue(el.noteEditorInput)
+            }
+            return el.noteEditorInput.value || ''
+        }
+
+        function setNoteEditorValue(value) {
+            if (window.D11NotesEditorShortcuts?.setValue) {
+                window.D11NotesEditorShortcuts.setValue(value ?? '', el.noteEditorInput)
+                return
+            }
+            el.noteEditorInput.value = value ?? ''
+        }
+
         function escapeHtml(value) {
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
@@ -1155,7 +1202,7 @@
 
         function renderNoteMarkdownPreview() {
             if (!el.noteEditorPreview) return
-            const source = el.noteEditorInput.value || ''
+            const source = getNoteEditorValue()
             if (!source.trim()) {
                 el.noteEditorPreview.innerHTML = '<p class="text-sm text-muted-fg">Nothing to preview yet.</p>'
                 return
@@ -1204,7 +1251,11 @@
 
         function setNotePreviewOpen(isOpen) {
             state.notePreviewOpen = Boolean(isOpen)
-            el.noteEditorInput.hidden = state.notePreviewOpen
+            if (window.D11NotesEditorShortcuts?.setEditorVisible) {
+                window.D11NotesEditorShortcuts.setEditorVisible(!state.notePreviewOpen, el.noteEditorInput)
+            } else {
+                el.noteEditorInput.hidden = state.notePreviewOpen
+            }
             el.noteEditorPreview.hidden = !state.notePreviewOpen
             el.btnNotePreview.textContent = state.notePreviewOpen ? 'Edit' : 'Preview'
             el.btnNotePreview.setAttribute('aria-pressed', state.notePreviewOpen ? 'true' : 'false')
@@ -1651,7 +1702,7 @@
             state.noteSaveInFlight = false
             state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
-            el.noteEditorInput.value = note.content
+            setNoteEditorValue(note.content || '')
             setNotePreviewOpen(false)
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
             setActivePage('note-editor')
@@ -1844,7 +1895,7 @@
 
             if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
                 state.editingNote = payload.note
-                el.noteEditorInput.value = payload.note.content || ''
+                setNoteEditorValue(payload.note.content || '')
                 state.noteLastSavedContent = (payload.note.content || '').trim()
                 if (state.notePreviewOpen) renderNoteMarkdownPreview()
             }
@@ -1856,7 +1907,7 @@
         async function saveEditingNote({ force = false } = {}) {
             if (!state.editingNote || state.noteSaveInFlight) return false
 
-            const content = el.noteEditorInput.value.trim()
+            const content = getNoteEditorValue().trim()
             if (!content) return false
 
             const previousContent = (state.noteLastSavedContent || '').trim()
@@ -2866,6 +2917,21 @@
             window.D11NotesEditorShortcuts.init({
                 state,
                 input: el.noteEditorInput,
+                onEditorPaste: (event) => {
+                    handleNoteEditorPaste(event).catch((err) => {
+                        alert(err.message || 'Clipboard image upload failed')
+                    })
+                },
+                onEditorInput: () => {
+                    if (state.notePreviewOpen) {
+                        renderNoteMarkdownPreview()
+                    }
+                },
+                onEditorBlur: () => {
+                    if (state.activePage !== 'note-editor') return
+                    saveEditingNote().catch(() => null)
+                },
+                enableCustomShortcuts: false,
             })
         }
 

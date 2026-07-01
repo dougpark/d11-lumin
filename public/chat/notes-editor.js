@@ -1,6 +1,103 @@
 // public/chat/notes-editor.js
 // Notes editor enhancements that can evolve independently from chat.html.
 (function attachNotesEditorShortcuts(globalScope) {
+    let activeEasyMDE = null
+
+    function getEasyMDEContainer() {
+        if (!activeEasyMDE?.codemirror) return null
+        return activeEasyMDE.codemirror.getWrapperElement()?.closest('.EasyMDEContainer') || null
+    }
+
+    function getEditorValue(fallbackInput) {
+        if (activeEasyMDE && typeof activeEasyMDE.value === 'function') {
+            return activeEasyMDE.value()
+        }
+        return fallbackInput?.value || ''
+    }
+
+    function setEditorValue(nextValue, fallbackInput) {
+        const value = String(nextValue ?? '')
+        if (activeEasyMDE && typeof activeEasyMDE.value === 'function') {
+            activeEasyMDE.value(value)
+            if (fallbackInput && fallbackInput.value !== value) {
+                fallbackInput.value = value
+            }
+            return
+        }
+        if (fallbackInput) {
+            fallbackInput.value = value
+        }
+    }
+
+    function setEditorVisible(isVisible, fallbackInput) {
+        const visible = Boolean(isVisible)
+        if (fallbackInput) {
+            fallbackInput.hidden = !visible
+        }
+        const container = getEasyMDEContainer()
+        if (container) {
+            container.classList.toggle('hidden', !visible)
+        }
+    }
+
+    function initEasyMDE(options) {
+        const input = options?.input
+        if (!input) return null
+        if (input.dataset.easyMdeBound === 'true' && activeEasyMDE) return activeEasyMDE
+        if (typeof globalScope.EasyMDE !== 'function') return null
+
+        const easyMDE = new globalScope.EasyMDE({
+            element: input,
+            forceSync: true,
+            toolbar: [
+                'bold',
+                'italic',
+                'heading',
+                '|',
+                'quote',
+                'unordered-list',
+                'ordered-list',
+                '|',
+                'link',
+                'table',
+                '|',
+                'preview',
+                'side-by-side',
+                'fullscreen',
+            ],
+            status: false,
+            spellChecker: false,
+            autoDownloadFontAwesome: true,
+        })
+
+        activeEasyMDE = easyMDE
+        input.dataset.easyMdeBound = 'true'
+
+        const cm = easyMDE.codemirror
+        if (cm) {
+            cm.on('change', () => {
+                if (typeof options?.onEditorInput === 'function') {
+                    options.onEditorInput()
+                }
+            })
+
+            cm.on('blur', () => {
+                if (typeof options?.onEditorBlur === 'function') {
+                    options.onEditorBlur()
+                }
+            })
+
+            const cmInput = cm.getInputField?.()
+            if (cmInput && typeof options?.onEditorPaste === 'function') {
+                cmInput.addEventListener('paste', (event) => {
+                    options.onEditorPaste(event)
+                })
+            }
+        }
+
+        return easyMDE
+    }
+
     function getShortcutRows() {
         return [
             { shortcut: 'Cmd + B', action: 'Bold' },
@@ -342,6 +439,18 @@
         if (input.dataset.notesShortcutsBound === 'true') return
 
         const helpModalApi = wireHelpModal()
+        initEasyMDE({
+            input,
+            onEditorPaste: options?.onEditorPaste,
+            onEditorInput: options?.onEditorInput,
+            onEditorBlur: options?.onEditorBlur,
+        })
+
+        const enableCustomShortcuts = options?.enableCustomShortcuts === true
+        if (!enableCustomShortcuts) {
+            input.dataset.notesShortcutsBound = 'true'
+            return
+        }
 
         input.addEventListener('keydown', (event) => {
             if (event.isComposing) return
@@ -381,5 +490,9 @@
 
     globalScope.D11NotesEditorShortcuts = {
         init: initNotesEditorShortcuts,
+        getValue: getEditorValue,
+        setValue: setEditorValue,
+        setEditorVisible,
+        getInstance: () => activeEasyMDE,
     }
 })(window)
