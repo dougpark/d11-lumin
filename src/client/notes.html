@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Lumin Notes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/vendor/github-markdown.min.css">
+    <link rel="stylesheet" href="/vendor/easymde.min.css">
+    <link rel="stylesheet" href="/vendor/font-awesome.min.css">
+    <link rel="stylesheet" href="/chat/styles/theme.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: 'rgb(21 101 192)',
+                        background: 'rgb(240 242 245)',
+                        info: 'rgb(228 162 69)',
+                        card: 'rgb(255 255 255)',
+                        muted: 'rgb(236 239 241)',
+                        'muted-fg': 'rgb(120 144 156)',
+                        border: 'rgba(0 0 0 / 0.08)',
+                        input: 'rgb(236 239 241)',
+                        destructive: 'rgb(229 57 53)',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Roboto', 'sans-serif']
+                    },
+                    borderRadius: {
+                        mobile: '0.625rem',
+                        phone: '40px',
+                    },
+                    boxShadow: {
+                        'phone': '0 32px 80px rgba(0, 0, 0, 0.5)',
+                    },
+                    spacing: {
+                        'phone-w': '390px',
+                        'phone-h': '844px',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            font-family: 'Inter', 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Prevent iOS zoom on input focus */
+        input,
+        textarea,
+        select,
+        button {
+            font-size: 16px;
+        }
+
+        /* Phone shell container */
+        #notes-shell {
+            position: relative;
+            width: 100%;
+            max-width: 430px;
+            height: 100dvh;
+            background-color: #f0f2f5;
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Stacked page transitions */
+        .stack-page {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            min-width: 100%;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: auto;
+        }
+
+        .overlay-page {
+            z-index: 40;
+            background-color: #ffffff;
+            transform: translateX(110%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition:
+                transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 220ms ease,
+                visibility 0s linear 300ms;
+        }
+
+        .overlay-page.is-active {
+            transform: translateX(0);
+            opacity: 1;
+            z-index: 50;
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+                transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 220ms ease,
+                visibility 0s linear 0s;
+        }
+
+        #note-editor-page {
+            inset: auto 0 0 0;
+            height: min(92dvh, 920px);
+            max-height: 92dvh;
+            border-radius: 1.5rem 1.5rem 0 0;
+            box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.2);
+            transform: translate3d(0, 102%, 0);
+            opacity: 1;
+            visibility: hidden;
+            pointer-events: none;
+            overflow: hidden;
+            transition:
+                transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 380ms;
+        }
+
+        #note-editor-page.is-active {
+            transform: translate3d(0, 0, 0);
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+                transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 0s;
+        }
+
+        .note-sheet-handle {
+            width: 3rem;
+            height: 0.3rem;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, 0.16);
+            margin: 0.65rem auto 0.25rem;
+            flex-shrink: 0;
+        }
+
+        #note-editor-page>header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .note-editor-menu-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 58;
+            background: transparent;
+        }
+
+        .note-editor-menu {
+            position: fixed;
+            z-index: 59;
+            min-width: 14rem;
+            max-width: calc(100vw - 1.5rem);
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16);
+            overflow: hidden;
+        }
+
+        .note-editor-menu[hidden],
+        .note-editor-menu-scrim[hidden] {
+            display: none !important;
+        }
+
+        .note-editor-menu-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            color: #1a1a2e;
+            text-align: left;
+        }
+
+        .note-editor-menu-item:hover,
+        .note-editor-menu-item:focus-visible {
+            background: rgba(21, 101, 192, 0.08);
+            outline: none;
+        }
+
+        .note-editor-menu-item-danger {
+            color: #d32f2f;
+        }
+
+        .note-editor-menu-section-title {
+            padding: 0.75rem 1rem 0.375rem;
+            font-size: 0.625rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #78909c;
+        }
+
+        .note-editor-menu-divider {
+            height: 1px;
+            background: rgba(0, 0, 0, 0.08);
+            margin: 0.25rem 0;
+        }
+
+        .note-editor-menu-channel {
+            padding: 0.6rem 1rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            color: #1a1a2e;
+            text-align: left;
+        }
+
+        .note-editor-menu-channel:hover,
+        .note-editor-menu-channel:focus-visible {
+            background: rgba(21, 101, 192, 0.08);
+            outline: none;
+        }
+
+        .note-editor-menu-channel.is-selected {
+            color: #1565c0;
+            font-weight: 600;
+        }
+
+        .overlay-page[hidden] {
+            display: none !important;
+        }
+
+        #channels-page {
+            transform: translateX(-100%);
+            z-index: 35;
+            background-color: #ffffff;
+            pointer-events: none;
+        }
+
+        #notes-shell[data-view='channels'] #channels-page {
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        #notes-list-page {
+            transform: translateX(0);
+            z-index: 30;
+            background-color: #f0f2f5;
+        }
+
+        .header-icon-btn {
+            padding: 0.4rem;
+            border-radius: 0.5rem;
+            transition: background-color 150ms ease;
+        }
+
+        .header-icon-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .header-icon-btn.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .header-icon-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        #channel-title,
+        #status-text {
+            transition: opacity 180ms ease, transform 180ms ease;
+        }
+
+        .header-copy-swap {
+            opacity: 0.35;
+            transform: translateY(2px);
+        }
+
+        .channels-brand-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #1565c0 0%, #4fc3f7 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            letter-spacing: 0.02em;
+            box-shadow: 0 6px 18px rgba(21, 101, 192, 0.28);
+        }
+
+        .note-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 1rem;
+            padding: 0.9rem 1rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+        }
+
+        .note-card.pinned {
+            border-color: rgba(21, 101, 192, 0.3);
+            box-shadow: 0 10px 22px rgba(21, 101, 192, 0.08);
+        }
+
+        .note-ribbon {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.75rem;
+            align-items: center;
+        }
+
+        .note-tag {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: rgba(21, 101, 192, 0.1);
+            color: rgb(21 101 192);
+            padding: 0.2rem 0.55rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .attachment-chip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.65rem;
+            background: #fff;
+        }
+
+        .note-image-previews {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .note-image-preview {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.65rem;
+            overflow: hidden;
+            background: #fff;
+            aspect-ratio: 1 / 1;
+        }
+
+        .note-image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .attachment-dropzone {
+            border: 1px dashed rgba(21, 101, 192, 0.45);
+            border-radius: 0.75rem;
+            padding: 0.6rem;
+            background: rgba(21, 101, 192, 0.04);
+            transition: background-color 120ms ease, border-color 120ms ease;
+        }
+
+        .attachment-dropzone.drag-over {
+            background: rgba(21, 101, 192, 0.12);
+            border-color: rgba(21, 101, 192, 0.9);
+        }
+
+        .upload-progress-track {
+            width: 100%;
+            height: 0.35rem;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-top: 0.35rem;
+        }
+
+        .upload-progress-fill {
+            height: 100%;
+            background: rgb(21 101 192);
+        }
+
+        .note-markdown-preview {
+            width: 100%;
+            min-height: 13rem;
+            padding: 0.9rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            background: #ffffff;
+            color: #1a1a2e;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
+
+        .note-markdown-preview.markdown-body {
+            background: #ffffff;
+            color: #1a1a2e;
+        }
+
+        .note-markdown-preview.markdown-body> :first-child {
+            margin-top: 0;
+        }
+
+        .note-markdown-preview.markdown-body> :last-child {
+            margin-bottom: 0;
+        }
+
+        .note-markdown-preview.markdown-body ul {
+            list-style: disc !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .note-markdown-preview.markdown-body ol {
+            list-style: decimal !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .note-markdown-preview.markdown-body li {
+            display: list-item !important;
+        }
+
+        .note-markdown-preview.markdown-body li::marker {
+            color: #1f2937;
+        }
+
+        .note-markdown-preview.markdown-body ul ul {
+            list-style: circle !important;
+        }
+
+        .note-markdown-preview.markdown-body ul ul ul {
+            list-style: square !important;
+        }
+
+        .note-markdown-preview h1,
+        .note-markdown-preview h2,
+        .note-markdown-preview h3,
+        .note-markdown-preview h4 {
+            margin: 0.8rem 0 0.45rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .note-markdown-preview p,
+        .note-markdown-preview ul,
+        .note-markdown-preview ol,
+        .note-markdown-preview blockquote,
+        .note-markdown-preview pre {
+            margin: 0.55rem 0;
+        }
+
+        .note-markdown-preview code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.35rem;
+        }
+
+        .note-markdown-preview pre code {
+            display: block;
+            padding: 0.7rem;
+            overflow-x: auto;
+        }
+
+        .note-markdown-preview a {
+            color: rgb(21 101 192);
+            text-decoration: underline;
+        }
+
+        .note-markdown-preview img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        #note-editor-page .EasyMDEContainer,
+        #note-editor-page .CodeMirror-wrap {
+            border: 0;
+            background: transparent;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar,
+        #note-editor-page .editor-toolbar {
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-radius: 0.75rem !important;
+            background: #ffffff !important;
+            margin-bottom: 0.55rem !important;
+            padding: 0.2rem !important;
+            opacity: 1 !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar a,
+        #note-editor-page .editor-toolbar a {
+            border: 0 !important;
+            color: #546e7a !important;
+            border-radius: 0.5rem !important;
+            width: 1.9rem !important;
+            height: 1.9rem !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar a:hover,
+        #note-editor-page .EasyMDEContainer .editor-toolbar a.active,
+        #note-editor-page .editor-toolbar a:hover,
+        #note-editor-page .editor-toolbar a.active {
+            background: rgba(21, 101, 192, 0.1) !important;
+            color: rgb(21 101 192) !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar i.separator,
+        #note-editor-page .editor-toolbar i.separator {
+            border-left: 1px solid rgba(0, 0, 0, 0.12) !important;
+            border-right: 0 !important;
+            margin: 0 0.25rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-statusbar {
+            display: none;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror,
+        #note-editor-page .CodeMirror {
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-radius: 0.75rem !important;
+            min-height: 13rem !important;
+            background: #ffffff !important;
+            color: #1a1a2e !important;
+            font-size: 0.9rem !important;
+            line-height: 1.55 !important;
+            font-family: 'Inter', 'Roboto', sans-serif !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-lines,
+        #note-editor-page .CodeMirror-lines {
+            padding: 0.45rem 0 !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-focused,
+        #note-editor-page .CodeMirror-focused {
+            border-color: rgba(21, 101, 192, 0.5) !important;
+            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.2) !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-scroll,
+        #note-editor-page .CodeMirror-scroll {
+            min-height: 13rem !important;
+            max-height: 52vh !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-gutters,
+        #note-editor-page .CodeMirror-gutters {
+            background: transparent !important;
+            border-right: 0 !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-formatting,
+        #note-editor-page .CodeMirror .cm-formatting {
+            color: #78909c !important;
+            opacity: 0.95;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-header,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-strong,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-em,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-link,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-url,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-quote,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-comment,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-tag,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-attribute,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-string,
+        #note-editor-page .CodeMirror .cm-header,
+        #note-editor-page .CodeMirror .cm-strong,
+        #note-editor-page .CodeMirror .cm-em,
+        #note-editor-page .CodeMirror .cm-link,
+        #note-editor-page .CodeMirror .cm-url,
+        #note-editor-page .CodeMirror .cm-quote,
+        #note-editor-page .CodeMirror .cm-comment,
+        #note-editor-page .CodeMirror .cm-tag,
+        #note-editor-page .CodeMirror .cm-attribute,
+        #note-editor-page .CodeMirror .cm-string {
+            color: #1a1a2e !important;
+            font-weight: 400 !important;
+            font-style: normal !important;
+            text-decoration: none !important;
+            font-size: 0.9rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-link,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-url,
+        #note-editor-page .CodeMirror .cm-link,
+        #note-editor-page .CodeMirror .cm-url {
+            text-decoration: underline !important;
+            text-decoration-color: rgba(21, 101, 192, 0.45) !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview,
+        #note-editor-page .EasyMDEContainer .editor-preview-side {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            background: #ffffff;
+            color: #1a1a2e;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            padding: 0.9rem;
+            overflow-wrap: anywhere;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview-side {
+            right: 0;
+            top: 0;
+            max-height: 52vh;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview h1,
+        #note-editor-page .EasyMDEContainer .editor-preview h2,
+        #note-editor-page .EasyMDEContainer .editor-preview h3,
+        #note-editor-page .EasyMDEContainer .editor-preview h4,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h1,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h2,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h3,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h4 {
+            margin: 0.8rem 0 0.45rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview p,
+        #note-editor-page .EasyMDEContainer .editor-preview ul,
+        #note-editor-page .EasyMDEContainer .editor-preview ol,
+        #note-editor-page .EasyMDEContainer .editor-preview blockquote,
+        #note-editor-page .EasyMDEContainer .editor-preview pre,
+        #note-editor-page .EasyMDEContainer .editor-preview-side p,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ul,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ol,
+        #note-editor-page .EasyMDEContainer .editor-preview-side blockquote,
+        #note-editor-page .EasyMDEContainer .editor-preview-side pre {
+            margin: 0.55rem 0;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview ul,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ul {
+            list-style: disc !important;
+            padding-left: 1.5rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview ol,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ol {
+            list-style: decimal !important;
+            padding-left: 1.5rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview li,
+        #note-editor-page .EasyMDEContainer .editor-preview-side li {
+            display: list-item !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview li::marker,
+        #note-editor-page .EasyMDEContainer .editor-preview-side li::marker {
+            color: #1f2937;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview code,
+        #note-editor-page .EasyMDEContainer .editor-preview-side code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.35rem;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview pre code,
+        #note-editor-page .EasyMDEContainer .editor-preview-side pre code {
+            display: block;
+            padding: 0.7rem;
+            overflow-x: auto;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview a,
+        #note-editor-page .EasyMDEContainer .editor-preview-side a {
+            color: rgb(21 101 192);
+            text-decoration: underline;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview img,
+        #note-editor-page .EasyMDEContainer .editor-preview-side img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .note-search-bubble {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(180deg, rgba(240, 242, 245, 0.98), rgba(240, 242, 245, 0.9));
+            padding-bottom: 0.75rem;
+        }
+
+        /* Safari: prevent phantom horizontal scrollbar in composer flex row */
+        #composer {
+            overflow-x: clip;
+            overflow-y: visible;
+        }
+
+        #composer>div {
+            min-width: 0;
+            overflow-x: clip;
+        }
+
+        #message-input {
+            width: 100%;
+            min-width: 0;
+            overflow-x: hidden;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-[#f5f5f5] text-[#1a1a2e] font-sans">
+    <div id="notes-shell">
+
+        <!-- Channel list -->
+        <section id="channels-page" class="stack-page">
+            <header class="px-4 py-4 border-b border-border bg-white">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="channels-brand-icon" aria-hidden="true">L</div>
+                        <div class="min-w-0">
+                            <h1 class="text-base font-semibold text-[#1a1a2e]">Lumin Notes</h1>
+                            <p id="channels-user-name" class="text-xs text-muted-fg truncate">Loading user...</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="/chat"
+                            class="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary transition whitespace-nowrap">Chat</a>
+                        <a href="/"
+                            class="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary transition whitespace-nowrap">Dashboard</a>
+                    </div>
+                </div>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4">
+                <div>
+                    <div class="flex items-center justify-between mb-3 gap-3">
+                        <h2 class="text-xs uppercase tracking-wide text-muted-fg">Note Channels</h2>
+                        <button id="btn-new-note-channel"
+                            class="text-xs px-2.5 py-1 rounded-lg border border-border hover:border-primary hover:text-primary transition">New</button>
+                    </div>
+                    <div id="note-channels" class="space-y-1"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Notes list page -->
+        <section id="notes-list-page" class="stack-page">
+            <!-- Header -->
+            <header
+                class="flex-shrink-0 bg-primary text-white px-4 py-3 flex items-center justify-between border-b border-primary/20">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <button id="btn-back" class="p-1 hover:bg-white/20 rounded-lg" title="Channels"
+                        aria-label="Open channels">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                            </path>
+                        </svg>
+                    </button>
+                    <div class="min-w-0">
+                        <h1 id="channel-title" class="text-base font-semibold">My Notes</h1>
+                        <p id="status-text" class="text-xs opacity-90">Loading notes...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 ml-2">
+                    <button id="btn-search" class="header-icon-btn" title="Search notes" aria-label="Toggle search"
+                        aria-pressed="false">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                                clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                    <button id="btn-profile" class="header-icon-btn" title="Profile" aria-label="Open profile">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Notes list -->
+            <div id="notes-list" class="flex-1 overflow-y-auto p-3 flex flex-col relative"></div>
+
+            <!-- Composer -->
+            <form id="composer"
+                class="flex-shrink-0 bg-[#f0f2f5] border-t border-border px-3 py-2.5 overflow-hidden w-full max-w-full">
+                <div class="flex items-end gap-2 min-w-0">
+                    <div
+                        class="flex-1 bg-white border border-border rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
+                        <textarea id="message-input" maxlength="4000" placeholder="Save a quick note"
+                            class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0"></textarea>
+                    </div>
+                    <button id="composer-submit" type="submit"
+                        class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-[#0d47a1] flex-shrink-0"
+                        title="Save note" aria-label="Save note">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Profile page -->
+        <section id="profile-page" class="stack-page overlay-page" hidden>
+            <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
+                <div class="flex items-center min-w-0">
+                    <h2 class="text-base font-semibold text-[#1a1a2e]">Profile</h2>
+                </div>
+                <button id="btn-profile-back" class="p-1.5 rounded-lg hover:bg-muted" title="Dismiss"
+                    aria-label="Dismiss">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4">
+                <div class="rounded-xl border border-border bg-white p-4">
+                    <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">User</p>
+                    <p id="profile-user-name" class="text-base font-semibold text-[#1a1a2e]">Loading...</p>
+                    <p id="profile-user-handle" class="text-sm text-muted-fg mt-1"></p>
+                </div>
+                <p class="text-xs text-muted-fg mt-4">Temporary profile page. More account settings coming soon.</p>
+            </div>
+        </section>
+
+        <!-- Note editor page -->
+        <section id="note-editor-page" class="stack-page overlay-page" hidden>
+            <div class="note-sheet-handle" aria-hidden="true"></div>
+            <header
+                class="px-4 pt-4 pb-3 border-b border-border bg-white grid grid-cols-[auto,1fr,auto] items-center gap-3">
+                <button id="btn-note-editor-back"
+                    class="w-9 h-9 rounded-full hover:bg-muted flex items-center justify-center" title="Dismiss"
+                    aria-label="Dismiss to notes">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18">
+                        </path>
+                    </svg>
+                </button>
+                <div class="min-w-0 text-center">
+                    <h2 class="text-base font-semibold text-[#1a1a2e] truncate">Edit Note</h2>
+                </div>
+                <button id="btn-note-save"
+                    class="text-sm font-semibold px-4 py-2 rounded-full bg-primary text-white hover:bg-[#0d47a1]">Save</button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
+                <div class="rounded-2xl border border-border bg-white p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
+                            <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-note-preview" type="button"
+                                class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
+                                aria-pressed="false" aria-label="Toggle markdown preview">Preview</button>
+                            <button id="btn-note-menu" type="button"
+                                class="w-9 h-9 rounded-full border border-border hover:border-primary flex items-center justify-center text-xl leading-none text-[#1a1a2e]"
+                                aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
+                        </div>
+                    </div>
+                    <textarea id="note-editor-input" rows="12"
+                        class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Write your note..."></textarea>
+                    <div id="note-editor-preview" class="note-markdown-preview markdown-body" hidden></div>
+                    <div>
+                        <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">Image Previews</p>
+                        <div id="note-image-previews" class="note-image-previews"></div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <label class="text-xs uppercase tracking-wide text-muted-fg">Attachments</label>
+                            <button id="btn-note-attach" type="button"
+                                class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Attach
+                                file</button>
+                        </div>
+                        <div id="note-attachment-dropzone" class="attachment-dropzone mb-2">
+                            <p class="text-xs text-muted-fg">Drag and drop files here, paste an image, or use Attach
+                                file.</p>
+                        </div>
+                        <input id="note-attachment-input" type="file" class="hidden" multiple>
+                        <div id="note-upload-progress" class="space-y-2 mb-2"></div>
+                        <div id="note-attachments-list" class="space-y-2"></div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-[11px] text-muted-fg">Autosaves when focus leaves the editor. Save is optional.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div id="note-editor-menu-scrim" class="note-editor-menu-scrim" hidden></div>
+        <div id="note-editor-menu" class="note-editor-menu" hidden role="menu" aria-label="Note actions">
+            <button id="note-editor-menu-pin" type="button" class="note-editor-menu-item" role="menuitem"
+                data-note-menu-action="pin"></button>
+            <button id="note-editor-menu-archive" type="button"
+                class="note-editor-menu-item note-editor-menu-item-danger" role="menuitem"
+                data-note-menu-action="archive"></button>
+            <div class="note-editor-menu-divider" aria-hidden="true"></div>
+            <div class="note-editor-menu-section-title">Move to</div>
+            <div id="note-editor-menu-channels"></div>
+        </div>
+    </div>
+
+    <script src="/vendor/marked.min.js"></script>
+    <script src="/vendor/easymde.min.js"></script>
+    <script src="/chat/notes-editor.js"></script>
+    <script>
+        const state = {
+            token: localStorage.getItem('d11_token') || '',
+            user: null,
+            noteChannels: [],
+            currentNoteChannelId: null,
+            notes: [],
+            noteSearchQuery: '',
+            noteSearchOpen: false,
+            noteDrafts: {},
+            noteAttachments: [],
+            noteImagePreviews: [],
+            noteAttachmentAccessUrls: {},
+            noteUploadQueue: [],
+            notePreviewOpen: false,
+            noteLastSavedContent: '',
+            noteSaveInFlight: false,
+            editingNote: null,
+            noteEditorMenuOpen: false,
+            pollTimer: null,
+            activePage: 'channels',
+            lastNoteStatus: 'Loading notes...',
+        }
+
+        const el = {
+            shell: document.getElementById('notes-shell'),
+            channelsPage: document.getElementById('channels-page'),
+            notesListPage: document.getElementById('notes-list-page'),
+            noteChannels: document.getElementById('note-channels'),
+            btnNewNoteChannel: document.getElementById('btn-new-note-channel'),
+            channelsUserName: document.getElementById('channels-user-name'),
+            channelTitle: document.getElementById('channel-title'),
+            statusText: document.getElementById('status-text'),
+            composer: document.getElementById('composer'),
+            composerSubmit: document.getElementById('composer-submit'),
+            messageInput: document.getElementById('message-input'),
+            notesList: document.getElementById('notes-list'),
+            btnBack: document.getElementById('btn-back'),
+            btnSearch: document.getElementById('btn-search'),
+            btnProfile: document.getElementById('btn-profile'),
+            btnProfileBack: document.getElementById('btn-profile-back'),
+            btnNoteEditorBack: document.getElementById('btn-note-editor-back'),
+            profilePage: document.getElementById('profile-page'),
+            noteEditorPage: document.getElementById('note-editor-page'),
+            noteEditorInput: document.getElementById('note-editor-input'),
+            noteEditorPreview: document.getElementById('note-editor-preview'),
+            noteImagePreviews: document.getElementById('note-image-previews'),
+            noteEditorChannelName: document.getElementById('note-editor-channel-name'),
+            noteAttachmentInput: document.getElementById('note-attachment-input'),
+            noteAttachmentDropzone: document.getElementById('note-attachment-dropzone'),
+            noteUploadProgress: document.getElementById('note-upload-progress'),
+            noteAttachmentsList: document.getElementById('note-attachments-list'),
+            btnNoteAttach: document.getElementById('btn-note-attach'),
+            btnNoteSave: document.getElementById('btn-note-save'),
+            btnNotePreview: document.getElementById('btn-note-preview'),
+            btnNoteMenu: document.getElementById('btn-note-menu'),
+            noteEditorMenuScrim: document.getElementById('note-editor-menu-scrim'),
+            noteEditorMenu: document.getElementById('note-editor-menu'),
+            noteEditorMenuPin: document.getElementById('note-editor-menu-pin'),
+            noteEditorMenuArchive: document.getElementById('note-editor-menu-archive'),
+            noteEditorMenuChannels: document.getElementById('note-editor-menu-channels'),
+            profileUserName: document.getElementById('profile-user-name'),
+            profileUserHandle: document.getElementById('profile-user-handle'),
+        }
+
+        // ─── Shared utilities ─────────────────────────────────────────────────
+
+        function authHeaders() {
+            return { 'Authorization': `Bearer ${state.token}` }
+        }
+
+        function esc(text) {
+            const div = document.createElement('div')
+            div.textContent = text ?? ''
+            return div.innerHTML
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+        }
+
+        async function api(path, options = {}) {
+            const headers = {
+                ...(options.headers || {}),
+                ...authHeaders(),
+            }
+            const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type')
+            const isFormData = options.body instanceof FormData
+            if (!hasContentType && !isFormData) {
+                headers['Content-Type'] = 'application/json'
+            }
+            const res = await fetch(path, { ...options, headers })
+            if (res.status === 401) {
+                doLogout()
+                return null
+            }
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(data.error || 'Request failed')
+            return data
+        }
+
+        function doLogout() {
+            localStorage.removeItem('d11_token')
+            document.cookie = 'd11_auth=; path=/; SameSite=Lax; Secure; max-age=0'
+            location.href = '/'
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes < 1) return '0 B'
+            const units = ['B', 'KB', 'MB', 'GB']
+            let size = bytes
+            let index = 0
+            while (size >= 1024 && index < units.length - 1) {
+                size /= 1024
+                index += 1
+            }
+            return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
+        }
+
+        function linkifyUrls(text) {
+            const parts = []
+            let lastIndex = 0
+            const httpRegex = /https?:\/\/[^\s<>"\)]+/g
+            let match
+            while ((match = httpRegex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    parts.push(esc(text.substring(lastIndex, match.index)))
+                }
+                const url = match[0]
+                const displayUrl = url.length > 50 ? url.substring(0, 47) + '...' : url
+                parts.push(`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; cursor: pointer; opacity: 0.8;">${esc(displayUrl)}</a>`)
+                lastIndex = match.index + url.length
+            }
+            if (lastIndex < text.length) {
+                parts.push(esc(text.substring(lastIndex)))
+            }
+            return parts.length > 0 ? parts.join('') : esc(text)
+        }
+
+        function parseJsonArray(raw) {
+            if (!raw || typeof raw !== 'string') return []
+            try {
+                const parsed = JSON.parse(raw)
+                return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []
+            } catch {
+                return []
+            }
+        }
+
+        // ─── URL / navigation state ───────────────────────────────────────────
+
+        function syncUrlState() {
+            const params = new URLSearchParams()
+            if (state.currentNoteChannelId) params.set('channel', String(state.currentNoteChannelId))
+            if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
+            const next = params.toString()
+            const nextUrl = next ? `/notes?${next}` : '/notes'
+            history.replaceState(null, '', nextUrl)
+        }
+
+        function getCurrentNoteChannel() {
+            return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
+        }
+
+        // ─── Header ───────────────────────────────────────────────────────────
+
+        function setHeader(title, subtitle, { animate = true } = {}) {
+            if (!animate) {
+                el.channelTitle.textContent = title
+                el.statusText.textContent = subtitle
+                return
+            }
+            el.channelTitle.classList.add('header-copy-swap')
+            el.statusText.classList.add('header-copy-swap')
+            requestAnimationFrame(() => {
+                el.channelTitle.textContent = title
+                el.statusText.textContent = subtitle
+                requestAnimationFrame(() => {
+                    el.channelTitle.classList.remove('header-copy-swap')
+                    el.statusText.classList.remove('header-copy-swap')
+                })
+            })
+        }
+
+        function applyHeaderContext(page, { animate = true } = {}) {
+            if (page === 'note-editor') {
+                const noteTitle = state.editingNote?.pinned === 1 ? 'Pinned Note' : 'Edit Note'
+                const noteSubtitle = getCurrentNoteChannel()?.name || 'Private Notes'
+                setHeader(noteTitle, noteSubtitle, { animate })
+                return
+            }
+            if (page === 'profile') {
+                const subtitle = state.user?.slug_prefix ? `@${state.user.slug_prefix}` : 'Your account'
+                setHeader('Profile', subtitle, { animate })
+                return
+            }
+            const channel = getCurrentNoteChannel()
+            setHeader(channel?.name || 'My Notes', state.lastNoteStatus, { animate })
+        }
+
+        function updateHeaderButtons() {
+            el.btnSearch.classList.toggle('active', state.noteSearchOpen)
+            el.btnSearch.setAttribute('aria-pressed', state.noteSearchOpen ? 'true' : 'false')
+            el.btnProfile.classList.toggle('active', state.activePage === 'profile')
+            el.btnProfile.setAttribute('aria-pressed', state.activePage === 'profile' ? 'true' : 'false')
+        }
+
+        // ─── Page navigation ──────────────────────────────────────────────────
+
+        function setActivePage(page, { sync = true } = {}) {
+            state.activePage = page
+            el.shell.dataset.view = page
+
+            if (page !== 'note-editor') {
+                closeNoteEditorMenu()
+            }
+
+            // Profile: slide-in overlay
+            const isProfileActive = page === 'profile'
+            el.profilePage.hidden = !isProfileActive
+            el.profilePage.classList.toggle('is-active', isProfileActive)
+
+            // Note editor: bottom-sheet overlay with transition
+            const isNoteEditorActive = page === 'note-editor'
+            if (isNoteEditorActive) {
+                el.noteEditorPage.hidden = false
+                requestAnimationFrame(() => el.noteEditorPage.classList.add('is-active'))
+            } else if (!el.noteEditorPage.hidden) {
+                el.noteEditorPage.classList.remove('is-active')
+                const onTransitionEnd = (event) => {
+                    if (event.target !== el.noteEditorPage || event.propertyName !== 'transform') return
+                    el.noteEditorPage.hidden = true
+                    el.noteEditorPage.removeEventListener('transitionend', onTransitionEnd)
+                }
+                el.noteEditorPage.addEventListener('transitionend', onTransitionEnd)
+            } else {
+                el.noteEditorPage.hidden = true
+                el.noteEditorPage.classList.remove('is-active')
+            }
+
+            applyHeaderContext(page)
+            updateHeaderButtons()
+
+            if (sync) syncUrlState()
+        }
+
+        function goToNotesListPage({ sync = true } = {}) {
+            setActivePage('notes-list', { sync })
+        }
+
+        function goToChannelsPage({ sync = true } = {}) {
+            setActivePage('channels', { sync })
+        }
+
+        // ─── Note channels ────────────────────────────────────────────────────
+
+        function renderNoteChannels() {
+            el.noteChannels.innerHTML = state.noteChannels.map((channel) => {
+                const active = channel.id === state.currentNoteChannelId
+                return `<button data-note-channel-id="${channel.id}" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}">${esc(channel.name)}</button>`
+            }).join('')
+
+            for (const btn of el.noteChannels.querySelectorAll('button[data-note-channel-id]')) {
+                btn.addEventListener('click', () => {
+                    state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
+                    state.noteSearchOpen = false
+                    state.noteSearchQuery = ''
+                    state.editingNote = null
+                    renderNoteChannels()
+                    goToNotesListPage()
+                    loadNotes()
+                    el.messageInput.focus()
+                })
+            }
+        }
+
+        async function loadNoteChannels() {
+            const res = await api('/api/notes/channels')
+            if (!res) return
+            state.noteChannels = res.data || []
+            if ((!state.currentNoteChannelId || !state.noteChannels.some((channel) => channel.id === state.currentNoteChannelId)) && state.noteChannels[0]) {
+                state.currentNoteChannelId = state.noteChannels[0].id
+            }
+            renderNoteChannels()
+        }
+
+        // ─── Notes list ───────────────────────────────────────────────────────
+
+        async function loadNotes({ silent = false } = {}) {
+            if (!state.currentNoteChannelId) return
+
+            if (!silent) {
+                state.lastNoteStatus = 'Loading...'
+                if (state.activePage !== 'note-editor') {
+                    el.statusText.textContent = state.lastNoteStatus
+                }
+            }
+
+            const params = new URLSearchParams({ channel_id: String(state.currentNoteChannelId) })
+            if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
+
+            const res = await api(`/api/notes?${params.toString()}`)
+            if (!res) return
+
+            state.notes = res.data || []
+            state.lastNoteStatus = `${res.meta.total || 0} notes`
+            renderNoteChannels()
+            renderNotes()
+
+            if (state.activePage !== 'note-editor') {
+                el.statusText.textContent = state.lastNoteStatus
+            }
+        }
+
+        function renderNotes() {
+            const bubble = state.noteSearchOpen ? `
+                <div class="note-search-bubble">
+                    <div class="rounded-2xl border border-border bg-white p-3 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <input id="note-search-inline" type="search" value="${esc(state.noteSearchQuery)}" placeholder="Search notes, tags, summaries"
+                                class="flex-1 min-w-0 text-sm px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <button id="note-search-dismiss" class="text-xs px-3 py-2 rounded-xl border border-border hover:border-primary">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''
+
+            if (!state.notes.length) {
+                el.notesList.innerHTML = `${bubble}<div class="text-sm text-muted-fg text-center py-6">No notes found.</div>`
+            } else {
+                el.notesList.innerHTML = `${bubble}${state.notes.map((note) => {
+                    const tags = [
+                        ...parseJsonArray(note.tag_list),
+                        ...parseJsonArray(note.ai_tags).slice(0, 3),
+                    ].slice(0, 5)
+                    const summary = note.ai_summary?.trim() || ''
+                    return `
+                        <article class="note-card ${note.pinned === 1 ? 'pinned' : ''} mb-3" data-note-open="${note.note_id}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs text-muted-fg mb-2">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div class="text-sm whitespace-pre-wrap text-[#1a1a2e] line-clamp-6">${linkifyUrls(note.content)}</div>
+                                </div>
+                                ${note.pinned === 1 ? '<span class="text-xs text-primary font-semibold">Pinned</span>' : ''}
+                            </div>
+                            <div class="note-ribbon">
+                                ${summary ? `<span class="text-xs text-muted-fg">${esc(summary)}</span>` : ''}
+                                ${tags.map((tag) => `<span class="note-tag">${esc(tag)}</span>`).join('')}
+                                <span class="text-xs text-muted-fg">${note.attachment_count} attachments</span>
+                            </div>
+                        </article>
+                    `
+                }).join('')}`
+            }
+
+            const searchInput = el.notesList.querySelector('#note-search-inline')
+            if (searchInput) {
+                searchInput.addEventListener('input', async () => {
+                    const isFocused = document.activeElement === searchInput
+                    const selectionStart = searchInput.selectionStart
+                    const selectionEnd = searchInput.selectionEnd
+                    state.noteSearchQuery = searchInput.value.trim()
+                    await loadNotes({ silent: true })
+
+                    if (isFocused && state.noteSearchOpen) {
+                        requestAnimationFrame(() => {
+                            const restoredInput = el.notesList.querySelector('#note-search-inline')
+                            if (!restoredInput) return
+                            try {
+                                restoredInput.focus({ preventScroll: true })
+                            } catch {
+                                restoredInput.focus()
+                            }
+                            if (selectionStart !== null && selectionEnd !== null) {
+                                try {
+                                    restoredInput.setSelectionRange(selectionStart, selectionEnd)
+                                } catch { /* ignore */ }
+                            }
+                        })
+                    }
+                })
+            }
+
+            const dismiss = el.notesList.querySelector('#note-search-dismiss')
+            if (dismiss) {
+                dismiss.addEventListener('click', async () => {
+                    state.noteSearchOpen = false
+                    state.noteSearchQuery = ''
+                    updateHeaderButtons()
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            for (const card of el.notesList.querySelectorAll('[data-note-open]')) {
+                card.addEventListener('click', async (event) => {
+                    if (event.target.closest('[data-note-pin]') || event.target.closest('[data-note-archive]') || event.target.closest('a')) return
+                    const id = Number(card.dataset.noteOpen)
+                    const note = state.notes.find((item) => item.note_id === id)
+                    if (!note) return
+                    openNoteEditor(note)
+                })
+            }
+
+            for (const btn of el.notesList.querySelectorAll('[data-note-pin]')) {
+                btn.addEventListener('click', async (event) => {
+                    event.stopPropagation()
+                    const id = Number(btn.dataset.notePin)
+                    const pinned = btn.dataset.pinned === '1'
+                    await api(`/api/notes/${id}/pin`, {
+                        method: 'POST',
+                        body: JSON.stringify({ pinned: !pinned }),
+                    })
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            for (const btn of el.notesList.querySelectorAll('[data-note-archive]')) {
+                btn.addEventListener('click', async (event) => {
+                    event.stopPropagation()
+                    const id = Number(btn.dataset.noteArchive)
+                    await api(`/api/notes/${id}/archive`, {
+                        method: 'POST',
+                        body: JSON.stringify({ is_archived: true }),
+                    })
+                    await loadNotes({ silent: true })
+                })
+            }
+        }
+
+        async function createNote(content) {
+            if (!state.currentNoteChannelId) return
+            await api('/api/notes', {
+                method: 'POST',
+                body: JSON.stringify({
+                    channel_id: state.currentNoteChannelId,
+                    content,
+                }),
+            })
+            await loadNotes({ silent: true })
+        }
+
+        // ─── Note editor ──────────────────────────────────────────────────────
+
+        function getNoteEditorValue() {
+            if (window.D11NotesEditorShortcuts?.getValue) {
+                return window.D11NotesEditorShortcuts.getValue(el.noteEditorInput)
+            }
+            return el.noteEditorInput.value || ''
+        }
+
+        function setNoteEditorValue(value) {
+            if (window.D11NotesEditorShortcuts?.setValue) {
+                window.D11NotesEditorShortcuts.setValue(value ?? '', el.noteEditorInput)
+                return
+            }
+            el.noteEditorInput.value = value ?? ''
+        }
+
+        function normalizeUrlForMatch(url) {
+            try {
+                const parsed = new URL(url, location.origin)
+                return `${parsed.origin}${parsed.pathname}`
+            } catch {
+                return String(url || '').trim()
+            }
+        }
+
+        function renderNoteMarkdownPreview() {
+            if (!el.noteEditorPreview) return
+            const source = getNoteEditorValue()
+            if (!source.trim()) {
+                el.noteEditorPreview.innerHTML = '<p class="text-sm text-muted-fg">Nothing to preview yet.</p>'
+                return
+            }
+
+            const signedByAttachmentId = new Map(
+                state.noteImagePreviews.map((preview) => [preview.attachment_id, preview.url]),
+            )
+            const signedByPermalink = new Map()
+            for (const attachment of state.noteAttachments) {
+                const signedUrl = state.noteAttachmentAccessUrls[attachment.attachment_id] || signedByAttachmentId.get(attachment.attachment_id)
+                if (!signedUrl) continue
+                if (typeof attachment.permalink_url !== 'string' || !attachment.permalink_url) continue
+                signedByPermalink.set(normalizeUrlForMatch(attachment.permalink_url), signedUrl)
+            }
+
+            if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                const rendered = marked.parse(safeSource, { gfm: true, breaks: true })
+
+                const template = document.createElement('template')
+                template.innerHTML = rendered
+
+                for (const image of template.content.querySelectorAll('img')) {
+                    const src = image.getAttribute('src') || ''
+                    const signedSrc = signedByPermalink.get(normalizeUrlForMatch(src))
+                    if (signedSrc) image.setAttribute('src', signedSrc)
+                }
+
+                for (const link of template.content.querySelectorAll('a')) {
+                    const href = link.getAttribute('href') || ''
+                    const signedHref = signedByPermalink.get(normalizeUrlForMatch(href))
+                    if (signedHref) link.setAttribute('href', signedHref)
+                    link.setAttribute('target', '_blank')
+                    link.setAttribute('rel', 'noopener noreferrer')
+                }
+
+                el.noteEditorPreview.replaceChildren(template.content.cloneNode(true))
+            } else {
+                el.noteEditorPreview.innerHTML = `<pre>${escapeHtml(source)}</pre>`
+            }
+        }
+
+        function setNotePreviewOpen(isOpen) {
+            state.notePreviewOpen = Boolean(isOpen)
+            if (window.D11NotesEditorShortcuts?.setEditorVisible) {
+                window.D11NotesEditorShortcuts.setEditorVisible(!state.notePreviewOpen, el.noteEditorInput)
+            } else {
+                el.noteEditorInput.hidden = state.notePreviewOpen
+            }
+            el.noteEditorPreview.hidden = !state.notePreviewOpen
+            el.btnNotePreview.textContent = state.notePreviewOpen ? 'Edit' : 'Preview'
+            el.btnNotePreview.setAttribute('aria-pressed', state.notePreviewOpen ? 'true' : 'false')
+            if (state.notePreviewOpen) {
+                if (state.editingNote) {
+                    ensureNoteAttachmentAccessUrls(state.editingNote.note_id)
+                        .finally(() => renderNoteMarkdownPreview())
+                } else {
+                    renderNoteMarkdownPreview()
+                }
+            }
+        }
+
+        function openNoteEditor(note) {
+            state.editingNote = note
+            state.noteAttachments = []
+            state.noteLastSavedContent = (note.content || '').trim()
+            state.noteSaveInFlight = false
+            state.noteAttachmentAccessUrls = {}
+            closeNoteEditorMenu()
+            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+            setActivePage('note-editor')
+            setNoteEditorValue(note.content || '')
+            setNotePreviewOpen(false)
+            window.D11NotesEditorShortcuts?.refresh?.()
+            loadNoteAttachments(note.note_id).catch(() => null)
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const { scrollX, scrollY } = window
+                    try {
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus({ preventScroll: true })
+                        }
+                    } catch {
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus()
+                        }
+                    }
+                    window.scrollTo(scrollX, scrollY)
+                })
+            })
+        }
+
+        async function saveEditingNote({ force = false } = {}) {
+            if (!state.editingNote || state.noteSaveInFlight) return false
+
+            const content = getNoteEditorValue().trim()
+            if (!content) return false
+
+            const previousContent = (state.noteLastSavedContent || '').trim()
+            if (!force && content === previousContent) return false
+
+            state.noteSaveInFlight = true
+            try {
+                const res = await api(`/api/notes/${state.editingNote.note_id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ content }),
+                })
+                if (res?.data) {
+                    state.editingNote = res.data
+                    state.noteLastSavedContent = (res.data.content || content).trim()
+                    await loadNotes({ silent: true })
+                    return true
+                }
+                return false
+            } finally {
+                state.noteSaveInFlight = false
+            }
+        }
+
+        // ─── Note editor menu ─────────────────────────────────────────────────
+
+        function closeNoteEditorMenu() {
+            state.noteEditorMenuOpen = false
+            el.noteEditorMenuScrim.hidden = true
+            el.noteEditorMenu.hidden = true
+            el.btnNoteMenu.setAttribute('aria-expanded', 'false')
+        }
+
+        function renderNoteEditorMenu() {
+            if (!state.editingNote) return
+            const pinned = state.editingNote.pinned === 1
+            const archived = state.editingNote.is_archived === 1
+            el.noteEditorMenuPin.textContent = pinned ? 'Unpin' : 'Pin'
+            el.noteEditorMenuArchive.textContent = archived ? 'Restore' : 'Archive'
+            el.noteEditorMenuChannels.innerHTML = state.noteChannels.map((channel) => {
+                const selected = channel.id === state.editingNote.channel_id
+                return `
+                    <button type="button" class="note-editor-menu-channel ${selected ? 'is-selected' : ''}" role="menuitemradio" aria-checked="${selected ? 'true' : 'false'}" data-note-channel-id="${channel.id}">
+                        <span class="truncate">${esc(channel.name)}</span>
+                        ${selected ? '<span aria-hidden="true">✓</span>' : ''}
+                    </button>
+                `
+            }).join('')
+        }
+
+        function positionNoteEditorMenu() {
+            const anchorRect = el.btnNoteMenu.getBoundingClientRect()
+            const gutter = 12
+            const menuWidth = 224
+
+            let left = anchorRect.left
+            if (left + menuWidth > window.innerWidth - gutter) {
+                left = anchorRect.right - menuWidth
+            }
+            left = Math.max(gutter, Math.min(left, window.innerWidth - menuWidth - gutter))
+
+            el.noteEditorMenu.style.left = `${left}px`
+            el.noteEditorMenu.style.top = `${anchorRect.bottom + 8}px`
+
+            const menuRect = el.noteEditorMenu.getBoundingClientRect()
+            if (menuRect.bottom > window.innerHeight - gutter) {
+                const flippedTop = anchorRect.top - menuRect.height - 8
+                el.noteEditorMenu.style.top = `${Math.max(gutter, flippedTop)}px`
+            }
+        }
+
+        function openNoteEditorMenu() {
+            if (!state.editingNote) return
+            renderNoteEditorMenu()
+            el.noteEditorMenuScrim.hidden = false
+            el.noteEditorMenu.hidden = false
+            el.btnNoteMenu.setAttribute('aria-expanded', 'true')
+            state.noteEditorMenuOpen = true
+            requestAnimationFrame(() => positionNoteEditorMenu())
+        }
+
+        async function toggleEditingNotePin() {
+            if (!state.editingNote) return
+            const pinned = state.editingNote.pinned === 1
+            const res = await api(`/api/notes/${state.editingNote.note_id}/pin`, {
+                method: 'POST',
+                body: JSON.stringify({ pinned: !pinned }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                await loadNotes({ silent: true })
+            }
+        }
+
+        async function toggleEditingNoteArchive() {
+            if (!state.editingNote) return
+            const isArchived = state.editingNote.is_archived === 1
+            await api(`/api/notes/${state.editingNote.note_id}/archive`, {
+                method: 'POST',
+                body: JSON.stringify({ is_archived: !isArchived }),
+            })
+            state.editingNote = null
+            await loadNotes({ silent: true })
+            goToNotesListPage()
+        }
+
+        async function moveEditingNoteToChannel(channelId) {
+            if (!state.editingNote) return
+            if (!Number.isInteger(channelId) || channelId < 1 || channelId === state.editingNote.channel_id) return
+            const res = await api(`/api/notes/${state.editingNote.note_id}/move`, {
+                method: 'POST',
+                body: JSON.stringify({ channel_id: channelId }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                state.currentNoteChannelId = channelId
+                el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+                await loadNotes({ silent: true })
+            }
+        }
+
+        // ─── Attachments ──────────────────────────────────────────────────────
+
+        function renderNoteImagePreviews() {
+            if (!state.noteImagePreviews.length) {
+                el.noteImagePreviews.innerHTML = '<p class="text-xs text-muted-fg">No image attachments yet.</p>'
+                return
+            }
+            el.noteImagePreviews.innerHTML = state.noteImagePreviews.map((preview) => `
+                <a class="note-image-preview" href="${esc(preview.url)}" target="_blank" rel="noopener noreferrer" title="${esc(preview.filename)}">
+                    <img src="${esc(preview.url)}" alt="${esc(preview.filename)}" loading="lazy">
+                </a>
+            `).join('')
+        }
+
+        async function loadNoteImagePreviews(noteId) {
+            const imageAttachments = state.noteAttachments.filter((attachment) =>
+                typeof attachment.content_type === 'string' && attachment.content_type.startsWith('image/'))
+            const previews = []
+            for (const attachment of imageAttachments) {
+                try {
+                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
+                    if (access?.data?.url) {
+                        previews.push({
+                            attachment_id: attachment.attachment_id,
+                            filename: attachment.filename,
+                            permalink_url: attachment.permalink_url || '',
+                            url: access.data.url,
+                        })
+                    }
+                } catch { /* ignore */ }
+            }
+            state.noteImagePreviews = previews
+        }
+
+        function renderNoteAttachments() {
+            renderNoteImagePreviews()
+
+            if (!state.noteAttachments.length) {
+                el.noteAttachmentsList.innerHTML = '<p class="text-xs text-muted-fg">No attachments yet.</p>'
+                return
+            }
+
+            el.noteAttachmentsList.innerHTML = state.noteAttachments.map((attachment) => `
+                <div class="attachment-chip">
+                    <div class="min-w-0 flex-1">
+                        <button type="button" data-note-attachment-download="${attachment.attachment_id}" data-note-attachment-filename="${esc(attachment.filename)}" class="text-xs font-medium text-primary hover:underline truncate block text-left w-full">${esc(attachment.filename)}</button>
+                        <p class="text-[11px] text-muted-fg mt-0.5">${formatBytes(attachment.size)} • ${esc(attachment.content_type)}</p>
+                    </div>
+                    <button type="button" data-note-attachment-delete="${attachment.attachment_id}" class="text-xs px-2 py-1 rounded border border-border hover:border-primary">Remove</button>
+                </div>
+            `).join('')
+
+            for (const btn of el.noteAttachmentsList.querySelectorAll('[data-note-attachment-download]')) {
+                btn.addEventListener('click', async () => {
+                    if (!state.editingNote) return
+                    const attachmentId = Number(btn.dataset.noteAttachmentDownload)
+                    const filename = btn.dataset.noteAttachmentFilename || 'attachment'
+                    try {
+                        await downloadNoteAttachment(state.editingNote.note_id, attachmentId, filename)
+                    } catch (err) {
+                        alert(err.message || 'Attachment download failed')
+                    }
+                })
+            }
+
+            for (const btn of el.noteAttachmentsList.querySelectorAll('[data-note-attachment-delete]')) {
+                btn.addEventListener('click', async () => {
+                    if (!state.editingNote) return
+                    const attachmentId = Number(btn.dataset.noteAttachmentDelete)
+                    await api(`/api/notes/${state.editingNote.note_id}/attachments/${attachmentId}`, { method: 'DELETE' })
+                    await loadNoteAttachments(state.editingNote.note_id)
+                    await loadNotes({ silent: true })
+                })
+            }
+        }
+
+        async function loadNoteAttachments(noteId) {
+            const res = await api(`/api/notes/${noteId}/attachments`)
+            state.noteAttachments = res?.data || []
+            await ensureNoteAttachmentAccessUrls(noteId)
+            await loadNoteImagePreviews(noteId)
+            renderNoteAttachments()
+            if (state.notePreviewOpen) renderNoteMarkdownPreview()
+        }
+
+        async function ensureNoteAttachmentAccessUrls(noteId) {
+            const nextUrls = { ...state.noteAttachmentAccessUrls }
+            for (const attachment of state.noteAttachments) {
+                if (typeof nextUrls[attachment.attachment_id] === 'string' && nextUrls[attachment.attachment_id]) continue
+                try {
+                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
+                    if (access?.data?.url) {
+                        nextUrls[attachment.attachment_id] = access.data.url
+                    }
+                } catch { /* ignore */ }
+            }
+            state.noteAttachmentAccessUrls = nextUrls
+        }
+
+        function renderUploadQueue() {
+            if (!state.noteUploadQueue.length) {
+                el.noteUploadProgress.innerHTML = ''
+                return
+            }
+            el.noteUploadProgress.innerHTML = state.noteUploadQueue.map((item) => {
+                const pct = Math.max(0, Math.min(100, Math.round(item.progress)))
+                return `
+                    <div class="rounded-lg border border-border bg-white px-3 py-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs text-[#1a1a2e] truncate">${esc(item.name)}</p>
+                            <span class="text-[11px] text-muted-fg">${item.status}</span>
+                        </div>
+                        <div class="upload-progress-track">
+                            <div class="upload-progress-fill" style="width:${pct}%"></div>
+                        </div>
+                    </div>
+                `
+            }).join('')
+        }
+
+        async function uploadNoteAttachment(file, onProgress) {
+            if (!state.editingNote || !(file instanceof File)) return
+            const noteId = state.editingNote.note_id
+
+            const payload = await new Promise((resolve, reject) => {
+                const form = new FormData()
+                form.set('file', file)
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `/api/notes/${noteId}/attachments`)
+                xhr.setRequestHeader('Authorization', `Bearer ${state.token}`)
+
+                xhr.upload.onprogress = (event) => {
+                    if (!event.lengthComputable) return
+                    onProgress((event.loaded / event.total) * 100)
+                }
+
+                xhr.onerror = () => reject(new Error('Upload failed'))
+                xhr.onload = () => {
+                    let payload = {}
+                    try { payload = JSON.parse(xhr.responseText || '{}') } catch { /* ignore */ }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve(payload)
+                    } else if (xhr.status === 401) {
+                        doLogout()
+                        reject(new Error('Unauthorized'))
+                    } else {
+                        reject(new Error(payload.error || 'Upload failed'))
+                    }
+                }
+                xhr.send(form)
+            })
+
+            if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
+                state.editingNote = payload.note
+                setNoteEditorValue(payload.note.content || '')
+                state.noteLastSavedContent = (payload.note.content || '').trim()
+                if (state.notePreviewOpen) renderNoteMarkdownPreview()
+            }
+
+            await loadNoteAttachments(noteId)
+            await loadNotes({ silent: true })
+        }
+
+        async function uploadFilesWithProgress(files) {
+            if (!state.editingNote || !files.length) return
+
+            for (const file of files) {
+                const uploadItem = {
+                    id: `${Date.now()}-${Math.random()}`,
+                    name: file.name,
+                    progress: 0,
+                    status: 'Uploading...'
+                }
+                state.noteUploadQueue = [...state.noteUploadQueue, uploadItem]
+                renderUploadQueue()
+
+                try {
+                    await uploadNoteAttachment(file, (progress) => {
+                        uploadItem.progress = progress
+                        renderUploadQueue()
+                    })
+                    uploadItem.progress = 100
+                    uploadItem.status = 'Done'
+                } catch (err) {
+                    uploadItem.status = 'Failed'
+                    renderUploadQueue()
+                    alert(err.message || 'Attachment upload failed')
+                }
+
+                renderUploadQueue()
+            }
+
+            setTimeout(() => {
+                state.noteUploadQueue = state.noteUploadQueue.filter((item) => item.status === 'Uploading...')
+                renderUploadQueue()
+            }, 1000)
+        }
+
+        function getPastedImageFiles(event) {
+            const data = event.clipboardData
+            if (!data?.items?.length) return []
+            const files = []
+            for (const item of data.items) {
+                if (item.kind !== 'file') continue
+                if (!item.type || !item.type.startsWith('image/')) continue
+                const file = item.getAsFile()
+                if (file) files.push(file)
+            }
+            return files
+        }
+
+        async function handleNoteEditorPaste(event) {
+            if (state.activePage !== 'note-editor' || !state.editingNote) return
+            const files = getPastedImageFiles(event)
+            if (!files.length) return
+            event.preventDefault()
+            await uploadFilesWithProgress(files)
+        }
+
+        async function downloadNoteAttachment(noteId, attachmentId, filename) {
+            const access = await api(`/api/notes/${noteId}/attachments/${attachmentId}/access`)
+            if (!access?.data?.url) throw new Error('Download token unavailable')
+            const anchor = document.createElement('a')
+            anchor.href = access.data.url
+            anchor.download = filename
+            document.body.appendChild(anchor)
+            anchor.click()
+            anchor.remove()
+        }
+
+        // ─── Bootstrap ────────────────────────────────────────────────────────
+
+        async function bootstrap() {
+            if (!state.token) {
+                location.href = '/'
+                return
+            }
+
+            try {
+                const me = await api('/api/auth/me', { method: 'GET' })
+                if (!me) return
+                state.user = me
+
+                el.channelsUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
+                el.profileUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
+                el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
+
+                const query = new URLSearchParams(location.search)
+                const fromChannel = query.get('channel') ? parseInt(query.get('channel'), 10) : null
+                if (Number.isInteger(fromChannel) && fromChannel > 0) state.currentNoteChannelId = fromChannel
+                const fromQ = query.get('q')?.trim() ?? ''
+                if (fromQ) {
+                    state.noteSearchQuery = fromQ
+                    state.noteSearchOpen = true
+                }
+
+                await loadNoteChannels()
+                await loadNotes()
+
+                if (state.currentNoteChannelId) {
+                    goToNotesListPage({ sync: false })
+                    el.messageInput.focus()
+                } else {
+                    goToChannelsPage({ sync: false })
+                }
+
+                applyHeaderContext(state.activePage, { animate: false })
+                updateHeaderButtons()
+                syncUrlState()
+
+                state.pollTimer = setInterval(() => {
+                    loadNotes({ silent: true }).catch(() => null)
+                }, 30000)
+            } catch {
+                doLogout()
+            }
+        }
+
+        // ─── Event listeners ──────────────────────────────────────────────────
+
+        el.composer.addEventListener('submit', async (event) => {
+            event.preventDefault()
+            const content = el.messageInput.value.trim()
+            if (!content) return
+            el.messageInput.value = ''
+            el.messageInput.style.height = 'auto'
+            await createNote(content)
+        })
+
+        el.messageInput.addEventListener('keydown', async (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                const content = el.messageInput.value.trim()
+                if (!content) return
+                el.messageInput.value = ''
+                el.messageInput.style.height = 'auto'
+                await createNote(content)
+            }
+        })
+
+        el.messageInput.addEventListener('input', () => {
+            el.messageInput.style.height = 'auto'
+            el.messageInput.style.height = Math.min(el.messageInput.scrollHeight, 96) + 'px'
+        })
+
+        el.btnBack.addEventListener('click', () => goToChannelsPage())
+
+        el.btnSearch.addEventListener('click', () => {
+            state.noteSearchOpen = !state.noteSearchOpen
+            if (!state.noteSearchOpen && state.noteSearchQuery) {
+                state.noteSearchQuery = ''
+                loadNotes({ silent: true })
+            }
+            renderNotes()
+            updateHeaderButtons()
+            syncUrlState()
+            if (state.noteSearchOpen) {
+                requestAnimationFrame(() => {
+                    const input = el.notesList.querySelector('#note-search-inline')
+                    if (input) input.focus()
+                })
+            }
+        })
+
+        el.btnProfile.addEventListener('click', () => {
+            if (state.activePage === 'profile') {
+                goToNotesListPage()
+            } else {
+                setActivePage('profile')
+            }
+        })
+
+        el.btnProfileBack.addEventListener('click', () => goToNotesListPage())
+
+        el.btnNoteEditorBack.addEventListener('click', async () => {
+            await saveEditingNote()
+            state.noteAttachments = []
+            state.noteImagePreviews = []
+            renderNoteAttachments()
+            goToNotesListPage()
+        })
+
+        el.btnNoteAttach.addEventListener('click', () => {
+            if (!state.editingNote) return
+            el.noteAttachmentInput.click()
+        })
+
+        el.noteAttachmentInput.addEventListener('change', async () => {
+            const files = Array.from(el.noteAttachmentInput.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+            el.noteAttachmentInput.value = ''
+        })
+
+            ;['dragenter', 'dragover'].forEach((eventName) => {
+                el.noteAttachmentDropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    el.noteAttachmentDropzone.classList.add('drag-over')
+                })
+            })
+
+            ;['dragleave', 'drop'].forEach((eventName) => {
+                el.noteAttachmentDropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    el.noteAttachmentDropzone.classList.remove('drag-over')
+                })
+            })
+
+        el.noteAttachmentDropzone.addEventListener('drop', async (event) => {
+            const files = Array.from(event.dataTransfer?.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+        })
+
+        el.noteEditorInput.addEventListener('paste', (event) => {
+            handleNoteEditorPaste(event).catch((err) => {
+                alert(err.message || 'Clipboard image upload failed')
+            })
+        })
+
+        el.noteEditorInput.addEventListener('input', () => {
+            if (state.notePreviewOpen) renderNoteMarkdownPreview()
+        })
+
+        el.noteEditorInput.addEventListener('blur', async () => {
+            if (state.activePage !== 'note-editor') return
+            await saveEditingNote()
+        })
+
+        el.btnNotePreview.addEventListener('click', () => setNotePreviewOpen(!state.notePreviewOpen))
+
+        el.btnNoteMenu.addEventListener('click', (event) => {
+            event.stopPropagation()
+            if (state.noteEditorMenuOpen) {
+                closeNoteEditorMenu()
+            } else {
+                openNoteEditorMenu()
+            }
+        })
+
+        el.noteEditorMenuScrim.addEventListener('click', closeNoteEditorMenu)
+
+        el.noteEditorMenu.addEventListener('click', async (event) => {
+            const channelButton = event.target.closest('[data-note-channel-id]')
+            if (channelButton) {
+                await moveEditingNoteToChannel(Number(channelButton.dataset.noteChannelId))
+                closeNoteEditorMenu()
+                return
+            }
+            const actionButton = event.target.closest('[data-note-menu-action]')
+            if (!actionButton) return
+            closeNoteEditorMenu()
+            if (actionButton.dataset.noteMenuAction === 'pin') {
+                await toggleEditingNotePin()
+            } else if (actionButton.dataset.noteMenuAction === 'archive') {
+                await toggleEditingNoteArchive()
+            }
+        })
+
+        el.btnNewNoteChannel.addEventListener('click', async () => {
+            const name = prompt('New note channel name')?.trim()
+            if (!name) return
+            await api('/api/notes/channels', {
+                method: 'POST',
+                body: JSON.stringify({ name }),
+            })
+            await loadNoteChannels()
+        })
+
+        el.btnNoteSave.addEventListener('click', async () => {
+            await saveEditingNote({ force: true })
+            goToNotesListPage()
+        })
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && state.noteEditorMenuOpen) {
+                closeNoteEditorMenu()
+            }
+        })
+
+        window.addEventListener('resize', () => {
+            if (state.noteEditorMenuOpen) positionNoteEditorMenu()
+        })
+
+        if (window.D11NotesEditorShortcuts?.init) {
+            window.D11NotesEditorShortcuts.init({
+                state,
+                input: el.noteEditorInput,
+                onEditorPaste: (event) => {
+                    handleNoteEditorPaste(event).catch((err) => {
+                        alert(err.message || 'Clipboard image upload failed')
+                    })
+                },
+                onEditorInput: () => {
+                    if (state.notePreviewOpen) renderNoteMarkdownPreview()
+                },
+                onEditorBlur: () => {
+                    if (state.activePage !== 'note-editor') return
+                    saveEditingNote().catch(() => null)
+                },
+                enableCustomShortcuts: false,
+            })
+        }
+
+        bootstrap()
+    </script>
+</body>
+
+</html>
