@@ -54,9 +54,7 @@
                 'italic',
                 'heading',
                 '|',
-                'quote',
                 'unordered-list',
-                'ordered-list',
                 '|',
                 'link',
                 'table',
@@ -68,6 +66,9 @@
             status: false,
             spellChecker: false,
             autoDownloadFontAwesome: true,
+            shortcuts: {
+                toggleHeadingBigger: null,
+            },
         })
 
         activeEasyMDE = easyMDE
@@ -75,6 +76,15 @@
 
         const cm = easyMDE.codemirror
         if (cm) {
+            cm.addKeyMap({
+                'Shift-Cmd-H': (instance) => {
+                    applyFixedHeadingLevel(instance, 2)
+                },
+                'Shift-Ctrl-H': (instance) => {
+                    applyFixedHeadingLevel(instance, 2)
+                },
+            })
+
             cm.on('change', () => {
                 if (typeof options?.onEditorInput === 'function') {
                     options.onEditorInput()
@@ -96,6 +106,38 @@
         }
 
         return easyMDE
+    }
+
+    function applyFixedHeadingLevel(cm, level) {
+        if (!cm || !Number.isInteger(level) || level < 1) return
+
+        const doc = cm.getDoc()
+        const start = doc.getCursor('start')
+        const lineNo = start.line
+        const line = doc.getLine(lineNo) || ''
+        const indentMatch = line.match(/^(\s*)(.*)$/)
+        const indent = indentMatch ? indentMatch[1] : ''
+        const content = indentMatch ? indentMatch[2] : line
+
+        const headingMatch = content.match(/^#{1,}\s?(.*)$/)
+        const body = headingMatch ? headingMatch[1] : content
+        const nextLine = `${indent}${'#'.repeat(level)} ${body}`
+
+        if (nextLine === line) return
+
+        const oldPrefixLen = headingMatch
+            ? line.length - `${indent}${headingMatch[1]}`.length
+            : indent.length
+        const newPrefixLen = `${indent}${'#'.repeat(level)} `.length
+
+        doc.replaceRange(nextLine, { line: lineNo, ch: 0 }, { line: lineNo, ch: line.length })
+
+        const oldCh = start.ch
+        const nextCh = oldCh <= oldPrefixLen
+            ? Math.min(oldCh, newPrefixLen)
+            : Math.min(newPrefixLen + (oldCh - oldPrefixLen), nextLine.length)
+
+        doc.setCursor({ line: lineNo, ch: nextCh })
     }
 
     function getShortcutRows() {
