@@ -8,6 +8,23 @@
         return activeEasyMDE.codemirror.getWrapperElement()?.closest('.EasyMDEContainer') || null
     }
 
+    function refreshEditorLayout() {
+        const cm = activeEasyMDE?.codemirror
+        if (!cm) return
+        cm.refresh()
+    }
+
+    function focusEditor(fallbackInput) {
+        const cm = activeEasyMDE?.codemirror
+        if (cm) {
+            cm.focus()
+            return
+        }
+        if (fallbackInput) {
+            fallbackInput.focus()
+        }
+    }
+
     function getEditorValue(fallbackInput) {
         if (activeEasyMDE && typeof activeEasyMDE.value === 'function') {
             return activeEasyMDE.value()
@@ -22,6 +39,7 @@
             if (fallbackInput && fallbackInput.value !== value) {
                 fallbackInput.value = value
             }
+            refreshEditorLayout()
             return
         }
         if (fallbackInput) {
@@ -37,6 +55,11 @@
         const container = getEasyMDEContainer()
         if (container) {
             container.classList.toggle('hidden', !visible)
+            if (visible) {
+                requestAnimationFrame(() => {
+                    refreshEditorLayout()
+                })
+            }
         }
     }
 
@@ -539,6 +562,8 @@
         getValue: getEditorValue,
         setValue: setEditorValue,
         setEditorVisible,
+        refresh: refreshEditorLayout,
+        focus: focusEditor,
         getInstance: () => activeEasyMDE,
     }
 })(window)

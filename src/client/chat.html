@@ -1893,18 +1893,27 @@
             state.noteSaveInFlight = false
             state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
-            setNoteEditorValue(note.content || '')
-            setNotePreviewOpen(false)
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
             setActivePage('note-editor')
+            setNoteEditorValue(note.content || '')
+            setNotePreviewOpen(false)
+            window.D11NotesEditorShortcuts?.refresh?.()
             loadNoteAttachments(note.note_id).catch(() => null)
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     const { scrollX, scrollY } = window
                     try {
-                        el.noteEditorInput.focus({ preventScroll: true })
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus({ preventScroll: true })
+                        }
                     } catch {
-                        el.noteEditorInput.focus()
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus()
+                        }
                     }
                     window.scrollTo(scrollX, scrollY)
                 })
