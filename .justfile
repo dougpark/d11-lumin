@@ -24,9 +24,9 @@ dev-prod:
 deploy:
     bun run deploy
 
-# wrangler logs
-logs:
-    bunx wrangler tail --env production
+# Stream real-time production logs (accepts optional filtering arguments)
+logs *args:
+    bunx wrangler tail --env production {{ args }}
 
 # wrangler whoami
 whoami:
