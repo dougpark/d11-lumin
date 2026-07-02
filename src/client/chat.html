@@ -131,11 +131,12 @@
         }
 
         #note-editor-page {
-            inset: auto 0 0 0;
-            height: min(92dvh, 920px);
-            max-height: 92dvh;
-            border-radius: 1.5rem 1.5rem 0 0;
-            box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.2);
+            inset: 0;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            box-shadow: none;
+            background: #f0f2f5;
             transform: translate3d(0, 102%, 0);
             opacity: 1;
             visibility: hidden;
@@ -155,21 +156,31 @@
                 visibility 0s linear 0s;
         }
 
-        .note-sheet-handle {
-            width: 3rem;
-            height: 0.3rem;
-            border-radius: 999px;
-            background: rgba(17, 24, 39, 0.16);
-            margin: 0.65rem auto 0.25rem;
-            flex-shrink: 0;
+        .note-editor-scroll {
+            padding: 0;
+            background: #f0f2f5;
         }
 
-        #note-editor-page>header {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+        .note-editor-card-shell {
+            min-height: 100%;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            padding: max(0.75rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+        }
+
+        .note-editor-card-topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .note-editor-card-title {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            min-width: 0;
         }
 
         .note-editor-menu-scrim {
@@ -1091,30 +1102,23 @@
 
         <!-- note editor page -->
         <section id="note-editor-page" class="stack-page overlay-page" hidden>
-            <div class="note-sheet-handle" aria-hidden="true"></div>
-            <header
-                class="px-4 pt-4 pb-3 border-b border-border bg-white grid grid-cols-[auto,1fr,auto] items-center gap-3">
-                <button id="btn-note-editor-back"
-                    class="w-9 h-9 rounded-full hover:bg-muted flex items-center justify-center" title="Dismiss"
-                    aria-label="Dismiss to notes">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18">
-                        </path>
-                    </svg>
-                </button>
-                <div class="min-w-0 text-center">
-                    <h2 class="text-base font-semibold text-[#1a1a2e] truncate">Edit Note</h2>
-
-                </div>
-                <button id="btn-note-save"
-                    class="text-sm font-semibold px-4 py-2 rounded-full bg-primary text-white hover:bg-[#0d47a1]">Save</button>
-            </header>
-            <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
-                <div class="rounded-2xl border border-border bg-white p-4 space-y-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
-                            <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
+            <div class="note-editor-scroll flex-1 overflow-y-auto space-y-4 bg-[#f0f2f5]">
+                <div class="note-editor-card-shell bg-white space-y-3">
+                    <div class="note-editor-card-topbar">
+                        <div class="note-editor-card-title">
+                            <button id="btn-note-editor-back"
+                                class="w-9 h-9 rounded-full hover:bg-muted flex items-center justify-center shrink-0"
+                                title="Dismiss" aria-label="Dismiss to notes">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 6l12 12M18 6L6 18">
+                                    </path>
+                                </svg>
+                            </button>
+                            <div class="min-w-0">
+                                <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
+                                <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
+                            </div>
                         </div>
                         <div class="flex items-center gap-2">
                             <button id="btn-note-preview" type="button"
@@ -3063,10 +3067,12 @@
             })
             await loadNoteChannels()
         })
-        el.btnNoteSave.addEventListener('click', async () => {
-            await saveEditingNote({ force: true })
-            goToMessagesPage()
-        })
+        if (el.btnNoteSave) {
+            el.btnNoteSave.addEventListener('click', async () => {
+                await saveEditingNote({ force: true })
+                goToMessagesPage()
+            })
+        }
 
         // Jump to latest messages button
         el.jumpToLatestBtn.addEventListener('click', async () => {
