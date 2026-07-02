@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Lumin Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"> -->
+    <link rel="stylesheet" href="/vendor/github-markdown.min.css">
+    <link rel="stylesheet" href="/vendor/easymde.min.css">
+    <link rel="stylesheet" href="/vendor/font-awesome.min.css">
 
     <link rel="stylesheet" href="/chat/styles/theme.css">
     <script>
@@ -124,7 +130,142 @@
                 visibility 0s linear 0s;
         }
 
+        #note-editor-page {
+            inset: 0;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            box-shadow: none;
+            background: #f0f2f5;
+            transform: translate3d(0, 102%, 0);
+            opacity: 1;
+            visibility: hidden;
+            pointer-events: none;
+            overflow: hidden;
+            transition:
+                transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 380ms;
+        }
 
+        #note-editor-page.is-active {
+            transform: translate3d(0, 0, 0);
+            visibility: visible;
+            pointer-events: auto;
+            transition:
+                transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 0s;
+        }
+
+        .note-editor-scroll {
+            padding: 0;
+            background: #f0f2f5;
+        }
+
+        .note-editor-card-shell {
+            min-height: 100%;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            padding: max(0.75rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+        }
+
+        .note-editor-card-topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .note-editor-card-title {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            min-width: 0;
+        }
+
+        .note-editor-menu-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 58;
+            background: transparent;
+        }
+
+        .note-editor-menu {
+            position: fixed;
+            z-index: 59;
+            min-width: 14rem;
+            max-width: calc(100vw - 1.5rem);
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16);
+            overflow: hidden;
+        }
+
+        .note-editor-menu[hidden],
+        .note-editor-menu-scrim[hidden] {
+            display: none !important;
+        }
+
+        .note-editor-menu-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            color: #1a1a2e;
+            text-align: left;
+        }
+
+        .note-editor-menu-item:hover,
+        .note-editor-menu-item:focus-visible {
+            background: rgba(21, 101, 192, 0.08);
+            outline: none;
+        }
+
+        .note-editor-menu-item-danger {
+            color: #d32f2f;
+        }
+
+        .note-editor-menu-section-title {
+            padding: 0.75rem 1rem 0.375rem;
+            font-size: 0.625rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #78909c;
+        }
+
+        .note-editor-menu-divider {
+            height: 1px;
+            background: rgba(0, 0, 0, 0.08);
+            margin: 0.25rem 0;
+        }
+
+        .note-editor-menu-channel {
+            padding: 0.6rem 1rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            color: #1a1a2e;
+            text-align: left;
+        }
+
+        .note-editor-menu-channel:hover,
+        .note-editor-menu-channel:focus-visible {
+            background: rgba(21, 101, 192, 0.08);
+            outline: none;
+        }
+
+        .note-editor-menu-channel.is-selected {
+            color: #1565c0;
+            font-weight: 600;
+        }
 
         .overlay-page[hidden] {
             display: none !important;
@@ -193,6 +334,37 @@
             box-shadow: 0 6px 18px rgba(21, 101, 192, 0.28);
         }
 
+        .note-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 1rem;
+            padding: 0.9rem 1rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+        }
+
+        .note-card.pinned {
+            border-color: rgba(21, 101, 192, 0.3);
+            box-shadow: 0 10px 22px rgba(21, 101, 192, 0.08);
+        }
+
+        .note-ribbon {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.75rem;
+            align-items: center;
+        }
+
+        .note-tag {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: rgba(21, 101, 192, 0.1);
+            color: rgb(21 101 192);
+            padding: 0.2rem 0.55rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
 
         .attachment-chip {
             display: flex;
@@ -205,7 +377,26 @@
             background: #fff;
         }
 
+        .note-image-previews {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+            gap: 0.5rem;
+        }
 
+        .note-image-preview {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.65rem;
+            overflow: hidden;
+            background: #fff;
+            aspect-ratio: 1 / 1;
+        }
+
+        .note-image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
         .attachment-dropzone {
             border: 1px dashed rgba(21, 101, 192, 0.45);
@@ -234,7 +425,329 @@
             background: rgb(21 101 192);
         }
 
+        .note-markdown-preview {
+            width: 100%;
+            min-height: 13rem;
+            padding: 0.9rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            background: #ffffff;
+            color: #1a1a2e;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
 
+        .note-markdown-preview.markdown-body {
+            background: #ffffff;
+            color: #1a1a2e;
+        }
+
+        .note-markdown-preview.markdown-body> :first-child {
+            margin-top: 0;
+        }
+
+        .note-markdown-preview.markdown-body> :last-child {
+            margin-bottom: 0;
+        }
+
+        .note-markdown-preview.markdown-body ul {
+            list-style: disc !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .note-markdown-preview.markdown-body ol {
+            list-style: decimal !important;
+            padding-left: 1.5rem !important;
+        }
+
+        .note-markdown-preview.markdown-body li {
+            display: list-item !important;
+        }
+
+        .note-markdown-preview.markdown-body li::marker {
+            color: #1f2937;
+        }
+
+        .note-markdown-preview.markdown-body ul ul {
+            list-style: circle !important;
+        }
+
+        .note-markdown-preview.markdown-body ul ul ul {
+            list-style: square !important;
+        }
+
+        .note-markdown-preview h1,
+        .note-markdown-preview h2,
+        .note-markdown-preview h3,
+        .note-markdown-preview h4 {
+            margin: 0.8rem 0 0.45rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .note-markdown-preview p,
+        .note-markdown-preview ul,
+        .note-markdown-preview ol,
+        .note-markdown-preview blockquote,
+        .note-markdown-preview pre {
+            margin: 0.55rem 0;
+        }
+
+        .note-markdown-preview code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.35rem;
+        }
+
+        .note-markdown-preview pre code {
+            display: block;
+            padding: 0.7rem;
+            overflow-x: auto;
+        }
+
+        .note-markdown-preview a {
+            color: rgb(21 101 192);
+            text-decoration: underline;
+        }
+
+        .note-markdown-preview img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        #note-editor-page .EasyMDEContainer,
+        #note-editor-page .CodeMirror-wrap {
+            border: 0;
+            background: transparent;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar,
+        #note-editor-page .editor-toolbar {
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-radius: 0.75rem !important;
+            background: #ffffff !important;
+            margin-bottom: 0.55rem !important;
+            padding: 0.2rem !important;
+            opacity: 1 !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar a,
+        #note-editor-page .editor-toolbar a {
+            border: 0 !important;
+            color: #546e7a !important;
+            border-radius: 0.5rem !important;
+            width: 1.9rem !important;
+            height: 1.9rem !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar a:hover,
+        #note-editor-page .EasyMDEContainer .editor-toolbar a.active,
+        #note-editor-page .editor-toolbar a:hover,
+        #note-editor-page .editor-toolbar a.active {
+            background: rgba(21, 101, 192, 0.1) !important;
+            color: rgb(21 101 192) !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-toolbar i.separator,
+        #note-editor-page .editor-toolbar i.separator {
+            border-left: 1px solid rgba(0, 0, 0, 0.12) !important;
+            border-right: 0 !important;
+            margin: 0 0.25rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-statusbar {
+            display: none;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror,
+        #note-editor-page .CodeMirror {
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-radius: 0.75rem !important;
+            min-height: 13rem !important;
+            background: #ffffff !important;
+            color: #1a1a2e !important;
+            font-size: 0.9rem !important;
+            line-height: 1.55 !important;
+            font-family: 'Inter', 'Roboto', sans-serif !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-lines,
+        #note-editor-page .CodeMirror-lines {
+            padding: 0.45rem 0 !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-focused,
+        #note-editor-page .CodeMirror-focused {
+            border-color: rgba(21, 101, 192, 0.5) !important;
+            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.2) !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-scroll,
+        #note-editor-page .CodeMirror-scroll {
+            min-height: 13rem !important;
+            max-height: 52vh !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror-gutters,
+        #note-editor-page .CodeMirror-gutters {
+            background: transparent !important;
+            border-right: 0 !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-formatting,
+        #note-editor-page .CodeMirror .cm-formatting {
+            color: #78909c !important;
+            opacity: 0.95;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-header,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-strong,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-em,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-link,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-url,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-quote,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-comment,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-tag,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-attribute,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-string,
+        #note-editor-page .CodeMirror .cm-header,
+        #note-editor-page .CodeMirror .cm-strong,
+        #note-editor-page .CodeMirror .cm-em,
+        #note-editor-page .CodeMirror .cm-link,
+        #note-editor-page .CodeMirror .cm-url,
+        #note-editor-page .CodeMirror .cm-quote,
+        #note-editor-page .CodeMirror .cm-comment,
+        #note-editor-page .CodeMirror .cm-tag,
+        #note-editor-page .CodeMirror .cm-attribute,
+        #note-editor-page .CodeMirror .cm-string {
+            color: #1a1a2e !important;
+            font-weight: 400 !important;
+            font-style: normal !important;
+            text-decoration: none !important;
+            font-size: 0.9rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-link,
+        #note-editor-page .EasyMDEContainer .CodeMirror .cm-url,
+        #note-editor-page .CodeMirror .cm-link,
+        #note-editor-page .CodeMirror .cm-url {
+            text-decoration: underline !important;
+            text-decoration-color: rgba(21, 101, 192, 0.45) !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview,
+        #note-editor-page .EasyMDEContainer .editor-preview-side {
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 0.75rem;
+            background: #ffffff;
+            color: #1a1a2e;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            padding: 0.9rem;
+            overflow-wrap: anywhere;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview-side {
+            right: 0;
+            top: 0;
+            max-height: 52vh;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview h1,
+        #note-editor-page .EasyMDEContainer .editor-preview h2,
+        #note-editor-page .EasyMDEContainer .editor-preview h3,
+        #note-editor-page .EasyMDEContainer .editor-preview h4,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h1,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h2,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h3,
+        #note-editor-page .EasyMDEContainer .editor-preview-side h4 {
+            margin: 0.8rem 0 0.45rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview p,
+        #note-editor-page .EasyMDEContainer .editor-preview ul,
+        #note-editor-page .EasyMDEContainer .editor-preview ol,
+        #note-editor-page .EasyMDEContainer .editor-preview blockquote,
+        #note-editor-page .EasyMDEContainer .editor-preview pre,
+        #note-editor-page .EasyMDEContainer .editor-preview-side p,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ul,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ol,
+        #note-editor-page .EasyMDEContainer .editor-preview-side blockquote,
+        #note-editor-page .EasyMDEContainer .editor-preview-side pre {
+            margin: 0.55rem 0;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview ul,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ul {
+            list-style: disc !important;
+            padding-left: 1.5rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview ol,
+        #note-editor-page .EasyMDEContainer .editor-preview-side ol {
+            list-style: decimal !important;
+            padding-left: 1.5rem !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview li,
+        #note-editor-page .EasyMDEContainer .editor-preview-side li {
+            display: list-item !important;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview li::marker,
+        #note-editor-page .EasyMDEContainer .editor-preview-side li::marker {
+            color: #1f2937;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview code,
+        #note-editor-page .EasyMDEContainer .editor-preview-side code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.35rem;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview pre code,
+        #note-editor-page .EasyMDEContainer .editor-preview-side pre code {
+            display: block;
+            padding: 0.7rem;
+            overflow-x: auto;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview a,
+        #note-editor-page .EasyMDEContainer .editor-preview-side a {
+            color: rgb(21 101 192);
+            text-decoration: underline;
+        }
+
+        #note-editor-page .EasyMDEContainer .editor-preview img,
+        #note-editor-page .EasyMDEContainer .editor-preview-side img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .note-search-bubble {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(180deg, rgba(240, 242, 245, 0.98), rgba(240, 242, 245, 0.9));
+            padding-bottom: 0.75rem;
+        }
 
         /* Safari: prevent phantom horizontal scrollbar in composer flex row */
         #composer {
@@ -430,8 +943,26 @@
                     <div id="channels" class="space-y-1"></div>
                 </div>
 
+                <div class="mt-6 pt-4 border-t border-border">
+                    <div class="flex items-center justify-between mb-3 gap-3">
+                        <h3 class="text-xs uppercase tracking-wide text-muted-fg">Private Notes</h3>
+                        <button id="btn-new-note-channel"
+                            class="text-xs px-2.5 py-1 rounded-lg border border-border hover:border-primary hover:text-primary transition">New</button>
+                    </div>
+                    <div id="note-channels" class="space-y-1"></div>
+                </div>
 
+                <!-- <div class="mt-6 pt-4 border-t border-border">
+                    <h3 class="text-xs uppercase tracking-wide text-muted-fg mb-3">Direct Messages</h3>
+                    <div id="dms" class="space-y-1"></div>
+                </div>
 
+                <div class="mt-6 pt-4 border-t border-border">
+                    <button id="btn-logout"
+                        class="w-full text-left text-sm px-3 py-2 rounded-xl border border-border hover:border-primary hover:text-primary transition">
+                        Log out
+                    </button>
+                </div> -->
             </div>
         </section>
 
@@ -569,10 +1100,77 @@
             </div>
         </section>
 
+        <!-- note editor page -->
+        <section id="note-editor-page" class="stack-page overlay-page" hidden>
+            <div class="note-editor-scroll flex-1 overflow-y-auto space-y-4 bg-[#f0f2f5]">
+                <div class="note-editor-card-shell bg-white space-y-3">
+                    <div class="note-editor-card-topbar">
+                        <div class="note-editor-card-title">
+                            <button id="btn-note-editor-back"
+                                class="w-9 h-9 rounded-full hover:bg-muted flex items-center justify-center shrink-0"
+                                title="Dismiss" aria-label="Dismiss to notes">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 6l12 12M18 6L6 18">
+                                    </path>
+                                </svg>
+                            </button>
+                            <div class="min-w-0">
+                                <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
+                                <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-note-preview" type="button"
+                                class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
+                                aria-pressed="false" aria-label="Toggle markdown preview">Preview</button>
+                            <button id="btn-note-menu" type="button"
+                                class="w-9 h-9 rounded-full border border-border hover:border-primary flex items-center justify-center text-xl leading-none text-[#1a1a2e]"
+                                aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
+                        </div>
+                    </div>
+                    <textarea id="note-editor-input" rows="12"
+                        class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Write your note..."></textarea>
+                    <div id="note-editor-preview" class="note-markdown-preview markdown-body" hidden></div>
+                    <div>
+                        <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">Image Previews</p>
+                        <div id="note-image-previews" class="note-image-previews"></div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <label class="text-xs uppercase tracking-wide text-muted-fg">Attachments</label>
+                            <button id="btn-note-attach" type="button"
+                                class="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary">Attach
+                                file</button>
+                        </div>
+                        <div id="note-attachment-dropzone" class="attachment-dropzone mb-2">
+                            <p class="text-xs text-muted-fg">Drag and drop files here, paste an image, or use Attach
+                                file.</p>
+                        </div>
+                        <input id="note-attachment-input" type="file" class="hidden" multiple>
+                        <div id="note-upload-progress" class="space-y-2 mb-2"></div>
+                        <div id="note-attachments-list" class="space-y-2"></div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-[11px] text-muted-fg">Autosaves when focus leaves the editor. Save is optional.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-
-
-    </div>
+        <div id="note-editor-menu-scrim" class="note-editor-menu-scrim" hidden></div>
+        <div id="note-editor-menu" class="note-editor-menu" hidden role="menu" aria-label="Note actions">
+            <button id="note-editor-menu-pin" type="button" class="note-editor-menu-item" role="menuitem"
+                data-note-menu-action="pin"></button>
+            <button id="note-editor-menu-archive" type="button"
+                class="note-editor-menu-item note-editor-menu-item-danger" role="menuitem"
+                data-note-menu-action="archive"></button>
+            <div class="note-editor-menu-divider" aria-hidden="true"></div>
+            <div class="note-editor-menu-section-title">Move to</div>
+            <div id="note-editor-menu-channels"></div>
+        </div>
     </div>
 
     <!-- reports-dialog -->
@@ -595,21 +1193,36 @@
         <div class="voter-more" id="voter-popup-more"></div>
     </div>
 
-
+    <!-- <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script> -->
+    <script src="/vendor/marked.min.js"></script>
+    <script src="/vendor/easymde.min.js"></script>
+    <script src="/notes/notes-editor.js"></script>
     <script>
         const state = {
             token: localStorage.getItem('d11_token') || '',
             user: null,
             channels: [],
-
+            noteChannels: [],
             currentChannel: 'general',
-
+            currentNoteChannelId: null,
             contentMode: 'chat',
             sort: 'date',
             q: '',
             messages: [],
-
-
+            notes: [],
+            noteSearchQuery: '',
+            noteSearchOpen: false,
+            noteDrafts: {},
+            noteAttachments: [],
+            noteImagePreviews: [],
+            noteAttachmentAccessUrls: {},
+            noteUploadQueue: [],
+            notePreviewOpen: false,
+            noteLastSavedContent: '',
+            noteSaveInFlight: false,
+            editingNote: null,
+            noteEditorMenuOpen: false,
             minMessageId: null,
             maxMessageId: null,
             loadingOlder: false,
@@ -621,7 +1234,7 @@
             replyDrafts: {},
             activePage: 'channels',
             lastMessageStatus: 'Loading messages...',
-
+            lastNoteStatus: 'Loading notes...',
             aiProcessing: false,
             aiProcessingTimeout: null,
         }
@@ -631,7 +1244,8 @@
             channelsPage: document.getElementById('channels-page'),
             messagesPage: document.getElementById('messages-page'),
             channels: document.getElementById('channels'),
-
+            noteChannels: document.getElementById('note-channels'),
+            btnNewNoteChannel: document.getElementById('btn-new-note-channel'),
             dms: document.getElementById('dms'),
             channelsUserName: document.getElementById('channels-user-name'),
             channelTitle: document.getElementById('channel-title'),
@@ -649,14 +1263,31 @@
             btnProfile: document.getElementById('btn-profile'),
             btnSearchBack: document.getElementById('btn-search-back'),
             btnProfileBack: document.getElementById('btn-profile-back'),
-
+            btnNoteEditorBack: document.getElementById('btn-note-editor-back'),
             btnReports: document.getElementById('btn-reports'),
             reportsDialog: document.getElementById('reports-dialog'),
             reportsList: document.getElementById('reports-list'),
             closeReports: document.getElementById('close-reports'),
             searchPage: document.getElementById('search-page'),
             profilePage: document.getElementById('profile-page'),
-
+            noteEditorPage: document.getElementById('note-editor-page'),
+            noteEditorInput: document.getElementById('note-editor-input'),
+            noteEditorPreview: document.getElementById('note-editor-preview'),
+            noteImagePreviews: document.getElementById('note-image-previews'),
+            noteEditorChannelName: document.getElementById('note-editor-channel-name'),
+            noteAttachmentInput: document.getElementById('note-attachment-input'),
+            noteAttachmentDropzone: document.getElementById('note-attachment-dropzone'),
+            noteUploadProgress: document.getElementById('note-upload-progress'),
+            noteAttachmentsList: document.getElementById('note-attachments-list'),
+            btnNoteAttach: document.getElementById('btn-note-attach'),
+            btnNoteSave: document.getElementById('btn-note-save'),
+            btnNotePreview: document.getElementById('btn-note-preview'),
+            btnNoteMenu: document.getElementById('btn-note-menu'),
+            noteEditorMenuScrim: document.getElementById('note-editor-menu-scrim'),
+            noteEditorMenu: document.getElementById('note-editor-menu'),
+            noteEditorMenuPin: document.getElementById('note-editor-menu-pin'),
+            noteEditorMenuArchive: document.getElementById('note-editor-menu-archive'),
+            noteEditorMenuChannels: document.getElementById('note-editor-menu-channels'),
             profileUserName: document.getElementById('profile-user-name'),
             profileUserHandle: document.getElementById('profile-user-handle'),
             voterPopup: document.getElementById('voter-popup'),
@@ -723,7 +1354,9 @@
                 if (state.currentChannel) params.set('channel', state.currentChannel)
                 if (state.q) params.set('q', state.q)
                 if (state.sort && state.sort !== 'date') params.set('sort', state.sort)
-
+            } else {
+                if (state.currentNoteChannelId) params.set('note_channel', String(state.currentNoteChannelId))
+                if (state.noteSearchQuery) params.set('note_q', state.noteSearchQuery)
             }
 
             const next = params.toString()
@@ -731,9 +1364,24 @@
             history.replaceState(null, '', nextUrl)
         }
 
+        function getCurrentNoteChannel() {
+            return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
+        }
 
+        function getNoteEditorValue() {
+            if (window.D11NotesEditorShortcuts?.getValue) {
+                return window.D11NotesEditorShortcuts.getValue(el.noteEditorInput)
+            }
+            return el.noteEditorInput.value || ''
+        }
 
-
+        function setNoteEditorValue(value) {
+            if (window.D11NotesEditorShortcuts?.setValue) {
+                window.D11NotesEditorShortcuts.setValue(value ?? '', el.noteEditorInput)
+                return
+            }
+            el.noteEditorInput.value = value ?? ''
+        }
 
         function escapeHtml(value) {
             return String(value ?? '')
@@ -753,20 +1401,219 @@
             }
         }
 
+        function renderNoteMarkdownPreview() {
+            if (!el.noteEditorPreview) return
+            const source = getNoteEditorValue()
+            if (!source.trim()) {
+                el.noteEditorPreview.innerHTML = '<p class="text-sm text-muted-fg">Nothing to preview yet.</p>'
+                return
+            }
+
+            const signedByAttachmentId = new Map(
+                state.noteImagePreviews.map((preview) => [preview.attachment_id, preview.url]),
+            )
+            const signedByPermalink = new Map()
+            for (const attachment of state.noteAttachments) {
+                const signedUrl = state.noteAttachmentAccessUrls[attachment.attachment_id] || signedByAttachmentId.get(attachment.attachment_id)
+                if (!signedUrl) continue
+                if (typeof attachment.permalink_url !== 'string' || !attachment.permalink_url) continue
+                signedByPermalink.set(normalizeUrlForMatch(attachment.permalink_url), signedUrl)
+            }
+
+            if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                const rendered = marked.parse(safeSource, {
+                    gfm: true,
+                    breaks: true,
+                })
+
+                const template = document.createElement('template')
+                template.innerHTML = rendered
+
+                for (const image of template.content.querySelectorAll('img')) {
+                    const src = image.getAttribute('src') || ''
+                    const signedSrc = signedByPermalink.get(normalizeUrlForMatch(src))
+                    if (signedSrc) image.setAttribute('src', signedSrc)
+                }
+
+                for (const link of template.content.querySelectorAll('a')) {
+                    const href = link.getAttribute('href') || ''
+                    const signedHref = signedByPermalink.get(normalizeUrlForMatch(href))
+                    if (signedHref) link.setAttribute('href', signedHref)
+                    link.setAttribute('target', '_blank')
+                    link.setAttribute('rel', 'noopener noreferrer')
+                }
+
+                el.noteEditorPreview.replaceChildren(template.content.cloneNode(true))
+            } else {
+                el.noteEditorPreview.innerHTML = `<pre>${escapeHtml(source)}</pre>`
+            }
+        }
+
+        function setNotePreviewOpen(isOpen) {
+            state.notePreviewOpen = Boolean(isOpen)
+            if (window.D11NotesEditorShortcuts?.setEditorVisible) {
+                window.D11NotesEditorShortcuts.setEditorVisible(!state.notePreviewOpen, el.noteEditorInput)
+            } else {
+                el.noteEditorInput.hidden = state.notePreviewOpen
+            }
+            el.noteEditorPreview.hidden = !state.notePreviewOpen
+            el.btnNotePreview.textContent = state.notePreviewOpen ? 'Edit' : 'Preview'
+            el.btnNotePreview.setAttribute('aria-pressed', state.notePreviewOpen ? 'true' : 'false')
+            if (state.notePreviewOpen) {
+                if (state.editingNote) {
+                    ensureNoteAttachmentAccessUrls(state.editingNote.note_id)
+                        .finally(() => renderNoteMarkdownPreview())
+                } else {
+                    renderNoteMarkdownPreview()
+                }
+            }
+        }
+
+        function focusNoteEditorInput() {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const { scrollX, scrollY } = window
+                    try {
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus({ preventScroll: true })
+                        }
+                    } catch {
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus()
+                        }
+                    }
+                    window.scrollTo(scrollX, scrollY)
+                })
+            })
+        }
+
+        function closeNoteEditorMenu() {
+            state.noteEditorMenuOpen = false
+            el.noteEditorMenuScrim.hidden = true
+            el.noteEditorMenu.hidden = true
+            el.btnNoteMenu.setAttribute('aria-expanded', 'false')
+        }
+
+        function renderNoteEditorMenu() {
+            if (!state.editingNote) return
+
+            const pinned = state.editingNote.pinned === 1
+            const archived = state.editingNote.is_archived === 1
+
+            el.noteEditorMenuPin.textContent = pinned ? 'Unpin' : 'Pin'
+            el.noteEditorMenuArchive.textContent = archived ? 'Restore' : 'Archive'
+            el.noteEditorMenuChannels.innerHTML = state.noteChannels.map((channel) => {
+                const selected = channel.id === state.editingNote.channel_id
+                return `
+                    <button type="button" class="note-editor-menu-channel ${selected ? 'is-selected' : ''}" role="menuitemradio" aria-checked="${selected ? 'true' : 'false'}" data-note-channel-id="${channel.id}">
+                        <span class="truncate">${esc(channel.name)}</span>
+                        ${selected ? '<span aria-hidden="true">✓</span>' : ''}
+                    </button>
+                `
+            }).join('')
+        }
+
+        function positionNoteEditorMenu() {
+            const anchorRect = el.btnNoteMenu.getBoundingClientRect()
+            const gutter = 12
+            const menuWidth = 224
+
+            let left = anchorRect.left
+            if (left + menuWidth > window.innerWidth - gutter) {
+                left = anchorRect.right - menuWidth
+            }
+            left = Math.max(gutter, Math.min(left, window.innerWidth - menuWidth - gutter))
+
+            const menu = el.noteEditorMenu
+            menu.style.left = `${left}px`
+            menu.style.top = `${anchorRect.bottom + 8}px`
+
+            const menuRect = menu.getBoundingClientRect()
+            if (menuRect.bottom > window.innerHeight - gutter) {
+                const flippedTop = anchorRect.top - menuRect.height - 8
+                menu.style.top = `${Math.max(gutter, flippedTop)}px`
+            }
+        }
+
+        function openNoteEditorMenu() {
+            if (!state.editingNote) return
+
+            renderNoteEditorMenu()
+            el.noteEditorMenuScrim.hidden = false
+            el.noteEditorMenu.hidden = false
+            el.btnNoteMenu.setAttribute('aria-expanded', 'true')
+            state.noteEditorMenuOpen = true
+
+            requestAnimationFrame(() => {
+                positionNoteEditorMenu()
+            })
+        }
+
+        async function toggleEditingNotePin() {
+            if (!state.editingNote) return
+
+            const pinned = state.editingNote.pinned === 1
+            const res = await api(`/api/notes/${state.editingNote.note_id}/pin`, {
+                method: 'POST',
+                body: JSON.stringify({ pinned: !pinned }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                await loadNotes({ silent: true })
+            }
+        }
+
+        async function toggleEditingNoteArchive() {
+            if (!state.editingNote) return
+
+            const isArchived = state.editingNote.is_archived === 1
+            await api(`/api/notes/${state.editingNote.note_id}/archive`, {
+                method: 'POST',
+                body: JSON.stringify({ is_archived: !isArchived }),
+            })
+            state.editingNote = null
+            await loadNotes({ silent: true })
+            goToMessagesPage()
+        }
+
+        async function moveEditingNoteToChannel(channelId) {
+            if (!state.editingNote) return
+            if (!Number.isInteger(channelId) || channelId < 1 || channelId === state.editingNote.channel_id) return
+
+            const res = await api(`/api/notes/${state.editingNote.note_id}/move`, {
+                method: 'POST',
+                body: JSON.stringify({ channel_id: channelId }),
+            })
+            if (res?.data) {
+                state.editingNote = res.data
+                state.currentNoteChannelId = channelId
+                el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+                await loadNotes({ silent: true })
+            }
+        }
+
         function setActivePage(page, { sync = true } = {}) {
             state.activePage = page
             el.shell.dataset.view = page
 
+            if (page !== 'note-editor') {
+                closeNoteEditorMenu()
+            }
 
             const overlayPages = {
                 search: el.searchPage,
                 profile: el.profilePage,
-
+                'note-editor': el.noteEditorPage,
             }
 
             for (const [overlayName, overlayEl] of Object.entries(overlayPages)) {
                 const isActive = overlayName === page
-                if (overlayName === 'xnote-editor') {
+                if (overlayName === 'note-editor') {
                     if (isActive) {
                         overlayEl.hidden = false
                         requestAnimationFrame(() => overlayEl.classList.add('is-active'))
@@ -818,7 +1665,12 @@
         }
 
         function applyHeaderContext(page, { animate = true } = {}) {
-
+            if (page === 'note-editor') {
+                const noteTitle = state.editingNote?.pinned === 1 ? 'Pinned Note' : 'Edit Note'
+                const noteSubtitle = getCurrentNoteChannel()?.name || 'Private Notes'
+                setMessageHeader(noteTitle, noteSubtitle, { animate })
+                return
+            }
 
             if (page === 'search') {
                 setMessageHeader('Search', 'Find and sort messages', { animate })
@@ -831,13 +1683,17 @@
                 return
             }
 
-
+            if (state.contentMode === 'notes') {
+                const channel = getCurrentNoteChannel()
+                setMessageHeader(channel?.name || 'My Notes', state.lastNoteStatus, { animate })
+                return
+            }
 
             setMessageHeader(`#${state.currentChannel}`, state.lastMessageStatus, { animate })
         }
 
         function updateHeaderActionButtons() {
-            const searchActive = state.activePage === 'search'
+            const searchActive = state.contentMode === 'notes' ? state.noteSearchOpen : state.activePage === 'search'
             const profileActive = state.activePage === 'profile'
 
             el.btnSearch.classList.toggle('active', searchActive)
@@ -850,13 +1706,15 @@
         }
 
         function updateComposerMode() {
-
-            el.messageInput.placeholder = 'Message'
-            el.composerSubmit.title = 'Send message'
-            el.composerSubmit.setAttribute('aria-label', 'Send message')
+            const isNotes = state.contentMode === 'notes'
+            el.messageInput.placeholder = isNotes ? 'Save a quick note' : 'Message'
+            el.composerSubmit.title = isNotes ? 'Save note' : 'Send message'
+            el.composerSubmit.setAttribute('aria-label', isNotes ? 'Save note' : 'Send message')
             el.composerSubmitPath.setAttribute(
                 'd',
-                'M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5.951-1.429 5.951 1.429a1 1 0 001.169-1.409l-7-14z',
+                isNotes
+                    ? 'M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    : 'M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5.951-1.429 5.951 1.429a1 1 0 001.169-1.409l-7-14z',
             )
         }
 
@@ -891,10 +1749,10 @@
                     state.minMessageId = null
                     state.maxMessageId = null
                     el.searchInput.value = ''
-
+                    state.noteSearchOpen = false
                     updateComposerMode()
                     renderChannels()
-
+                    renderNoteChannels()
                     goToMessagesPage()
                     loadMessages()
                     el.messageInput.focus()
@@ -906,6 +1764,27 @@
             }
         }
 
+        function renderNoteChannels() {
+            el.noteChannels.innerHTML = state.noteChannels.map((channel) => {
+                const active = state.contentMode === 'notes' && channel.id === state.currentNoteChannelId
+                return `<button data-note-channel-id="${channel.id}" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}">${esc(channel.name)}</button>`
+            }).join('')
+
+            for (const btn of el.noteChannels.querySelectorAll('button[data-note-channel-id]')) {
+                btn.addEventListener('click', () => {
+                    state.contentMode = 'notes'
+                    state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
+                    state.noteSearchOpen = false
+                    state.editingNote = null
+                    updateComposerMode()
+                    renderChannels()
+                    renderNoteChannels()
+                    goToMessagesPage()
+                    loadNotes()
+                    el.messageInput.focus()
+                })
+            }
+        }
 
         function parseJsonArray(raw) {
             if (!raw || typeof raw !== 'string') return []
@@ -917,6 +1796,148 @@
             }
         }
 
+        function renderNotes() {
+            const bubble = state.noteSearchOpen ? `
+                <div class="note-search-bubble">
+                    <div class="rounded-2xl border border-border bg-white p-3 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <input id="note-search-inline" type="search" value="${esc(state.noteSearchQuery)}" placeholder="Search notes, tags, summaries"
+                                class="flex-1 min-w-0 text-sm px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <button id="note-search-dismiss" class="text-xs px-3 py-2 rounded-xl border border-border hover:border-primary">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''
+
+            if (!state.notes.length) {
+                el.messages.innerHTML = `${bubble}<div class="text-sm text-muted-fg text-center py-6">No notes found.</div>`
+            } else {
+                el.messages.innerHTML = `${bubble}${state.notes.map((note) => {
+                    const tags = [
+                        ...parseJsonArray(note.tag_list),
+                        ...parseJsonArray(note.ai_tags).slice(0, 3),
+                    ].slice(0, 5)
+                    const summary = note.ai_summary?.trim() || ''
+                    return `
+                        <article class="note-card ${note.pinned === 1 ? 'pinned' : ''} mb-3" data-note-open="${note.note_id}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs text-muted-fg mb-2">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div class="text-sm whitespace-pre-wrap text-[#1a1a2e] line-clamp-6">${linkifyUrls(note.content)}</div>
+                                </div>
+                                ${note.pinned === 1 ? '<span class="text-xs text-primary font-semibold">Pinned</span>' : ''}
+                            </div>
+                            <div class="note-ribbon">
+                                ${summary ? `<span class="text-xs text-muted-fg">${esc(summary)}</span>` : ''}
+                                ${tags.map((tag) => `<span class="note-tag">${esc(tag)}</span>`).join('')}
+                                <span class="text-xs text-muted-fg">${note.attachment_count} attachments</span>
+                            </div>
+                            
+                        </article>
+                    `
+                }).join('')}`
+            }
+            // <div class="mt-3 flex items-center justify-between gap-2">
+            //                     <button data-note-pin="${note.note_id}" data-pinned="${note.pinned}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">${note.pinned === 1 ? 'Unpin' : 'Pin'}</button>
+            //                                             </div>
+            //     <button data-note-archive="${note.note_id}" class="text-xs px-2.5 py-1.5 rounded-lg border border-border hover:border-primary">Archive</button>
+
+            const searchInput = el.messages.querySelector('#note-search-inline')
+            if (searchInput) {
+                searchInput.addEventListener('input', async () => {
+                    const isFocused = document.activeElement === searchInput
+                    const selectionStart = searchInput.selectionStart
+                    const selectionEnd = searchInput.selectionEnd
+                    state.noteSearchQuery = searchInput.value.trim()
+                    await loadNotes({ silent: true })
+
+                    if (isFocused && state.noteSearchOpen) {
+                        requestAnimationFrame(() => {
+                            const restoredInput = el.messages.querySelector('#note-search-inline')
+                            if (!restoredInput) return
+                            try {
+                                restoredInput.focus({ preventScroll: true })
+                            } catch {
+                                restoredInput.focus()
+                            }
+                            if (selectionStart !== null && selectionEnd !== null) {
+                                try {
+                                    restoredInput.setSelectionRange(selectionStart, selectionEnd)
+                                } catch {
+                                    // Ignore browsers that do not support selection ranges on search inputs.
+                                }
+                            }
+                        })
+                    }
+                })
+            }
+
+            const dismiss = el.messages.querySelector('#note-search-dismiss')
+            if (dismiss) {
+                dismiss.addEventListener('click', async () => {
+                    state.noteSearchOpen = false
+                    state.noteSearchQuery = ''
+                    updateHeaderActionButtons()
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            for (const card of el.messages.querySelectorAll('[data-note-open]')) {
+                card.addEventListener('click', async (event) => {
+                    if (event.target.closest('[data-note-pin]') || event.target.closest('[data-note-archive]') || event.target.closest('a')) return
+                    const id = Number(card.dataset.noteOpen)
+                    const note = state.notes.find((item) => item.note_id === id)
+                    if (!note) return
+                    openNoteEditor(note)
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('[data-note-pin]')) {
+                btn.addEventListener('click', async (event) => {
+                    event.stopPropagation()
+                    const id = Number(btn.dataset.notePin)
+                    const pinned = btn.dataset.pinned === '1'
+                    await api(`/api/notes/${id}/pin`, {
+                        method: 'POST',
+                        body: JSON.stringify({ pinned: !pinned }),
+                    })
+                    await loadNotes({ silent: true })
+                })
+            }
+
+            for (const btn of el.messages.querySelectorAll('[data-note-archive]')) {
+                btn.addEventListener('click', async (event) => {
+                    event.stopPropagation()
+                    const id = Number(btn.dataset.noteArchive)
+                    await api(`/api/notes/${id}/archive`, {
+                        method: 'POST',
+                        body: JSON.stringify({ is_archived: true }),
+                    })
+                    await loadNotes({ silent: true })
+                })
+            }
+        }
+
+        function openNoteEditor(note) {
+            state.editingNote = note
+            state.noteAttachments = []
+            state.noteLastSavedContent = (note.content || '').trim()
+            state.noteSaveInFlight = false
+            state.noteAttachmentAccessUrls = {}
+            closeNoteEditorMenu()
+            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+            setActivePage('note-editor')
+            setNoteEditorValue(note.content || '')
+            setNotePreviewOpen(true)
+            window.D11NotesEditorShortcuts?.refresh?.()
+            loadNoteAttachments(note.note_id).catch(() => null)
+        }
+
+        function enterNoteEditMode() {
+            if (!state.editingNote || !state.notePreviewOpen) return
+            setNotePreviewOpen(false)
+            focusNoteEditorInput()
+        }
 
         function formatBytes(bytes) {
             if (!bytes || bytes < 1) return '0 B'
@@ -930,8 +1951,239 @@
             return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
         }
 
+        function renderNoteAttachments() {
+            renderNoteImagePreviews()
 
+            if (!state.noteAttachments.length) {
+                el.noteAttachmentsList.innerHTML = '<p class="text-xs text-muted-fg">No attachments yet.</p>'
+                return
+            }
 
+            el.noteAttachmentsList.innerHTML = state.noteAttachments.map((attachment) => {
+                return `
+                    <div class="attachment-chip">
+                        <div class="min-w-0 flex-1">
+                            <button type="button" data-note-attachment-download="${attachment.attachment_id}" data-note-attachment-filename="${esc(attachment.filename)}" class="text-xs font-medium text-primary hover:underline truncate block text-left w-full">${esc(attachment.filename)}</button>
+                            <p class="text-[11px] text-muted-fg mt-0.5">${formatBytes(attachment.size)} • ${esc(attachment.content_type)}</p>
+                        </div>
+                        <button type="button" data-note-attachment-delete="${attachment.attachment_id}" class="text-xs px-2 py-1 rounded border border-border hover:border-primary">Remove</button>
+                    </div>
+                `
+            }).join('')
+
+            for (const btn of el.noteAttachmentsList.querySelectorAll('[data-note-attachment-download]')) {
+                btn.addEventListener('click', async () => {
+                    if (!state.editingNote) return
+                    const attachmentId = Number(btn.dataset.noteAttachmentDownload)
+                    const filename = btn.dataset.noteAttachmentFilename || 'attachment'
+                    try {
+                        await downloadNoteAttachment(state.editingNote.note_id, attachmentId, filename)
+                    } catch (err) {
+                        alert(err.message || 'Attachment download failed')
+                    }
+                })
+            }
+
+            for (const btn of el.noteAttachmentsList.querySelectorAll('[data-note-attachment-delete]')) {
+                btn.addEventListener('click', async () => {
+                    if (!state.editingNote) return
+                    const attachmentId = Number(btn.dataset.noteAttachmentDelete)
+                    await api(`/api/notes/${state.editingNote.note_id}/attachments/${attachmentId}`, { method: 'DELETE' })
+                    await loadNoteAttachments(state.editingNote.note_id)
+                    await loadNotes({ silent: true })
+                })
+            }
+        }
+
+        async function loadNoteAttachments(noteId) {
+            const res = await api(`/api/notes/${noteId}/attachments`)
+            state.noteAttachments = res?.data || []
+            await ensureNoteAttachmentAccessUrls(noteId)
+            await loadNoteImagePreviews(noteId)
+            renderNoteAttachments()
+            if (state.notePreviewOpen) renderNoteMarkdownPreview()
+        }
+
+        async function ensureNoteAttachmentAccessUrls(noteId) {
+            const nextUrls = { ...state.noteAttachmentAccessUrls }
+            for (const attachment of state.noteAttachments) {
+                if (typeof nextUrls[attachment.attachment_id] === 'string' && nextUrls[attachment.attachment_id]) continue
+                try {
+                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
+                    if (access?.data?.url) {
+                        nextUrls[attachment.attachment_id] = access.data.url
+                    }
+                } catch {
+                    // Ignore missing token fetch and keep editor usable.
+                }
+            }
+            state.noteAttachmentAccessUrls = nextUrls
+        }
+
+        function renderNoteImagePreviews() {
+            if (!state.noteImagePreviews.length) {
+                el.noteImagePreviews.innerHTML = '<p class="text-xs text-muted-fg">No image attachments yet.</p>'
+                return
+            }
+
+            el.noteImagePreviews.innerHTML = state.noteImagePreviews.map((preview) => `
+                <a class="note-image-preview" href="${esc(preview.url)}" target="_blank" rel="noopener noreferrer" title="${esc(preview.filename)}">
+                    <img src="${esc(preview.url)}" alt="${esc(preview.filename)}" loading="lazy">
+                </a>
+            `).join('')
+        }
+
+        async function loadNoteImagePreviews(noteId) {
+            const imageAttachments = state.noteAttachments.filter((attachment) =>
+                typeof attachment.content_type === 'string' && attachment.content_type.startsWith('image/'))
+
+            const previews = []
+            for (const attachment of imageAttachments) {
+                try {
+                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
+                    if (access?.data?.url) {
+                        previews.push({
+                            attachment_id: attachment.attachment_id,
+                            filename: attachment.filename,
+                            permalink_url: attachment.permalink_url || '',
+                            url: access.data.url,
+                        })
+                    }
+                } catch {
+                    // Ignore token fetch failure for preview and keep editor usable.
+                }
+            }
+            state.noteImagePreviews = previews
+        }
+
+        function renderUploadQueue() {
+            if (!state.noteUploadQueue.length) {
+                el.noteUploadProgress.innerHTML = ''
+                return
+            }
+
+            el.noteUploadProgress.innerHTML = state.noteUploadQueue.map((item) => {
+                const pct = Math.max(0, Math.min(100, Math.round(item.progress)))
+                return `
+                    <div class="rounded-lg border border-border bg-white px-3 py-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs text-[#1a1a2e] truncate">${esc(item.name)}</p>
+                            <span class="text-[11px] text-muted-fg">${item.status}</span>
+                        </div>
+                        <div class="upload-progress-track">
+                            <div class="upload-progress-fill" style="width:${pct}%"></div>
+                        </div>
+                    </div>
+                `
+            }).join('')
+        }
+
+        async function uploadNoteAttachment(file, onProgress) {
+            if (!state.editingNote || !(file instanceof File)) return
+            const noteId = state.editingNote.note_id
+
+            const payload = await new Promise((resolve, reject) => {
+                const form = new FormData()
+                form.set('file', file)
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `/api/notes/${noteId}/attachments`)
+                xhr.setRequestHeader('Authorization', `Bearer ${state.token}`)
+
+                xhr.upload.onprogress = (event) => {
+                    if (!event.lengthComputable) return
+                    const percent = (event.loaded / event.total) * 100
+                    onProgress(percent)
+                }
+
+                xhr.onerror = () => reject(new Error('Upload failed'))
+                xhr.onload = () => {
+                    let payload = {}
+                    try { payload = JSON.parse(xhr.responseText || '{}') } catch { /* ignore */ }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve(payload)
+                    } else if (xhr.status === 401) {
+                        doLogout()
+                        reject(new Error('Unauthorized'))
+                    } else {
+                        reject(new Error(payload.error || 'Upload failed'))
+                    }
+                }
+
+                xhr.send(form)
+            })
+
+            if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
+                state.editingNote = payload.note
+                setNoteEditorValue(payload.note.content || '')
+                state.noteLastSavedContent = (payload.note.content || '').trim()
+                if (state.notePreviewOpen) renderNoteMarkdownPreview()
+            }
+
+            await loadNoteAttachments(noteId)
+            await loadNotes({ silent: true })
+        }
+
+        async function saveEditingNote({ force = false } = {}) {
+            if (!state.editingNote || state.noteSaveInFlight) return false
+
+            const content = getNoteEditorValue().trim()
+            if (!content) return false
+
+            const previousContent = (state.noteLastSavedContent || '').trim()
+            if (!force && content === previousContent) return false
+
+            state.noteSaveInFlight = true
+            try {
+                const res = await api(`/api/notes/${state.editingNote.note_id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ content }),
+                })
+                if (res?.data) {
+                    state.editingNote = res.data
+                    state.noteLastSavedContent = (res.data.content || content).trim()
+                    await loadNotes({ silent: true })
+                    return true
+                }
+                return false
+            } finally {
+                state.noteSaveInFlight = false
+            }
+        }
+
+        async function uploadFilesWithProgress(files) {
+            if (!state.editingNote || !files.length) return
+
+            for (const file of files) {
+                const uploadItem = {
+                    id: `${Date.now()}-${Math.random()}`,
+                    name: file.name,
+                    progress: 0,
+                    status: 'Uploading...'
+                }
+                state.noteUploadQueue = [...state.noteUploadQueue, uploadItem]
+                renderUploadQueue()
+
+                try {
+                    await uploadNoteAttachment(file, (progress) => {
+                        uploadItem.progress = progress
+                        renderUploadQueue()
+                    })
+                    uploadItem.progress = 100
+                    uploadItem.status = 'Done'
+                } catch (err) {
+                    uploadItem.status = 'Failed'
+                    renderUploadQueue()
+                    alert(err.message || 'Attachment upload failed')
+                }
+
+                renderUploadQueue()
+            }
+
+            setTimeout(() => {
+                state.noteUploadQueue = state.noteUploadQueue.filter((item) => item.status === 'Uploading...')
+                renderUploadQueue()
+            }, 1000)
+        }
 
         function getPastedImageFiles(event) {
             const data = event.clipboardData
@@ -945,6 +2197,26 @@
                 if (file) files.push(file)
             }
             return files
+        }
+
+        async function handleNoteEditorPaste(event) {
+            if (state.activePage !== 'note-editor' || !state.editingNote) return
+            const files = getPastedImageFiles(event)
+            if (!files.length) return
+
+            event.preventDefault()
+            await uploadFilesWithProgress(files)
+        }
+
+        async function downloadNoteAttachment(noteId, attachmentId, filename) {
+            const access = await api(`/api/notes/${noteId}/attachments/${attachmentId}/access`)
+            if (!access?.data?.url) throw new Error('Download token unavailable')
+            const anchor = document.createElement('a')
+            anchor.href = access.data.url
+            anchor.download = filename
+            document.body.appendChild(anchor)
+            anchor.click()
+            anchor.remove()
         }
 
         function createAvatarInitials(fullName, slugPrefix) {
@@ -1287,6 +2559,42 @@
             renderChannels()
         }
 
+        async function loadNoteChannels() {
+            const res = await api('/api/notes/channels')
+            if (!res) return
+            state.noteChannels = res.data || []
+            if ((!state.currentNoteChannelId || !state.noteChannels.some((channel) => channel.id === state.currentNoteChannelId)) && state.noteChannels[0]) {
+                state.currentNoteChannelId = state.noteChannels[0].id
+            }
+            renderNoteChannels()
+        }
+
+        async function loadNotes({ silent = false } = {}) {
+            if (!state.currentNoteChannelId) return
+
+            if (!silent) {
+                state.lastNoteStatus = 'Loading...'
+                if (state.activePage === 'messages' || state.activePage === 'channels') {
+                    el.statusText.textContent = state.lastNoteStatus
+                }
+            }
+
+            const params = new URLSearchParams({ channel_id: String(state.currentNoteChannelId) })
+            if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
+
+            const res = await api(`/api/notes?${params.toString()}`)
+            if (!res) return
+
+            state.notes = res.data || []
+            state.lastNoteStatus = `${res.meta.total || 0} notes`
+            renderChannels()
+            renderNoteChannels()
+            renderNotes()
+
+            if (state.activePage === 'messages' || state.activePage === 'channels') {
+                el.statusText.textContent = state.lastNoteStatus
+            }
+        }
 
         async function loadMessages({ silent = false, forceScrollBottom = false, loadOlder = false } = {}) {
             if (loadOlder && state.loadingOlder) return
@@ -1447,6 +2755,17 @@
             }
         }
 
+        async function createNote(content) {
+            if (!state.currentNoteChannelId) return
+            await api('/api/notes', {
+                method: 'POST',
+                body: JSON.stringify({
+                    channel_id: state.currentNoteChannelId,
+                    content,
+                }),
+            })
+            await loadNotes({ silent: true })
+        }
 
         async function loadReports() {
             const res = await api('/api/chat/reports')
@@ -1495,9 +2814,11 @@
                 el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
 
                 const query = new URLSearchParams(location.search)
-                const fromMode = 'chat'
+                const fromMode = query.get('mode') === 'notes' ? 'notes' : 'chat'
                 const fromQuery = query.get('channel')
                 if (fromQuery) state.currentChannel = fromQuery
+                const fromNoteChannel = query.get('note_channel') ? parseInt(query.get('note_channel'), 10) : null
+                if (Number.isInteger(fromNoteChannel) && fromNoteChannel > 0) state.currentNoteChannelId = fromNoteChannel
                 const fromSort = query.get('sort')
                 if (fromSort === 'date' || fromSort === 'popularity' || fromSort === 'relevance') {
                     state.sort = fromSort
@@ -1507,25 +2828,33 @@
                     state.q = fromQ
                     el.searchInput.value = fromQ
                 }
-
+                const fromNoteQ = query.get('note_q')?.trim() ?? ''
+                if (fromNoteQ) {
+                    state.noteSearchQuery = fromNoteQ
+                    state.noteSearchOpen = true
+                }
                 const fromView = query.get('view')
 
                 applySortButtonStyles()
-                await Promise.all([loadChannels()])
+                await Promise.all([loadChannels(), loadNoteChannels()])
                 state.contentMode = fromMode
                 updateComposerMode()
                 renderChannels()
+                renderNoteChannels()
 
+                if (state.contentMode === 'notes') {
+                    await loadNotes()
+                } else {
+                    await loadMessages({ forceScrollBottom: true })
+                }
 
-
-                await loadMessages({ forceScrollBottom: true })
-
-
-                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels') {
-                    const safeView = fromView
-                    const finalView = safeView
+                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels' || fromView === 'note-editor') {
+                    const safeView = state.contentMode === 'notes' && fromView === 'search' ? 'messages' : fromView
+                    const finalView = safeView === 'note-editor' && !state.editingNote ? 'messages' : safeView
                     setActivePage(finalView, { sync: false })
-
+                } else if (state.contentMode === 'notes') {
+                    goToMessagesPage({ sync: false })
+                    el.messageInput.focus()
                 } else if (fromQuery) {
                     goToMessagesPage({ sync: false })
                     el.messageInput.focus()
@@ -1544,7 +2873,9 @@
                     if (state.pollTimer) clearInterval(state.pollTimer)
                     const interval = state.aiProcessing ? 2000 : 10000
                     state.pollTimer = setInterval(() => {
-                        const loader = loadMessages({ silent: true })
+                        const loader = state.contentMode === 'notes'
+                            ? loadNotes({ silent: true })
+                            : loadMessages({ silent: true })
                         loader.catch(() => null)
                         // Re-evaluate polling speed
                         startPolling()
@@ -1562,9 +2893,11 @@
             if (!content) return
             el.messageInput.value = ''
             el.messageInput.style.height = 'auto'
-
-            await postMessage(content)
-
+            if (state.contentMode === 'notes') {
+                await createNote(content)
+            } else {
+                await postMessage(content)
+            }
         })
 
         el.messageInput.addEventListener('keydown', async (event) => {
@@ -1574,9 +2907,11 @@
                 if (!content) return
                 el.messageInput.value = ''
                 el.messageInput.style.height = 'auto'
-
-                await postMessage(content)
-
+                if (state.contentMode === 'notes') {
+                    await createNote(content)
+                } else {
+                    await postMessage(content)
+                }
             }
         })
 
@@ -1620,8 +2955,23 @@
             }
         })
         el.btnSearch.addEventListener('click', () => {
-
-
+            if (state.contentMode === 'notes') {
+                state.noteSearchOpen = !state.noteSearchOpen
+                if (!state.noteSearchOpen && state.noteSearchQuery) {
+                    state.noteSearchQuery = ''
+                    loadNotes({ silent: true })
+                }
+                renderNotes()
+                updateHeaderActionButtons()
+                syncUrlState()
+                if (state.noteSearchOpen) {
+                    requestAnimationFrame(() => {
+                        const input = el.messages.querySelector('#note-search-inline')
+                        if (input) input.focus()
+                    })
+                }
+                return
+            }
             if (state.activePage === 'search') {
                 goToMessagesPage()
             } else {
@@ -1637,12 +2987,106 @@
         })
         el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
         el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
+        el.btnNoteEditorBack.addEventListener('click', async () => {
+            await saveEditingNote()
+            state.noteAttachments = []
+            state.noteImagePreviews = []
+            renderNoteAttachments()
+            goToMessagesPage()
+        })
+        el.btnNoteAttach.addEventListener('click', () => {
+            if (!state.editingNote) return
+            el.noteAttachmentInput.click()
+        })
+        el.noteAttachmentInput.addEventListener('change', async () => {
+            const files = Array.from(el.noteAttachmentInput.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+            el.noteAttachmentInput.value = ''
+        })
+            ;['dragenter', 'dragover'].forEach((eventName) => {
+                el.noteAttachmentDropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    el.noteAttachmentDropzone.classList.add('drag-over')
+                })
+            })
+            ;['dragleave', 'drop'].forEach((eventName) => {
+                el.noteAttachmentDropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    el.noteAttachmentDropzone.classList.remove('drag-over')
+                })
+            })
+        el.noteAttachmentDropzone.addEventListener('drop', async (event) => {
+            const files = Array.from(event.dataTransfer?.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+        })
+        el.noteEditorInput.addEventListener('paste', (event) => {
+            handleNoteEditorPaste(event).catch((err) => {
+                alert(err.message || 'Clipboard image upload failed')
+            })
+        })
+        el.noteEditorInput.addEventListener('input', () => {
+            if (state.notePreviewOpen) {
+                renderNoteMarkdownPreview()
+            }
+        })
+        el.noteEditorInput.addEventListener('blur', async () => {
+            if (state.activePage !== 'note-editor') return
+            await saveEditingNote()
+        })
 
+        el.noteEditorPreview.addEventListener('click', () => {
+            enterNoteEditMode()
+        })
 
+        el.btnNotePreview.addEventListener('click', () => {
+            setNotePreviewOpen(!state.notePreviewOpen)
+        })
+        el.btnNoteMenu.addEventListener('click', (event) => {
+            event.stopPropagation()
+            if (state.noteEditorMenuOpen) {
+                closeNoteEditorMenu()
+            } else {
+                openNoteEditorMenu()
+            }
+        })
+        el.noteEditorMenuScrim.addEventListener('click', closeNoteEditorMenu)
+        el.noteEditorMenu.addEventListener('click', async (event) => {
+            const channelButton = event.target.closest('[data-note-channel-id]')
+            if (channelButton) {
+                await moveEditingNoteToChannel(Number(channelButton.dataset.noteChannelId))
+                closeNoteEditorMenu()
+                return
+            }
 
+            const actionButton = event.target.closest('[data-note-menu-action]')
+            if (!actionButton) return
 
-
-
+            closeNoteEditorMenu()
+            if (actionButton.dataset.noteMenuAction === 'pin') {
+                await toggleEditingNotePin()
+            } else if (actionButton.dataset.noteMenuAction === 'archive') {
+                await toggleEditingNoteArchive()
+            }
+        })
+        el.btnNewNoteChannel.addEventListener('click', async () => {
+            const name = prompt('New private note channel name')?.trim()
+            if (!name) return
+            await api('/api/notes/channels', {
+                method: 'POST',
+                body: JSON.stringify({ name }),
+            })
+            await loadNoteChannels()
+        })
+        if (el.btnNoteSave) {
+            el.btnNoteSave.addEventListener('click', async () => {
+                await saveEditingNote({ force: true })
+                goToMessagesPage()
+            })
+        }
 
         // Jump to latest messages button
         el.jumpToLatestBtn.addEventListener('click', async () => {
@@ -1682,6 +3126,40 @@
                 hideVoterPopup()
             }
         })
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && state.noteEditorMenuOpen) {
+                closeNoteEditorMenu()
+            }
+        })
+
+        window.addEventListener('resize', () => {
+            if (state.noteEditorMenuOpen) {
+                positionNoteEditorMenu()
+            }
+        })
+
+        if (window.D11NotesEditorShortcuts?.init) {
+            window.D11NotesEditorShortcuts.init({
+                state,
+                input: el.noteEditorInput,
+                onEditorPaste: (event) => {
+                    handleNoteEditorPaste(event).catch((err) => {
+                        alert(err.message || 'Clipboard image upload failed')
+                    })
+                },
+                onEditorInput: () => {
+                    if (state.notePreviewOpen) {
+                        renderNoteMarkdownPreview()
+                    }
+                },
+                onEditorBlur: () => {
+                    if (state.activePage !== 'note-editor') return
+                    saveEditingNote().catch(() => null)
+                },
+                enableCustomShortcuts: false,
+            })
+        }
 
         bootstrap()
     </script>
