@@ -770,6 +770,7 @@
                 background: #ffffff;
             }
 
+            #notes-shell.desktop-layout #channels-page,
             #notes-shell.desktop-layout #notes-list-page,
             #notes-shell.desktop-layout #note-editor-page {
                 position: static;
@@ -781,8 +782,20 @@
                 transition: none !important;
             }
 
+            #notes-shell.desktop-layout #channels-page,
+            #notes-shell.desktop-layout #notes-list-page {
+                grid-column: 1;
+                grid-row: 1;
+            }
+
             #notes-shell.desktop-layout #channels-page {
-                display: none !important;
+                display: none;
+                flex-direction: column;
+                min-height: 0;
+                z-index: auto;
+                background: #ffffff;
+                overflow: hidden;
+                pointer-events: none;
             }
 
             #notes-shell.desktop-layout #notes-list-page {
@@ -795,6 +808,15 @@
                 overflow: hidden;
             }
 
+            #notes-shell.desktop-layout[data-view='channels'] #channels-page {
+                display: flex;
+                pointer-events: auto;
+            }
+
+            #notes-shell.desktop-layout[data-view='channels'] #notes-list-page {
+                display: none;
+            }
+
             #notes-shell.desktop-layout #notes-list-page>header {
                 background: #ffffff;
                 color: #1a1a2e;
@@ -802,7 +824,12 @@
             }
 
             #notes-shell.desktop-layout #btn-back {
-                display: none;
+                display: inline-flex;
+                color: #1a1a2e;
+            }
+
+            #notes-shell.desktop-layout #btn-back:hover {
+                background: rgba(15, 23, 42, 0.08);
             }
 
             #notes-shell.desktop-layout #note-editor-page,
@@ -822,6 +849,12 @@
                 z-index: auto;
                 background: #f0f2f5;
                 overflow: hidden;
+            }
+
+            #notes-shell.desktop-layout #note-editor-page,
+            #notes-shell.desktop-layout #note-editor-page[hidden] {
+                grid-column: 2;
+                grid-row: 1;
             }
 
             #notes-shell.desktop-layout #notes-list {
@@ -1281,7 +1314,7 @@
             el.shell.classList.toggle('desktop-layout', desktop)
 
             if (desktop) {
-                if (state.activePage === 'channels' || state.activePage === 'note-editor') {
+                if (state.activePage === 'note-editor') {
                     setActivePage('notes-list', { sync })
                 } else {
                     setActivePage(state.activePage, { sync })
@@ -1340,10 +1373,6 @@
         // ─── Page navigation ──────────────────────────────────────────────────
 
         function setActivePage(page, { sync = true } = {}) {
-            if (state.isDesktopView && page === 'channels') {
-                page = 'notes-list'
-            }
-
             state.activePage = page
             el.shell.dataset.view = page
 
