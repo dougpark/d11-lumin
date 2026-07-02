@@ -750,6 +750,112 @@
             min-width: 0;
             overflow-x: hidden;
         }
+
+        @media (min-width: 1100px) {
+            body {
+                align-items: center;
+                padding: 1rem;
+            }
+
+            #notes-shell {
+                width: min(1140px, calc(100vw - 2rem));
+                max-width: 1140px;
+                height: min(920px, calc(100dvh - 2rem));
+                border-radius: 1.25rem;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+                display: grid;
+                grid-template-columns: clamp(240px, 24vw, 280px) minmax(700px, 1fr);
+                overflow: hidden;
+                background: #ffffff;
+            }
+
+            #notes-shell.desktop-layout #notes-list-page,
+            #notes-shell.desktop-layout #note-editor-page {
+                position: static;
+                inset: auto;
+                width: auto;
+                min-width: 0;
+                max-width: none;
+                transform: none !important;
+                transition: none !important;
+            }
+
+            #notes-shell.desktop-layout #channels-page {
+                display: none !important;
+            }
+
+            #notes-shell.desktop-layout #notes-list-page {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                z-index: auto;
+                border-right: 1px solid rgba(0, 0, 0, 0.08);
+                background: #f8fafc;
+                overflow: hidden;
+            }
+
+            #notes-shell.desktop-layout #notes-list-page>header {
+                background: #ffffff;
+                color: #1a1a2e;
+                border-bottom-color: rgba(0, 0, 0, 0.08);
+            }
+
+            #notes-shell.desktop-layout #btn-back {
+                display: none;
+            }
+
+            #notes-shell.desktop-layout #note-editor-page,
+            #notes-shell.desktop-layout #note-editor-page[hidden] {
+                display: flex !important;
+                flex-direction: column;
+                position: static;
+                inset: auto;
+                height: 100%;
+                min-height: 0;
+                max-height: none;
+                border-radius: 0;
+                box-shadow: none;
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+                z-index: auto;
+                background: #f0f2f5;
+                overflow: hidden;
+            }
+
+            #notes-shell.desktop-layout #notes-list {
+                min-height: 0;
+                overflow-y: auto;
+            }
+
+            #notes-shell.desktop-layout #note-editor-page>.flex-1 {
+                min-height: 0;
+            }
+
+            #notes-shell.desktop-layout #note-editor-page>.note-sheet-handle {
+                display: none;
+            }
+
+            #notes-shell.desktop-layout #note-editor-page>header {
+                background: #ffffff;
+            }
+
+            #notes-shell.desktop-layout #note-editor-page .CodeMirror-scroll,
+            #notes-shell.desktop-layout #note-editor-page .EasyMDEContainer .CodeMirror-scroll {
+                max-height: 45dvh !important;
+            }
+
+            #notes-shell.desktop-layout .note-editor-empty {
+                margin: 1rem;
+                border: 1px dashed rgba(21, 101, 192, 0.35);
+                border-radius: 1rem;
+                background: rgba(255, 255, 255, 0.92);
+                color: #546e7a;
+                text-align: center;
+                padding: 2rem 1.25rem;
+            }
+        }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -893,7 +999,11 @@
                     class="text-sm font-semibold px-4 py-2 rounded-full bg-primary text-white hover:bg-[#0d47a1]">Save</button>
             </header>
             <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
-                <div class="rounded-2xl border border-border bg-white p-4 space-y-3">
+                <div id="note-editor-empty" class="note-editor-empty" hidden>
+                    <p class="text-sm font-semibold text-[#1a1a2e] mb-1">Select a note from the list</p>
+                    <p class="text-xs text-muted-fg">Your selected note will open here for reading and editing.</p>
+                </div>
+                <div id="note-editor-card" class="rounded-2xl border border-border bg-white p-4 space-y-3">
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <p class="text-xs uppercase tracking-wide text-muted-fg">Channel</p>
@@ -977,6 +1087,7 @@
             pollTimer: null,
             activePage: 'channels',
             lastNoteStatus: 'Loading notes...',
+            isDesktopView: false,
         }
 
         const el = {
@@ -1016,9 +1127,13 @@
             noteEditorMenuPin: document.getElementById('note-editor-menu-pin'),
             noteEditorMenuArchive: document.getElementById('note-editor-menu-archive'),
             noteEditorMenuChannels: document.getElementById('note-editor-menu-channels'),
+            noteEditorEmpty: document.getElementById('note-editor-empty'),
+            noteEditorCard: document.getElementById('note-editor-card'),
             profileUserName: document.getElementById('profile-user-name'),
             profileUserHandle: document.getElementById('profile-user-handle'),
         }
+
+        const DESKTOP_LAYOUT_QUERY = '(min-width: 1100px)'
 
         // ─── Shared utilities ─────────────────────────────────────────────────
 
@@ -1124,6 +1239,61 @@
             return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
         }
 
+        function isDesktopViewport() {
+            return window.matchMedia(DESKTOP_LAYOUT_QUERY).matches
+        }
+
+        function canUseEditorInteractions() {
+            if (!state.editingNote) return false
+            if (state.isDesktopView) return true
+            return state.activePage === 'note-editor'
+        }
+
+        function clearEditingNote({ keepContent = false } = {}) {
+            state.editingNote = null
+            state.noteAttachments = []
+            state.noteImagePreviews = []
+            state.noteAttachmentAccessUrls = {}
+            state.noteUploadQueue = []
+            state.noteLastSavedContent = ''
+            if (!keepContent) {
+                setNoteEditorValue('')
+            }
+            setNotePreviewOpen(false)
+            renderUploadQueue()
+            renderNoteAttachments()
+            closeNoteEditorMenu()
+            updateNoteEditorPane()
+        }
+
+        function updateNoteEditorPane() {
+            const hasNote = Boolean(state.editingNote)
+            if (el.noteEditorEmpty) el.noteEditorEmpty.hidden = hasNote
+            if (el.noteEditorCard) el.noteEditorCard.hidden = !hasNote
+            el.btnNoteEditorBack.hidden = state.isDesktopView
+            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+        }
+
+        function applyResponsiveLayout({ sync = false } = {}) {
+            const desktop = isDesktopViewport()
+            const changed = desktop !== state.isDesktopView
+            state.isDesktopView = desktop
+            el.shell.classList.toggle('desktop-layout', desktop)
+
+            if (desktop) {
+                if (state.activePage === 'channels' || state.activePage === 'note-editor') {
+                    setActivePage('notes-list', { sync })
+                } else {
+                    setActivePage(state.activePage, { sync })
+                }
+            } else if (changed && state.activePage === 'notes-list' && !state.editingNote) {
+                el.noteEditorPage.hidden = true
+                el.noteEditorPage.classList.remove('is-active')
+            }
+
+            updateNoteEditorPane()
+        }
+
         // ─── Header ───────────────────────────────────────────────────────────
 
         function setHeader(title, subtitle, { animate = true } = {}) {
@@ -1170,6 +1340,10 @@
         // ─── Page navigation ──────────────────────────────────────────────────
 
         function setActivePage(page, { sync = true } = {}) {
+            if (state.isDesktopView && page === 'channels') {
+                page = 'notes-list'
+            }
+
             state.activePage = page
             el.shell.dataset.view = page
 
@@ -1182,26 +1356,32 @@
             el.profilePage.hidden = !isProfileActive
             el.profilePage.classList.toggle('is-active', isProfileActive)
 
-            // Note editor: bottom-sheet overlay with transition
-            const isNoteEditorActive = page === 'note-editor'
-            if (isNoteEditorActive) {
+            // Note editor: bottom-sheet overlay on mobile, persistent panel on desktop
+            if (state.isDesktopView) {
                 el.noteEditorPage.hidden = false
-                requestAnimationFrame(() => el.noteEditorPage.classList.add('is-active'))
-            } else if (!el.noteEditorPage.hidden) {
-                el.noteEditorPage.classList.remove('is-active')
-                const onTransitionEnd = (event) => {
-                    if (event.target !== el.noteEditorPage || event.propertyName !== 'transform') return
-                    el.noteEditorPage.hidden = true
-                    el.noteEditorPage.removeEventListener('transitionend', onTransitionEnd)
-                }
-                el.noteEditorPage.addEventListener('transitionend', onTransitionEnd)
+                el.noteEditorPage.classList.add('is-active')
             } else {
-                el.noteEditorPage.hidden = true
-                el.noteEditorPage.classList.remove('is-active')
+                const isNoteEditorActive = page === 'note-editor'
+                if (isNoteEditorActive) {
+                    el.noteEditorPage.hidden = false
+                    requestAnimationFrame(() => el.noteEditorPage.classList.add('is-active'))
+                } else if (!el.noteEditorPage.hidden) {
+                    el.noteEditorPage.classList.remove('is-active')
+                    const onTransitionEnd = (event) => {
+                        if (event.target !== el.noteEditorPage || event.propertyName !== 'transform') return
+                        el.noteEditorPage.hidden = true
+                        el.noteEditorPage.removeEventListener('transitionend', onTransitionEnd)
+                    }
+                    el.noteEditorPage.addEventListener('transitionend', onTransitionEnd)
+                } else {
+                    el.noteEditorPage.hidden = true
+                    el.noteEditorPage.classList.remove('is-active')
+                }
             }
 
             applyHeaderContext(page)
             updateHeaderButtons()
+            updateNoteEditorPane()
 
             if (sync) syncUrlState()
         }
@@ -1227,7 +1407,7 @@
                     state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
                     state.noteSearchOpen = false
                     state.noteSearchQuery = ''
-                    state.editingNote = null
+                    clearEditingNote()
                     renderNoteChannels()
                     goToNotesListPage()
                     loadNotes()
@@ -1296,8 +1476,9 @@
                         ...parseJsonArray(note.ai_tags).slice(0, 3),
                     ].slice(0, 5)
                     const summary = note.ai_summary?.trim() || ''
+                    const selected = state.editingNote?.note_id === note.note_id
                     return `
-                        <article class="note-card ${note.pinned === 1 ? 'pinned' : ''} mb-3" data-note-open="${note.note_id}">
+                        <article class="note-card ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'ring-2 ring-primary/40' : ''} mb-3" data-note-open="${note.note_id}">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0 flex-1">
                                     <div class="text-xs text-muted-fg mb-2">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
@@ -1501,9 +1682,10 @@
             state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
-            setActivePage('note-editor')
+            setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
             setNoteEditorValue(note.content || '')
             setNotePreviewOpen(false)
+            updateNoteEditorPane()
             window.D11NotesEditorShortcuts?.refresh?.()
             loadNoteAttachments(note.note_id).catch(() => null)
             requestAnimationFrame(() => {
@@ -1631,9 +1813,11 @@
                 method: 'POST',
                 body: JSON.stringify({ is_archived: !isArchived }),
             })
-            state.editingNote = null
+            clearEditingNote()
             await loadNotes({ silent: true })
-            goToNotesListPage()
+            if (!state.isDesktopView) {
+                goToNotesListPage()
+            }
         }
 
         async function moveEditingNoteToChannel(channelId) {
@@ -1863,7 +2047,7 @@
         }
 
         async function handleNoteEditorPaste(event) {
-            if (state.activePage !== 'note-editor' || !state.editingNote) return
+            if (!canUseEditorInteractions()) return
             const files = getPastedImageFiles(event)
             if (!files.length) return
             event.preventDefault()
@@ -1909,6 +2093,7 @@
 
                 await loadNoteChannels()
                 await loadNotes()
+                applyResponsiveLayout({ sync: false })
 
                 if (state.currentNoteChannelId) {
                     goToNotesListPage({ sync: false })
@@ -1919,6 +2104,7 @@
 
                 applyHeaderContext(state.activePage, { animate: false })
                 updateHeaderButtons()
+                updateNoteEditorPane()
                 syncUrlState()
 
                 state.pollTimer = setInterval(() => {
@@ -1987,10 +2173,10 @@
 
         el.btnNoteEditorBack.addEventListener('click', async () => {
             await saveEditingNote()
-            state.noteAttachments = []
-            state.noteImagePreviews = []
-            renderNoteAttachments()
-            goToNotesListPage()
+            clearEditingNote({ keepContent: true })
+            if (!state.isDesktopView) {
+                goToNotesListPage()
+            }
         })
 
         el.btnNoteAttach.addEventListener('click', () => {
@@ -2038,7 +2224,7 @@
         })
 
         el.noteEditorInput.addEventListener('blur', async () => {
-            if (state.activePage !== 'note-editor') return
+            if (!canUseEditorInteractions()) return
             await saveEditingNote()
         })
 
@@ -2084,7 +2270,9 @@
 
         el.btnNoteSave.addEventListener('click', async () => {
             await saveEditingNote({ force: true })
-            goToNotesListPage()
+            if (!state.isDesktopView) {
+                goToNotesListPage()
+            }
         })
 
         document.addEventListener('keydown', (event) => {
@@ -2094,6 +2282,7 @@
         })
 
         window.addEventListener('resize', () => {
+            applyResponsiveLayout({ sync: false })
             if (state.noteEditorMenuOpen) positionNoteEditorMenu()
         })
 
@@ -2110,7 +2299,7 @@
                     if (state.notePreviewOpen) renderNoteMarkdownPreview()
                 },
                 onEditorBlur: () => {
-                    if (state.activePage !== 'note-editor') return
+                    if (!canUseEditorInteractions()) return
                     saveEditingNote().catch(() => null)
                 },
                 enableCustomShortcuts: false,
