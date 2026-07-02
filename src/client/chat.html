@@ -1470,6 +1470,28 @@
             }
         }
 
+        function focusNoteEditorInput() {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const { scrollX, scrollY } = window
+                    try {
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus({ preventScroll: true })
+                        }
+                    } catch {
+                        if (window.D11NotesEditorShortcuts?.focus) {
+                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
+                        } else {
+                            el.noteEditorInput.focus()
+                        }
+                    }
+                    window.scrollTo(scrollX, scrollY)
+                })
+            })
+        }
+
         function closeNoteEditorMenu() {
             state.noteEditorMenuOpen = false
             el.noteEditorMenuScrim.hidden = true
@@ -1906,28 +1928,15 @@
             el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
             setActivePage('note-editor')
             setNoteEditorValue(note.content || '')
-            setNotePreviewOpen(false)
+            setNotePreviewOpen(true)
             window.D11NotesEditorShortcuts?.refresh?.()
             loadNoteAttachments(note.note_id).catch(() => null)
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const { scrollX, scrollY } = window
-                    try {
-                        if (window.D11NotesEditorShortcuts?.focus) {
-                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
-                        } else {
-                            el.noteEditorInput.focus({ preventScroll: true })
-                        }
-                    } catch {
-                        if (window.D11NotesEditorShortcuts?.focus) {
-                            window.D11NotesEditorShortcuts.focus(el.noteEditorInput)
-                        } else {
-                            el.noteEditorInput.focus()
-                        }
-                    }
-                    window.scrollTo(scrollX, scrollY)
-                })
-            })
+        }
+
+        function enterNoteEditMode() {
+            if (!state.editingNote || !state.notePreviewOpen) return
+            setNotePreviewOpen(false)
+            focusNoteEditorInput()
         }
 
         function formatBytes(bytes) {
@@ -3028,6 +3037,11 @@
             if (state.activePage !== 'note-editor') return
             await saveEditingNote()
         })
+
+        el.noteEditorPreview.addEventListener('click', () => {
+            enterNoteEditMode()
+        })
+
         el.btnNotePreview.addEventListener('click', () => {
             setNotePreviewOpen(!state.notePreviewOpen)
         })

@@ -832,6 +832,7 @@
                 background: #ffffff;
                 color: #1a1a2e;
                 border-bottom-color: rgba(0, 0, 0, 0.08);
+                border-top-right-radius: 1.25rem;
             }
 
             #notes-shell.desktop-layout #btn-back {
@@ -1712,20 +1713,7 @@
             }
         }
 
-        function openNoteEditor(note) {
-            state.editingNote = note
-            state.noteAttachments = []
-            state.noteLastSavedContent = (note.content || '').trim()
-            state.noteSaveInFlight = false
-            state.noteAttachmentAccessUrls = {}
-            closeNoteEditorMenu()
-            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
-            setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
-            setNoteEditorValue(note.content || '')
-            setNotePreviewOpen(false)
-            updateNoteEditorPane()
-            window.D11NotesEditorShortcuts?.refresh?.()
-            loadNoteAttachments(note.note_id).catch(() => null)
+        function focusNoteEditorInput() {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     const { scrollX, scrollY } = window
@@ -1745,6 +1733,28 @@
                     window.scrollTo(scrollX, scrollY)
                 })
             })
+        }
+
+        function openNoteEditor(note) {
+            state.editingNote = note
+            state.noteAttachments = []
+            state.noteLastSavedContent = (note.content || '').trim()
+            state.noteSaveInFlight = false
+            state.noteAttachmentAccessUrls = {}
+            closeNoteEditorMenu()
+            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+            setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
+            setNoteEditorValue(note.content || '')
+            setNotePreviewOpen(true)
+            updateNoteEditorPane()
+            window.D11NotesEditorShortcuts?.refresh?.()
+            loadNoteAttachments(note.note_id).catch(() => null)
+        }
+
+        function enterNoteEditMode() {
+            if (!state.editingNote || !state.notePreviewOpen) return
+            setNotePreviewOpen(false)
+            focusNoteEditorInput()
         }
 
         async function saveEditingNote({ force = false } = {}) {
@@ -2264,6 +2274,10 @@
         el.noteEditorInput.addEventListener('blur', async () => {
             if (!canUseEditorInteractions()) return
             await saveEditingNote()
+        })
+
+        el.noteEditorPreview.addEventListener('click', () => {
+            enterNoteEditMode()
         })
 
         el.btnNotePreview.addEventListener('click', () => setNotePreviewOpen(!state.notePreviewOpen))
