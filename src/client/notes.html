@@ -1556,8 +1556,8 @@
         function buildNoteCardText(content) {
             const source = String(content || '')
             const strippedHtml = source.replace(/<[^>]*>/g, ' ')
-            const withoutImages = strippedHtml.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, '$1')
-            const withoutLinks = withoutImages.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, '$1')
+            const withoutImages = strippedHtml.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, ' ')
+            const withoutLinks = withoutImages.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, ' ')
             const withoutMarkdown = withoutLinks
                 .replace(/`{1,3}([^`]+)`{1,3}/g, '$1')
                 .replace(/^\s{0,3}(#{1,6}|[-*+]|\d+\.)\s+/gm, '')
