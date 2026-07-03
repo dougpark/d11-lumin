@@ -2030,9 +2030,12 @@
             if (!state.notes.length) {
                 state.noteCardNodeById.clear()
                 state.noteCardSignatureById.clear()
-                el.notesCardsHost.innerHTML = '<div class="text-sm text-muted-fg text-center py-6">No notes found.</div>'
+                el.notesCardsHost.innerHTML = '<div data-notes-empty-state="1" class="text-sm text-muted-fg text-center py-6">No notes found.</div>'
                 return
             }
+
+            const emptyState = el.notesCardsHost.querySelector('[data-notes-empty-state]')
+            if (emptyState) emptyState.remove()
 
             const nextIds = new Set()
             for (const note of state.notes) {
