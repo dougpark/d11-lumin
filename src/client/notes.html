@@ -1109,7 +1109,18 @@
                             </button>
                             <div class="min-w-0">
                                 <p class="text-xs uppercase tracking-wide text-muted-fg">Folder</p>
-                                <p id="note-editor-channel-name" class="text-sm font-medium text-[#1a1a2e]">My Notes</p>
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <p id="note-editor-channel-name"
+                                        class="text-sm font-medium text-[#1a1a2e] truncate">My Notes</p>
+                                    <span id="note-editor-archived-icon" class="inline-flex items-center text-muted-fg"
+                                        title="Archived note" aria-label="Archived note" hidden>
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M4 7h16M6 7l1 12h10l1-12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"></path>
+                                        </svg>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -1184,6 +1195,9 @@
             <button id="note-editor-menu-archive" type="button"
                 class="note-editor-menu-item note-editor-menu-item-danger" role="menuitem"
                 data-note-menu-action="archive"></button>
+            <button id="note-editor-menu-delete" type="button"
+                class="note-editor-menu-item note-editor-menu-item-danger" role="menuitem"
+                data-note-menu-action="delete"></button>
             <div class="note-editor-menu-divider" aria-hidden="true"></div>
             <div class="note-editor-menu-section-title">Move to</div>
             <div id="note-editor-menu-channels"></div>
@@ -1246,6 +1260,7 @@
             noteEditorPreview: document.getElementById('note-editor-preview'),
             noteImagePreviews: document.getElementById('note-image-previews'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
+            noteEditorArchivedIcon: document.getElementById('note-editor-archived-icon'),
             noteAttachmentInput: document.getElementById('note-attachment-input'),
             noteAttachmentsPanel: document.getElementById('note-attachments-panel'),
             noteAttachmentDropzone: document.getElementById('note-attachment-dropzone'),
@@ -1261,6 +1276,7 @@
             noteEditorMenu: document.getElementById('note-editor-menu'),
             noteEditorMenuPin: document.getElementById('note-editor-menu-pin'),
             noteEditorMenuArchive: document.getElementById('note-editor-menu-archive'),
+            noteEditorMenuDelete: document.getElementById('note-editor-menu-delete'),
             noteEditorMenuChannels: document.getElementById('note-editor-menu-channels'),
             noteEditorEmpty: document.getElementById('note-editor-empty'),
             noteEditorCard: document.getElementById('note-editor-card'),
@@ -1417,6 +1433,9 @@
             if (el.noteEditorCard) el.noteEditorCard.hidden = !hasNote
             el.btnNoteEditorBack.hidden = state.isDesktopView
             el.noteEditorChannelName.textContent = getNoteChannelName(state.editingNote)
+            if (el.noteEditorArchivedIcon) {
+                el.noteEditorArchivedIcon.hidden = !(state.editingNote && state.editingNote.is_archived === 1)
+            }
         }
 
         function updateComposerVisibility() {
@@ -1950,7 +1969,6 @@
             state.noteSaveInFlight = false
             state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
-            el.noteEditorChannelName.textContent = getNoteChannelName(note)
             setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
             setNoteEditorValue(note.content || '')
             setNotePreviewOpen(true)
@@ -2007,6 +2025,10 @@
             const archived = state.editingNote.is_archived === 1
             el.noteEditorMenuPin.textContent = pinned ? 'Unpin' : 'Pin'
             el.noteEditorMenuArchive.textContent = archived ? 'Restore' : 'Archive'
+            if (el.noteEditorMenuDelete) {
+                el.noteEditorMenuDelete.hidden = !archived
+                el.noteEditorMenuDelete.textContent = 'Delete'
+            }
             el.noteEditorMenuChannels.innerHTML = state.noteChannels.map((channel) => {
                 const selected = channel.id === state.editingNote.channel_id
                 return `
@@ -2070,6 +2092,26 @@
                 body: JSON.stringify({ is_archived: !isArchived }),
             })
             clearEditingNote()
+            await loadNoteChannels()
+            await loadNotes({ silent: true })
+            if (!state.isDesktopView) {
+                goToNotesListPage()
+            }
+        }
+
+        async function deleteEditingNote() {
+            if (!state.editingNote || state.editingNote.is_archived !== 1) return
+            const confirmed = confirm('Delete this archived note and all of its attachments permanently?')
+            if (!confirmed) return
+
+            const noteId = state.editingNote.note_id
+            const res = await api(`/api/notes/${noteId}`, {
+                method: 'DELETE',
+            })
+            if (!res) return
+
+            clearEditingNote()
+            await loadNoteChannels()
             await loadNotes({ silent: true })
             if (!state.isDesktopView) {
                 goToNotesListPage()
@@ -2086,7 +2128,8 @@
             if (res?.data) {
                 state.editingNote = res.data
                 state.currentNoteChannelId = channelId
-                el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+                updateNoteEditorPane()
+                await loadNoteChannels()
                 await loadNotes({ silent: true })
             }
         }
@@ -2565,6 +2608,8 @@
                 await toggleEditingNotePin()
             } else if (actionButton.dataset.noteMenuAction === 'archive') {
                 await toggleEditingNoteArchive()
+            } else if (actionButton.dataset.noteMenuAction === 'delete') {
+                await deleteEditingNote()
             }
         })
 

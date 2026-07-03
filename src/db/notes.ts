@@ -375,6 +375,35 @@ export async function removeNoteAttachment(
     return attachment
 }
 
+export async function deleteNoteWithAttachments(
+    db: D1Database,
+    userId: number,
+    noteId: number,
+): Promise<{ noteDeleted: boolean; attachmentUrls: string[] }> {
+    const note = await getNoteById(db, userId, noteId)
+    if (!note) return { noteDeleted: false, attachmentUrls: [] }
+
+    const attachments = await db
+        .prepare(
+            `SELECT a.attachment_id, a.url
+             FROM attachment_list al
+             JOIN attachments a ON a.attachment_id = al.attachment_id
+             WHERE al.note_id = ?`,
+        )
+        .bind(noteId)
+        .all<{ attachment_id: number; url: string }>()
+
+    const attachmentIds = attachments.results.map((attachment) => attachment.attachment_id)
+
+    await db.prepare('DELETE FROM attachment_list WHERE note_id = ?').bind(noteId).run()
+    for (const attachmentId of attachmentIds) {
+        await db.prepare('DELETE FROM attachments WHERE attachment_id = ?').bind(attachmentId).run()
+    }
+    await db.prepare('DELETE FROM notes WHERE note_id = ? AND user_id = ?').bind(noteId, userId).run()
+
+    return { noteDeleted: true, attachmentUrls: attachments.results.map((attachment) => attachment.url) }
+}
+
 export async function getAttachmentForDownload(db: D1Database, noteId: number, attachmentId: number): Promise<(Attachment & { owner_user_id: number }) | null> {
     const attachment = await db
         .prepare(

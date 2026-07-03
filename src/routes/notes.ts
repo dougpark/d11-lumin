@@ -6,6 +6,7 @@ import {
     appendAttachmentMarkdownToNote,
     createNote,
     createNoteChannel,
+    deleteNoteWithAttachments,
     getAttachmentBySlugForUser,
     getAttachmentForDownload,
     getNoteAttachment,
@@ -384,6 +385,31 @@ notes.post('/:id/archive', async (c) => {
     const updated = await setNoteArchived(c.env.DB, { user_id: user.id, note_id: id, is_archived })
     if (!updated) return c.json({ error: 'Note not found' }, 404)
     return c.json({ data: updated })
+})
+
+notes.delete('/:id', async (c) => {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id') ?? '', 10)
+    if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid note id' }, 400)
+
+    const note = await getNoteById(c.env.DB, user.id, id)
+    if (!note) return c.json({ error: 'Note not found' }, 404)
+    if (note.is_archived !== 1) return c.json({ error: 'Only archived notes can be deleted' }, 400)
+
+    try {
+        const deleted = await deleteNoteWithAttachments(c.env.DB, user.id, id)
+        if (!deleted.noteDeleted) return c.json({ error: 'Note not found' }, 404)
+
+        if (c.env.ATTACHMENTS) {
+            for (const url of deleted.attachmentUrls) {
+                try { await c.env.ATTACHMENTS.delete(url) } catch { /* ignore */ }
+            }
+        }
+
+        return c.json({ data: { note_id: id, deleted: true } })
+    } catch (err) {
+        return c.json({ error: (err as Error).message }, 400)
+    }
 })
 
 notes.get('/:id/attachments', async (c) => {
