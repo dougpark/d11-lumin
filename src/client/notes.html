@@ -343,6 +343,120 @@
             box-shadow: 0 10px 22px rgba(21, 101, 192, 0.08);
         }
 
+        .note-card-preview-layout {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .note-card-preview-body {
+            min-width: 0;
+        }
+
+        .note-card-preview-body.has-thumbnail {
+            padding-right: 5.5rem;
+        }
+
+        .note-card-thumbnail {
+            position: absolute;
+            right: 0.9rem;
+            top: 50%;
+            width: 4.25rem;
+            height: 4.25rem;
+            transform: translateY(-50%);
+            border-radius: 0.8rem;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            background: linear-gradient(135deg, rgba(21, 101, 192, 0.08), rgba(21, 101, 192, 0.02));
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+            pointer-events: none;
+        }
+
+        .note-card-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .note-card-preview-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .note-card-preview-content.markdown-body {
+            color: #1a1a2e;
+            font-size: 0.875rem;
+            line-height: 1.45;
+        }
+
+        .note-card-preview-content.markdown-body> :first-child {
+            margin-top: 0;
+        }
+
+        .note-card-preview-content.markdown-body> :last-child {
+            margin-bottom: 0;
+        }
+
+        .note-card-preview-content.markdown-body p,
+        .note-card-preview-content.markdown-body li,
+        .note-card-preview-content.markdown-body blockquote,
+        .note-card-preview-content.markdown-body h1,
+        .note-card-preview-content.markdown-body h2,
+        .note-card-preview-content.markdown-body h3,
+        .note-card-preview-content.markdown-body h4,
+        .note-card-preview-content.markdown-body h5,
+        .note-card-preview-content.markdown-body h6 {
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .note-card-preview-content.markdown-body ul,
+        .note-card-preview-content.markdown-body ol {
+            margin: 0;
+            padding-left: 1.2rem;
+        }
+
+        .note-card-preview-content.markdown-body ul ul,
+        .note-card-preview-content.markdown-body ol ol,
+        .note-card-preview-content.markdown-body ul ol,
+        .note-card-preview-content.markdown-body ol ul {
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        .note-card-preview-content.markdown-body img,
+        .note-card-preview-content.markdown-body video,
+        .note-card-preview-content.markdown-body iframe,
+        .note-card-preview-content.markdown-body figure,
+        .note-card-preview-content.markdown-body table {
+            display: none !important;
+        }
+
+        .note-card-preview-content.markdown-body a {
+            color: inherit;
+            text-decoration: none;
+            pointer-events: none;
+        }
+
+        .note-card-preview-content.markdown-body code {
+            font-size: 0.85em;
+            background: rgba(0, 0, 0, 0.04);
+            padding: 0.08rem 0.24rem;
+            border-radius: 0.35rem;
+        }
+
+        .note-card-preview-content.markdown-body pre {
+            margin: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
         .note-ribbon {
             display: flex;
             flex-wrap: wrap;
@@ -1375,6 +1489,61 @@
             }
         }
 
+        function getNotePreviewImageUrl(content) {
+            const source = String(content || '')
+            const markdownImage = source.match(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/)
+            if (markdownImage?.[1]) return markdownImage[1].trim()
+
+            const htmlImage = source.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i)
+            if (htmlImage?.[1]) return htmlImage[1].trim()
+
+            return ''
+        }
+
+        function buildNotePreviewFragment(content) {
+            const source = String(content || '')
+            const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
+                const fallback = document.createElement('div')
+                fallback.textContent = source.trim() || 'No preview available.'
+                return fallback
+            }
+
+            const rendered = marked.parse(safeSource, { gfm: true, breaks: true })
+            const template = document.createElement('template')
+            template.innerHTML = rendered
+
+            for (const image of template.content.querySelectorAll('img')) {
+                image.remove()
+            }
+
+            for (const link of template.content.querySelectorAll('a')) {
+                const href = link.getAttribute('href') || ''
+                const normalizedHref = normalizeUrlForMatch(href)
+                if (normalizedHref.includes('/api/notes/attachments/p/') || normalizedHref.includes('/api/notes/attachments/download')) {
+                    const parent = link.parentElement
+                    link.remove()
+                    if (parent && !parent.textContent?.trim() && !parent.querySelector('img,video,iframe,table')) {
+                        parent.remove()
+                    }
+                }
+            }
+
+            for (const emptyBlock of template.content.querySelectorAll('p,li,blockquote,pre,div')) {
+                if (!emptyBlock.textContent?.trim() && !emptyBlock.querySelector('img,video,iframe,table')) {
+                    emptyBlock.remove()
+                }
+            }
+
+            if (!template.content.childNodes.length) {
+                const fallback = document.createElement('div')
+                fallback.textContent = 'No preview available.'
+                return fallback
+            }
+
+            return template.content
+        }
+
         // ─── URL / navigation state ───────────────────────────────────────────
 
         function syncUrlState() {
@@ -1683,16 +1852,28 @@
                         ...parseJsonArray(note.ai_tags).slice(0, 3),
                     ].slice(0, 5)
                     const summary = note.ai_summary?.trim() || ''
+                    const previewFragment = buildNotePreviewFragment(note.content)
+                    const previewImageUrl = getNotePreviewImageUrl(note.content)
+                    const hasThumbnail = Boolean(previewImageUrl)
                     const selected = state.editingNote?.note_id === note.note_id
                     return `
-                        <article class="note-card ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'ring-2 ring-primary/40' : ''} mb-3" data-note-open="${note.note_id}">
+                        <article class="note-card note-card-preview-layout ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'ring-2 ring-primary/40' : ''} mb-3" data-note-open="${note.note_id}">
                             <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0 flex-1">
+                                <div class="note-card-preview-body ${hasThumbnail ? 'has-thumbnail' : ''} min-w-0 flex-1">
                                     <div class="text-xs text-muted-fg mb-2">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                                    <div class="text-sm whitespace-pre-wrap text-[#1a1a2e] line-clamp-4">${linkifyUrls(note.content)}</div>
+                                    <div class="note-card-preview-content markdown-body">${(() => {
+                            const wrapper = document.createElement('div')
+                            wrapper.appendChild(previewFragment.cloneNode(true))
+                            return wrapper.innerHTML
+                        })()}</div>
                                 </div>
                                 ${note.pinned === 1 ? '<span class="text-xs text-primary font-semibold">Pinned</span>' : ''}
                             </div>
+                            ${hasThumbnail ? `
+                                <div class="note-card-thumbnail" aria-hidden="true">
+                                    <img src="${esc(previewImageUrl)}" alt="" loading="lazy">
+                                </div>
+                            ` : ''}
                             <div class="note-ribbon">
                                 ${summary ? `<span class="text-xs text-muted-fg">${esc(summary)}</span>` : ''}
                                 ${tags.map((tag) => `<span class="note-tag">${esc(tag)}</span>`).join('')}
