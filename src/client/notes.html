@@ -1409,6 +1409,11 @@
             editingNote: null,
             noteEditorMenuOpen: false,
             pollTimer: null,
+            noteListRequestSeq: 0,
+            noteListAppliedSeq: 0,
+            noteCardNodeById: new Map(),
+            noteCardSignatureById: new Map(),
+            noteSearchRenderKey: '',
             activePage: 'channels',
             lastNoteStatus: 'Loading notes...',
             isDesktopView: false,
@@ -1427,6 +1432,8 @@
             composerSubmit: document.getElementById('composer-submit'),
             messageInput: document.getElementById('message-input'),
             notesList: document.getElementById('notes-list'),
+            notesMetaHost: null,
+            notesCardsHost: null,
             btnBack: document.getElementById('btn-back'),
             btnSearch: document.getElementById('btn-search'),
             // btnProfile: document.getElementById('btn-profile'),
@@ -1885,6 +1892,8 @@
         async function loadNotes({ silent = false } = {}) {
             if (state.noteListScope === 'channel' && !state.currentNoteChannelId) return
 
+            const requestSeq = ++state.noteListRequestSeq
+
             if (!silent) {
                 state.lastNoteStatus = 'Loading...'
                 if (state.activePage !== 'note-editor') {
@@ -1904,9 +1913,16 @@
             const res = await api(`/api/notes?${params.toString()}`)
             if (!res) return
 
+            if (requestSeq < state.noteListAppliedSeq) {
+                return
+            }
+            state.noteListAppliedSeq = requestSeq
+
             state.notes = res.data || []
             state.lastNoteStatus = `${res.meta.total || 0} notes`
-            renderNoteChannels()
+            if (!silent) {
+                renderNoteChannels()
+            }
             renderNotes()
 
             if (state.activePage !== 'note-editor') {
@@ -1915,6 +1931,86 @@
         }
 
         function renderNotes() {
+            ensureNotesListHosts()
+            renderNoteSearchBubble()
+            renderNoteCards()
+        }
+
+        function ensureNotesListHosts() {
+            if (!el.notesMetaHost) {
+                el.notesMetaHost = document.createElement('div')
+                el.notesMetaHost.id = 'notes-meta-host'
+            }
+            if (!el.notesCardsHost) {
+                el.notesCardsHost = document.createElement('div')
+                el.notesCardsHost.id = 'notes-cards-host'
+            }
+            if (!el.notesMetaHost.isConnected || !el.notesCardsHost.isConnected) {
+                el.notesList.replaceChildren(el.notesMetaHost, el.notesCardsHost)
+            }
+        }
+
+        function createMarkupElement(markup) {
+            const template = document.createElement('template')
+            template.innerHTML = markup.trim()
+            return template.content.firstElementChild
+        }
+
+        function getNoteCardSignature(note) {
+            const selected = state.editingNote?.note_id === note.note_id ? 1 : 0
+            return [
+                note.note_id,
+                note.last_modified_at,
+                note.pinned,
+                note.is_archived,
+                note.attachment_count,
+                note.channel_id,
+                note.content,
+                selected,
+            ].join('|')
+        }
+
+        function buildNoteCardMarkup(note) {
+            const cardText = buildNoteCardText(note.content)
+            const previewImageUrl = getNotePreviewImageUrl(note.content)
+            const hasThumbnail = Boolean(previewImageUrl)
+            const selected = state.editingNote?.note_id === note.note_id
+
+            return `
+                <article class="note-card note-card-preview-layout ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'ring-2 ring-primary/40' : ''} mb-3" data-note-open="${note.note_id}">
+                    <div class="note-card-preview-body min-w-0">
+                        <div class="note-card-preview-main">
+                            <div class="note-card-meta-row">
+                                <div class="note-card-date-wrap min-w-0">
+                                    <div class="text-xs text-muted-fg whitespace-nowrap">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    ${note.pinned === 1 ? `
+                                        <svg class="note-card-pinned-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                            <path fill="currentColor" d="M14 3l7 7-2 2-2.5-2.5-3.5 3.5V18l-2 2-1-1 1.5-1.5-3.5-3.5L7 16l-2-2 3.5-3.5L5 8l2-2 3.5 3.5L14 3z"/>
+                                        </svg>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="note-card-note-text">${esc(cardText || 'No preview available.')}</div>
+                            <div class="note-card-attachment-row">
+                                <span class="text-xs text-muted-fg">${note.attachment_count} attachments</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${hasThumbnail ? '<div class="note-card-thumbnail-spacer" aria-hidden="true"></div>' : ''}
+                    ${hasThumbnail ? `
+                        <div class="note-card-thumbnail" aria-hidden="true">
+                            <img src="${esc(previewImageUrl)}" alt="" loading="lazy">
+                        </div>
+                    ` : ''}
+                </article>
+            `
+        }
+
+        function renderNoteSearchBubble() {
+            const key = `${state.noteSearchOpen ? 1 : 0}|${state.noteSearchQuery}`
+            if (state.noteSearchRenderKey === key) return
+            state.noteSearchRenderKey = key
+
             const bubble = state.noteSearchOpen ? `
                 <div class="note-search-bubble">
                     <div class="rounded-2xl border border-border bg-white p-3 shadow-sm">
@@ -1927,117 +2023,97 @@
                 </div>
             ` : ''
 
+            el.notesMetaHost.innerHTML = bubble
+        }
+
+        function renderNoteCards() {
             if (!state.notes.length) {
-                el.notesList.innerHTML = `${bubble}<div class="text-sm text-muted-fg text-center py-6">No notes found.</div>`
-            } else {
-                el.notesList.innerHTML = `${bubble}${state.notes.map((note) => {
-                    const cardText = buildNoteCardText(note.content)
-                    const previewImageUrl = getNotePreviewImageUrl(note.content)
-                    const hasThumbnail = Boolean(previewImageUrl)
-                    const selected = state.editingNote?.note_id === note.note_id
-                    return `
-                        <article class="note-card note-card-preview-layout ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'ring-2 ring-primary/40' : ''} mb-3" data-note-open="${note.note_id}">
-                            <div class="note-card-preview-body min-w-0">
-                                <div class="note-card-preview-main">
-                                    <div class="note-card-meta-row">
-                                        <div class="note-card-date-wrap min-w-0">
-                                            <div class="text-xs text-muted-fg whitespace-nowrap">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                                            ${note.pinned === 1 ? `
-                                                <svg class="note-card-pinned-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                                    <path fill="currentColor" d="M14 3l7 7-2 2-2.5-2.5-3.5 3.5V18l-2 2-1-1 1.5-1.5-3.5-3.5L7 16l-2-2 3.5-3.5L5 8l2-2 3.5 3.5L14 3z"/>
-                                                </svg>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                    <div class="note-card-note-text">${esc(cardText || 'No preview available.')}</div>
-                                    <div class="note-card-attachment-row">
-                                        <span class="text-xs text-muted-fg">${note.attachment_count} attachments</span>
-                                    </div>
-                                </div>
-                            </div>
-                            ${hasThumbnail ? '<div class="note-card-thumbnail-spacer" aria-hidden="true"></div>' : ''}
-                            ${hasThumbnail ? `
-                                <div class="note-card-thumbnail" aria-hidden="true">
-                                    <img src="${esc(previewImageUrl)}" alt="" loading="lazy">
-                                </div>
-                            ` : ''}
-                        </article>
-                    `
-                }).join('')}`
+                state.noteCardNodeById.clear()
+                state.noteCardSignatureById.clear()
+                el.notesCardsHost.innerHTML = '<div class="text-sm text-muted-fg text-center py-6">No notes found.</div>'
+                return
             }
 
-            const searchInput = el.notesList.querySelector('#note-search-inline')
-            if (searchInput) {
-                searchInput.addEventListener('input', async () => {
-                    const isFocused = document.activeElement === searchInput
-                    const selectionStart = searchInput.selectionStart
-                    const selectionEnd = searchInput.selectionEnd
-                    state.noteSearchQuery = searchInput.value.trim()
-                    await loadNotes({ silent: true })
+            const nextIds = new Set()
+            for (const note of state.notes) {
+                const noteId = note.note_id
+                nextIds.add(noteId)
 
-                    if (isFocused && state.noteSearchOpen) {
-                        requestAnimationFrame(() => {
-                            const restoredInput = el.notesList.querySelector('#note-search-inline')
-                            if (!restoredInput) return
-                            try {
-                                restoredInput.focus({ preventScroll: true })
-                            } catch {
-                                restoredInput.focus()
-                            }
-                            if (selectionStart !== null && selectionEnd !== null) {
-                                try {
-                                    restoredInput.setSelectionRange(selectionStart, selectionEnd)
-                                } catch { /* ignore */ }
-                            }
-                        })
+                const nextSignature = getNoteCardSignature(note)
+                let card = state.noteCardNodeById.get(noteId)
+                const prevSignature = state.noteCardSignatureById.get(noteId)
+
+                if (!card || !card.isConnected || prevSignature !== nextSignature) {
+                    const nextCard = createMarkupElement(buildNoteCardMarkup(note))
+                    if (card && card.isConnected) {
+                        card.replaceWith(nextCard)
                     }
-                })
+                    card = nextCard
+                    state.noteCardNodeById.set(noteId, card)
+                    state.noteCardSignatureById.set(noteId, nextSignature)
+                }
+
+                el.notesCardsHost.appendChild(card)
             }
 
-            const dismiss = el.notesList.querySelector('#note-search-dismiss')
+            for (const [noteId, card] of state.noteCardNodeById.entries()) {
+                if (nextIds.has(noteId)) continue
+                if (card?.isConnected) card.remove()
+                state.noteCardNodeById.delete(noteId)
+                state.noteCardSignatureById.delete(noteId)
+            }
+        }
+
+        async function handleNotesListInput(event) {
+            const input = event.target.closest('#note-search-inline')
+            if (!input) return
+            state.noteSearchQuery = input.value.trim()
+            state.noteSearchRenderKey = `1|${state.noteSearchQuery}`
+            await loadNotes({ silent: true })
+        }
+
+        async function handleNotesListClick(event) {
+            const dismiss = event.target.closest('#note-search-dismiss')
             if (dismiss) {
-                dismiss.addEventListener('click', async () => {
-                    state.noteSearchOpen = false
-                    state.noteSearchQuery = ''
-                    updateHeaderButtons()
-                    await loadNotes({ silent: true })
-                })
+                state.noteSearchOpen = false
+                state.noteSearchQuery = ''
+                state.noteSearchRenderKey = ''
+                updateHeaderButtons()
+                await loadNotes({ silent: true })
+                return
             }
 
-            for (const card of el.notesList.querySelectorAll('[data-note-open]')) {
-                card.addEventListener('click', async (event) => {
-                    if (event.target.closest('[data-note-pin]') || event.target.closest('[data-note-archive]') || event.target.closest('a')) return
-                    const id = Number(card.dataset.noteOpen)
-                    const note = state.notes.find((item) => item.note_id === id)
-                    if (!note) return
-                    openNoteEditor(note)
+            const pinBtn = event.target.closest('[data-note-pin]')
+            if (pinBtn) {
+                event.stopPropagation()
+                const id = Number(pinBtn.dataset.notePin)
+                const pinned = pinBtn.dataset.pinned === '1'
+                await api(`/api/notes/${id}/pin`, {
+                    method: 'POST',
+                    body: JSON.stringify({ pinned: !pinned }),
                 })
+                await loadNotes({ silent: true })
+                return
             }
 
-            for (const btn of el.notesList.querySelectorAll('[data-note-pin]')) {
-                btn.addEventListener('click', async (event) => {
-                    event.stopPropagation()
-                    const id = Number(btn.dataset.notePin)
-                    const pinned = btn.dataset.pinned === '1'
-                    await api(`/api/notes/${id}/pin`, {
-                        method: 'POST',
-                        body: JSON.stringify({ pinned: !pinned }),
-                    })
-                    await loadNotes({ silent: true })
+            const archiveBtn = event.target.closest('[data-note-archive]')
+            if (archiveBtn) {
+                event.stopPropagation()
+                const id = Number(archiveBtn.dataset.noteArchive)
+                await api(`/api/notes/${id}/archive`, {
+                    method: 'POST',
+                    body: JSON.stringify({ is_archived: true }),
                 })
+                await loadNotes({ silent: true })
+                return
             }
 
-            for (const btn of el.notesList.querySelectorAll('[data-note-archive]')) {
-                btn.addEventListener('click', async (event) => {
-                    event.stopPropagation()
-                    const id = Number(btn.dataset.noteArchive)
-                    await api(`/api/notes/${id}/archive`, {
-                        method: 'POST',
-                        body: JSON.stringify({ is_archived: true }),
-                    })
-                    await loadNotes({ silent: true })
-                })
-            }
+            const card = event.target.closest('[data-note-open]')
+            if (!card || event.target.closest('a')) return
+            const id = Number(card.dataset.noteOpen)
+            const note = state.notes.find((item) => item.note_id === id)
+            if (!note) return
+            openNoteEditor(note)
         }
 
         async function createNote(content) {
@@ -2756,6 +2832,7 @@
             state.noteSearchOpen = !state.noteSearchOpen
             if (!state.noteSearchOpen && state.noteSearchQuery) {
                 state.noteSearchQuery = ''
+                state.noteSearchRenderKey = ''
                 loadNotes({ silent: true })
             }
             renderNotes()
@@ -2767,6 +2844,14 @@
                     if (input) input.focus()
                 })
             }
+        })
+
+        el.notesList.addEventListener('click', (event) => {
+            handleNotesListClick(event).catch(() => null)
+        })
+
+        el.notesList.addEventListener('input', (event) => {
+            handleNotesListInput(event).catch(() => null)
         })
 
         //     < div class="note-ribbon" >
