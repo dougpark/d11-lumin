@@ -110,10 +110,21 @@ function decodeBase64Url(value: string): Uint8Array {
     return bytes
 }
 
+function getTokenSecret(secret: string | undefined | null): string | null {
+    if (typeof secret !== 'string') return null
+    const normalized = secret.trim()
+    return normalized.length > 0 ? normalized : null
+}
+
 async function signToken(secret: string, payload: string): Promise<string> {
+    const normalizedSecret = getTokenSecret(secret)
+    if (!normalizedSecret) {
+        throw new Error('TOKEN_SECRET is not configured')
+    }
+
     const key = await crypto.subtle.importKey(
         'raw',
-        new TextEncoder().encode(secret),
+        new TextEncoder().encode(normalizedSecret),
         { name: 'HMAC', hash: 'SHA-256' },
         false,
         ['sign'],
@@ -161,8 +172,10 @@ notes.get('/attachments/download', async (c) => {
     const token = c.req.query('t')?.trim() ?? ''
     if (!token) return c.json({ error: 'Unauthorized' }, 401)
     if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments storage is not configured' }, 500)
+    const tokenSecret = getTokenSecret(c.env.TOKEN_SECRET)
+    if (!tokenSecret) return c.json({ error: 'Attachment signing is not configured' }, 500)
 
-    const parsed = await verifyDownloadToken(c.env.TOKEN_SECRET, token)
+    const parsed = await verifyDownloadToken(tokenSecret, token)
     if (!parsed) return c.json({ error: 'Unauthorized' }, 401)
 
     const attachment = await getAttachmentForDownload(c.env.DB, parsed.noteId, parsed.attachmentId)
@@ -541,8 +554,10 @@ notes.get('/:id/attachments/:attachmentId/access', async (c) => {
 
     const attachment = await getNoteAttachment(c.env.DB, user.id, id, attachmentId)
     if (!attachment) return c.json({ error: 'Attachment not found' }, 404)
+    const tokenSecret = getTokenSecret(c.env.TOKEN_SECRET)
+    if (!tokenSecret) return c.json({ error: 'Attachment signing is not configured' }, 500)
 
-    const signed = await createDownloadToken(c.env.TOKEN_SECRET, user.id, id, attachmentId)
+    const signed = await createDownloadToken(tokenSecret, user.id, id, attachmentId)
     const downloadUrl = new URL('/api/notes/attachments/download', c.req.url)
     downloadUrl.searchParams.set('t', signed.token)
 
