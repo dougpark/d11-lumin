@@ -214,8 +214,14 @@ notes.get('/attachments/p/:slug', async (c) => {
 
 notes.get('/channels', async (c) => {
     const user = c.get('user')
-    const data = await listNoteChannels(c.env.DB, user.id)
-    return c.json({ data })
+    const summary = await listNoteChannels(c.env.DB, user.id)
+    return c.json({
+        data: summary.channels,
+        meta: {
+            all_active_count: summary.all_active_count,
+            archived_count: summary.archived_count,
+        },
+    })
 })
 
 notes.post('/channels', async (c) => {
@@ -238,11 +244,19 @@ notes.post('/channels', async (c) => {
 
 notes.get('/', async (c) => {
     const user = c.get('user')
-    const channelId = parseInt(c.req.query('channel_id') ?? '', 10)
-    if (!Number.isInteger(channelId) || channelId < 1) return c.json({ error: 'channel_id is required' }, 400)
+    const rawChannelId = c.req.query('channel_id')?.trim() ?? ''
+    const channelId = rawChannelId ? parseInt(rawChannelId, 10) : undefined
+    if (rawChannelId && (!Number.isInteger(channelId) || (channelId as number) < 1)) {
+        return c.json({ error: 'channel_id must be a positive integer' }, 400)
+    }
 
     const q = c.req.query('q')?.trim() ?? ''
-    const includeArchived = c.req.query('archived') === '1'
+    const archivedQuery = (c.req.query('archived') ?? '').trim().toLowerCase()
+    const archivedMode = archivedQuery === 'only'
+        ? 'only'
+        : archivedQuery === '1'
+            ? 'include'
+            : 'exclude'
     const beforeId = c.req.query('before_id') ? parseInt(c.req.query('before_id')!, 10) : undefined
     const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '100', 10) || 100, 1), 200)
 
@@ -251,13 +265,20 @@ notes.get('/', async (c) => {
             user_id: user.id,
             channel_id: channelId,
             q,
-            include_archived: includeArchived,
+            archived_mode: archivedMode,
             before_id: beforeId,
             limit,
         })
         return c.json({
             data: result.notes,
-            meta: { total: result.total, channel_id: channelId, q, archived: includeArchived ? 1 : 0, limit, before_id: beforeId ?? null },
+            meta: {
+                total: result.total,
+                channel_id: channelId ?? null,
+                q,
+                archived: archivedMode,
+                limit,
+                before_id: beforeId ?? null,
+            },
         })
     } catch (err) {
         return c.json({ error: (err as Error).message }, 400)

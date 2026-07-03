@@ -1198,7 +1198,10 @@
             token: localStorage.getItem('d11_token') || '',
             user: null,
             noteChannels: [],
+            noteAllActiveCount: 0,
+            noteArchivedCount: 0,
             currentNoteChannelId: null,
+            noteListScope: 'channel',
             notes: [],
             noteSearchQuery: '',
             noteSearchOpen: false,
@@ -1360,7 +1363,11 @@
 
         function syncUrlState() {
             const params = new URLSearchParams()
-            if (state.currentNoteChannelId) params.set('channel', String(state.currentNoteChannelId))
+            if (state.noteListScope !== 'channel') {
+                params.set('scope', state.noteListScope)
+            } else if (state.currentNoteChannelId) {
+                params.set('channel', String(state.currentNoteChannelId))
+            }
             if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
             const next = params.toString()
             const nextUrl = next ? `/notes?${next}` : '/notes'
@@ -1369,6 +1376,12 @@
 
         function getCurrentNoteChannel() {
             return state.noteChannels.find((channel) => channel.id === state.currentNoteChannelId) ?? null
+        }
+
+        function getNoteChannelName(note = null) {
+            const channelId = note?.channel_id ?? state.currentNoteChannelId
+            if (!channelId) return 'Private Notes'
+            return state.noteChannels.find((channel) => channel.id === channelId)?.name || 'Private Notes'
         }
 
         function isDesktopViewport() {
@@ -1403,7 +1416,12 @@
             if (el.noteEditorEmpty) el.noteEditorEmpty.hidden = hasNote
             if (el.noteEditorCard) el.noteEditorCard.hidden = !hasNote
             el.btnNoteEditorBack.hidden = state.isDesktopView
-            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+            el.noteEditorChannelName.textContent = getNoteChannelName(state.editingNote)
+        }
+
+        function updateComposerVisibility() {
+            const showComposer = state.noteListScope === 'channel'
+            el.composer.hidden = !showComposer
         }
 
         function applyResponsiveLayout({ sync = false } = {}) {
@@ -1449,7 +1467,7 @@
         function applyHeaderContext(page, { animate = true } = {}) {
             if (page === 'note-editor') {
                 const noteTitle = state.editingNote?.pinned === 1 ? 'Pinned Note' : 'Edit Note'
-                const noteSubtitle = getCurrentNoteChannel()?.name || 'Private Notes'
+                const noteSubtitle = getNoteChannelName(state.editingNote)
                 setHeader(noteTitle, noteSubtitle, { animate })
                 return
             }
@@ -1458,8 +1476,12 @@
                 setHeader('Profile', subtitle, { animate })
                 return
             }
-            const channel = getCurrentNoteChannel()
-            setHeader(channel?.name || 'My Notes', state.lastNoteStatus, { animate })
+            const title = state.noteListScope === 'all'
+                ? 'All Notes'
+                : state.noteListScope === 'archived'
+                    ? 'Archived'
+                    : (getCurrentNoteChannel()?.name || 'My Notes')
+            setHeader(title, state.lastNoteStatus, { animate })
         }
 
         function updateHeaderButtons() {
@@ -1509,6 +1531,7 @@
 
             applyHeaderContext(page)
             updateHeaderButtons()
+            updateComposerVisibility()
             updateNoteEditorPane()
 
             if (sync) syncUrlState()
@@ -1524,14 +1547,43 @@
 
         // ─── Note channels ────────────────────────────────────────────────────
 
+        function formatCountLabel(value) {
+            const count = Number.isFinite(Number(value)) ? Number(value) : 0
+            return `${count}`
+        }
+
         function renderNoteChannels() {
-            el.noteChannels.innerHTML = state.noteChannels.map((channel) => {
-                const active = channel.id === state.currentNoteChannelId
-                return `<button data-note-channel-id="${channel.id}" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}">${esc(channel.name)}</button>`
+            const allButton = `<button data-note-scope="all" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${state.noteListScope === 'all' ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}"><span class="flex items-center justify-between gap-3"><span>All Notes</span><span class="text-xs text-muted-fg">${formatCountLabel(state.noteAllActiveCount)}</span></span></button>`
+            const channels = state.noteChannels.map((channel) => {
+                const active = state.noteListScope === 'channel' && channel.id === state.currentNoteChannelId
+                const activeCount = formatCountLabel(channel.active_count)
+                return `<button data-note-channel-id="${channel.id}" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${active ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}"><span class="flex items-center justify-between gap-3"><span class="truncate">${esc(channel.name)}</span><span class="text-xs text-muted-fg">${activeCount}</span></span></button>`
             }).join('')
+            const archivedButton = `<button data-note-scope="archived" class="w-full text-left px-3 py-2 rounded-xl text-sm transition ${state.noteListScope === 'archived' ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-muted text-[#1a1a2e]'}"><span class="flex items-center justify-between gap-3"><span>Archived</span><span class="text-xs text-muted-fg">${formatCountLabel(state.noteArchivedCount)}</span></span></button>`
+
+            el.noteChannels.innerHTML = [
+                allButton,
+                channels,
+                '<div class="my-2 border-t border-border" aria-hidden="true"></div>',
+                archivedButton,
+            ].join('')
+
+            for (const btn of el.noteChannels.querySelectorAll('button[data-note-scope]')) {
+                btn.addEventListener('click', () => {
+                    const scope = btn.dataset.noteScope === 'archived' ? 'archived' : 'all'
+                    state.noteListScope = scope
+                    state.noteSearchOpen = false
+                    state.noteSearchQuery = ''
+                    clearEditingNote()
+                    renderNoteChannels()
+                    goToNotesListPage()
+                    loadNotes()
+                })
+            }
 
             for (const btn of el.noteChannels.querySelectorAll('button[data-note-channel-id]')) {
                 btn.addEventListener('click', () => {
+                    state.noteListScope = 'channel'
                     state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
                     state.noteSearchOpen = false
                     state.noteSearchQuery = ''
@@ -1539,7 +1591,7 @@
                     renderNoteChannels()
                     goToNotesListPage()
                     loadNotes()
-                    el.messageInput.focus()
+                    if (!el.composer.hidden) el.messageInput.focus()
                 })
             }
         }
@@ -1548,6 +1600,8 @@
             const res = await api('/api/notes/channels')
             if (!res) return
             state.noteChannels = res.data || []
+            state.noteAllActiveCount = Number(res.meta?.all_active_count || 0)
+            state.noteArchivedCount = Number(res.meta?.archived_count || 0)
             if ((!state.currentNoteChannelId || !state.noteChannels.some((channel) => channel.id === state.currentNoteChannelId)) && state.noteChannels[0]) {
                 state.currentNoteChannelId = state.noteChannels[0].id
             }
@@ -1557,7 +1611,7 @@
         // ─── Notes list ───────────────────────────────────────────────────────
 
         async function loadNotes({ silent = false } = {}) {
-            if (!state.currentNoteChannelId) return
+            if (state.noteListScope === 'channel' && !state.currentNoteChannelId) return
 
             if (!silent) {
                 state.lastNoteStatus = 'Loading...'
@@ -1566,7 +1620,13 @@
                 }
             }
 
-            const params = new URLSearchParams({ channel_id: String(state.currentNoteChannelId) })
+            const params = new URLSearchParams()
+            if (state.noteListScope === 'channel' && state.currentNoteChannelId) {
+                params.set('channel_id', String(state.currentNoteChannelId))
+            }
+            if (state.noteListScope === 'archived') {
+                params.set('archived', 'only')
+            }
             if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
 
             const res = await api(`/api/notes?${params.toString()}`)
@@ -1699,7 +1759,7 @@
         }
 
         async function createNote(content) {
-            if (!state.currentNoteChannelId) return
+            if (state.noteListScope !== 'channel' || !state.currentNoteChannelId) return
             await api('/api/notes', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -1890,7 +1950,7 @@
             state.noteSaveInFlight = false
             state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
-            el.noteEditorChannelName.textContent = getCurrentNoteChannel()?.name || 'Private Notes'
+            el.noteEditorChannelName.textContent = getNoteChannelName(note)
             setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
             setNoteEditorValue(note.content || '')
             setNotePreviewOpen(true)
@@ -2321,6 +2381,10 @@
                 el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
 
                 const query = new URLSearchParams(location.search)
+                const fromScope = (query.get('scope') || '').trim().toLowerCase()
+                if (fromScope === 'all' || fromScope === 'archived') {
+                    state.noteListScope = fromScope
+                }
                 const fromChannel = query.get('channel') ? parseInt(query.get('channel'), 10) : null
                 if (Number.isInteger(fromChannel) && fromChannel > 0) state.currentNoteChannelId = fromChannel
                 const fromQ = query.get('q')?.trim() ?? ''
@@ -2333,9 +2397,9 @@
                 await loadNotes()
                 applyResponsiveLayout({ sync: false })
 
-                if (state.currentNoteChannelId) {
+                if (state.noteListScope !== 'channel' || state.currentNoteChannelId) {
                     goToNotesListPage({ sync: false })
-                    el.messageInput.focus()
+                    if (!el.composer.hidden) el.messageInput.focus()
                 } else {
                     goToChannelsPage({ sync: false })
                 }

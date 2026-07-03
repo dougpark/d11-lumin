@@ -1,6 +1,17 @@
 import { toFtsQuery } from '../utils/search.ts'
 import type { Attachment, Note, NoteChannel } from './types.ts'
 
+export type NoteChannelWithCounts = NoteChannel & {
+    active_count: number
+    archived_count: number
+}
+
+export type NoteChannelSummary = {
+    channels: NoteChannelWithCounts[]
+    all_active_count: number
+    archived_count: number
+}
+
 function createAttachmentSlug(): string {
     return `att_${crypto.randomUUID().replace(/-/g, '').toLowerCase()}`
 }
@@ -26,13 +37,40 @@ export async function ensureDefaultNoteChannel(db: D1Database, userId: number): 
     return created
 }
 
-export async function listNoteChannels(db: D1Database, userId: number): Promise<NoteChannel[]> {
+export async function listNoteChannels(db: D1Database, userId: number): Promise<NoteChannelSummary> {
     await ensureDefaultNoteChannel(db, userId)
-    const result = await db
-        .prepare('SELECT * FROM note_channels WHERE user_id = ? ORDER BY created_at ASC')
-        .bind(userId)
-        .all<NoteChannel>()
-    return result.results
+
+    const [channelsResult, totalsRow] = await Promise.all([
+        db
+            .prepare(
+                `SELECT nc.*,
+                        COALESCE(SUM(CASE WHEN n.is_hidden = 0 AND n.is_archived = 0 THEN 1 ELSE 0 END), 0) AS active_count,
+                        COALESCE(SUM(CASE WHEN n.is_hidden = 0 AND n.is_archived = 1 THEN 1 ELSE 0 END), 0) AS archived_count
+                 FROM note_channels nc
+                 LEFT JOIN notes n ON n.channel_id = nc.id AND n.user_id = nc.user_id
+                 WHERE nc.user_id = ?
+                 GROUP BY nc.id
+                 ORDER BY nc.created_at ASC`,
+            )
+            .bind(userId)
+            .all<NoteChannelWithCounts>(),
+        db
+            .prepare(
+                `SELECT
+                    COALESCE(SUM(CASE WHEN is_hidden = 0 AND is_archived = 0 THEN 1 ELSE 0 END), 0) AS all_active_count,
+                    COALESCE(SUM(CASE WHEN is_hidden = 0 AND is_archived = 1 THEN 1 ELSE 0 END), 0) AS archived_count
+                 FROM notes
+                 WHERE user_id = ?`,
+            )
+            .bind(userId)
+            .first<{ all_active_count: number; archived_count: number }>(),
+    ])
+
+    return {
+        channels: channelsResult.results,
+        all_active_count: totalsRow?.all_active_count ?? 0,
+        archived_count: totalsRow?.archived_count ?? 0,
+    }
 }
 
 export async function createNoteChannel(db: D1Database, userId: number, name: string): Promise<NoteChannel> {
@@ -63,17 +101,34 @@ async function assertChannelOwnership(db: D1Database, userId: number, channelId:
 
 export async function listNotes(
     db: D1Database,
-    opts: { user_id: number; channel_id: number; q?: string; limit?: number; before_id?: number; include_archived?: boolean },
+    opts: {
+        user_id: number
+        channel_id?: number
+        q?: string
+        limit?: number
+        before_id?: number
+        archived_mode?: 'exclude' | 'include' | 'only'
+    },
 ): Promise<{ notes: Note[]; total: number }> {
-    await assertChannelOwnership(db, opts.user_id, opts.channel_id)
+    if (Number.isInteger(opts.channel_id) && (opts.channel_id as number) > 0) {
+        await assertChannelOwnership(db, opts.user_id, opts.channel_id as number)
+    }
 
     const q = opts.q?.trim() ?? ''
     const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200)
-    const filters = ['n.user_id = ?', 'n.channel_id = ?', 'n.is_hidden = 0']
-    const bindings: (string | number)[] = [opts.user_id, opts.channel_id]
+    const archivedMode = opts.archived_mode ?? 'exclude'
+    const filters = ['n.user_id = ?', 'n.is_hidden = 0']
+    const bindings: (string | number)[] = [opts.user_id]
 
-    if (!opts.include_archived) {
+    if (Number.isInteger(opts.channel_id) && (opts.channel_id as number) > 0) {
+        filters.push('n.channel_id = ?')
+        bindings.push(opts.channel_id as number)
+    }
+
+    if (archivedMode === 'exclude') {
         filters.push('n.is_archived = 0')
+    } else if (archivedMode === 'only') {
+        filters.push('n.is_archived = 1')
     }
 
     let from = 'FROM notes n'
