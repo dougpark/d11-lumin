@@ -1416,6 +1416,8 @@
             noteCardNodeById: new Map(),
             noteCardSignatureById: new Map(),
             noteSearchRenderKey: '',
+            notePreviewHydrationToken: 0,
+            notePreviewHydratingNoteId: null,
             activePage: 'channels',
             lastNoteStatus: 'Loading notes...',
             isDesktopView: false,
@@ -1679,6 +1681,10 @@
             if (!state.editingNote) return false
             if (state.isDesktopView) return true
             return state.activePage === 'note-editor'
+        }
+
+        function isEditingNote(noteId) {
+            return Boolean(state.editingNote && state.editingNote.note_id === noteId)
         }
 
         function clearEditingNote({ keepContent = false } = {}) {
@@ -2266,7 +2272,7 @@
             }
         }
 
-        function setNotePreviewOpen(isOpen) {
+        function setNotePreviewOpen(isOpen, { deferHydrationRender = false } = {}) {
             state.notePreviewOpen = Boolean(isOpen)
             if (window.D11NotesEditorShortcuts?.setEditorVisible) {
                 window.D11NotesEditorShortcuts.setEditorVisible(!state.notePreviewOpen, el.noteEditorInput)
@@ -2278,10 +2284,36 @@
             el.btnNotePreview.setAttribute('aria-pressed', state.notePreviewOpen ? 'true' : 'false')
             if (state.notePreviewOpen) {
                 if (state.editingNote) {
-                    ensureNoteAttachmentAccessUrls(state.editingNote.note_id)
-                        .finally(() => renderNoteMarkdownPreview())
+                    if (deferHydrationRender) {
+                        el.noteEditorPreview.innerHTML = '<p class="text-sm text-muted-fg">Loading preview...</p>'
+                    } else {
+                        const noteId = state.editingNote.note_id
+                        ensureNoteAttachmentAccessUrls(noteId)
+                            .finally(() => {
+                                if (state.notePreviewOpen && isEditingNote(noteId)) {
+                                    renderNoteMarkdownPreview()
+                                }
+                            })
+                    }
                 } else {
                     renderNoteMarkdownPreview()
+                }
+            }
+        }
+
+        async function hydrateNotePreviewForSelection(noteId) {
+            const token = ++state.notePreviewHydrationToken
+            state.notePreviewHydratingNoteId = noteId
+
+            try {
+                await loadNoteAttachments(noteId, { skipPreviewRender: true })
+                if (state.notePreviewHydrationToken !== token) return
+                if (!isEditingNote(noteId)) return
+                if (!state.notePreviewOpen) return
+                renderNoteMarkdownPreview()
+            } finally {
+                if (state.notePreviewHydrationToken === token) {
+                    state.notePreviewHydratingNoteId = null
                 }
             }
         }
@@ -2370,16 +2402,17 @@
         function openNoteEditor(note) {
             state.editingNote = note
             state.noteAttachments = []
+            state.noteImagePreviews = []
             state.noteLastSavedContent = (note.content || '').trim()
             state.noteSaveInFlight = false
             state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
             setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
             setNoteEditorValue(note.content || '')
-            setNotePreviewOpen(true)
+            setNotePreviewOpen(true, { deferHydrationRender: true })
             updateNoteEditorPane()
             window.D11NotesEditorShortcuts?.refresh?.()
-            loadNoteAttachments(note.note_id).catch(() => null)
+            hydrateNotePreviewForSelection(note.note_id).catch(() => null)
         }
 
         function enterNoteEditMode() {
@@ -2575,10 +2608,12 @@
         }
 
         async function loadNoteImagePreviews(noteId) {
+            if (!isEditingNote(noteId)) return
             const imageAttachments = state.noteAttachments.filter((attachment) =>
                 typeof attachment.content_type === 'string' && attachment.content_type.startsWith('image/'))
             const previews = []
             for (const attachment of imageAttachments) {
+                if (!isEditingNote(noteId)) return
                 try {
                     const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
                     if (access?.data?.url) {
@@ -2591,6 +2626,7 @@
                     }
                 } catch { /* ignore */ }
             }
+            if (!isEditingNote(noteId)) return
             state.noteImagePreviews = previews
         }
 
@@ -2657,18 +2693,22 @@
             }
         }
 
-        async function loadNoteAttachments(noteId) {
+        async function loadNoteAttachments(noteId, { skipPreviewRender = false } = {}) {
             const res = await api(`/api/notes/${noteId}/attachments`)
+            if (!isEditingNote(noteId)) return
             state.noteAttachments = res?.data || []
             await ensureNoteAttachmentAccessUrls(noteId)
             await loadNoteImagePreviews(noteId)
+            if (!isEditingNote(noteId)) return
             renderNoteAttachments()
-            if (state.notePreviewOpen) renderNoteMarkdownPreview()
+            if (state.notePreviewOpen && !skipPreviewRender) renderNoteMarkdownPreview()
         }
 
         async function ensureNoteAttachmentAccessUrls(noteId) {
+            if (!isEditingNote(noteId)) return
             const nextUrls = { ...state.noteAttachmentAccessUrls }
             for (const attachment of state.noteAttachments) {
+                if (!isEditingNote(noteId)) return
                 if (typeof nextUrls[attachment.attachment_id] === 'string' && nextUrls[attachment.attachment_id]) continue
                 try {
                     const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
@@ -2677,6 +2717,7 @@
                     }
                 } catch { /* ignore */ }
             }
+            if (!isEditingNote(noteId)) return
             state.noteAttachmentAccessUrls = nextUrls
         }
 

@@ -254,7 +254,7 @@ notes.get('/channels', async (c) => {
             all_active_count: summary.all_active_count,
             archived_count: summary.archived_count,
         },
-    })
+    } as any)
 })
 
 notes.post('/channels', async (c) => {
