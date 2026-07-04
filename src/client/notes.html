@@ -1412,6 +1412,7 @@
             noteListRequestSeq: 0,
             noteListAppliedSeq: 0,
             noteListEtagByScope: new Map(),
+            noteListActiveScopeKey: null,
             noteCardNodeById: new Map(),
             noteCardSignatureById: new Map(),
             noteSearchRenderKey: '',
@@ -1926,7 +1927,8 @@
             const headers = {
                 ...authHeaders(),
             }
-            const priorEtag = state.noteListEtagByScope.get(scopeKey)
+            const shouldSendConditional = state.noteListActiveScopeKey === scopeKey
+            const priorEtag = shouldSendConditional ? state.noteListEtagByScope.get(scopeKey) : null
             if (priorEtag) {
                 headers['If-None-Match'] = priorEtag
             }
@@ -1971,6 +1973,7 @@
             if (responseEtag) {
                 state.noteListEtagByScope.set(scopeKey, responseEtag)
             }
+            state.noteListActiveScopeKey = scopeKey
             logNotesPollingDebug({
                 stage: 'applied',
                 status: response.status,
