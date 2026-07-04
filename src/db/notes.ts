@@ -109,7 +109,7 @@ export async function listNotes(
         before_id?: number
         archived_mode?: 'exclude' | 'include' | 'only'
     },
-): Promise<{ notes: Note[]; total: number }> {
+): Promise<{ notes: Note[]; total: number; max_last_modified_at: string | null }> {
     if (Number.isInteger(opts.channel_id) && (opts.channel_id as number) > 0) {
         await assertChannelOwnership(db, opts.user_id, opts.channel_id as number)
     }
@@ -146,16 +146,23 @@ export async function listNotes(
     const where = filters.join(' AND ')
     const orderBy = 'n.pinned DESC, n.last_modified_at DESC, n.note_id DESC'
 
-    const [listResult, countRow] = await Promise.all([
+    const [listResult, countRow, maxModifiedRow] = await Promise.all([
         db.prepare(`SELECT n.* ${from} WHERE ${where} ORDER BY ${orderBy} LIMIT ?`)
             .bind(...bindings, limit)
             .all<Note>(),
         db.prepare(`SELECT COUNT(*) AS cnt ${from} WHERE ${where}`)
             .bind(...bindings)
             .first<{ cnt: number }>(),
+        db.prepare(`SELECT MAX(n.last_modified_at) AS max_last_modified_at ${from} WHERE ${where}`)
+            .bind(...bindings)
+            .first<{ max_last_modified_at: string | null }>(),
     ])
 
-    return { notes: listResult.results, total: countRow?.cnt ?? 0 }
+    return {
+        notes: listResult.results,
+        total: countRow?.cnt ?? 0,
+        max_last_modified_at: maxModifiedRow?.max_last_modified_at ?? null,
+    }
 }
 
 export async function getNoteById(db: D1Database, userId: number, noteId: number): Promise<Note | null> {

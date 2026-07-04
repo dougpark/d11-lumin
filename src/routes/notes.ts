@@ -39,6 +39,25 @@ const ALLOWED_ATTACHMENT_TYPES: Record<string, string[]> = {
     'text/csv': ['csv'],
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+    return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function buildNotesListEtag(seed: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed))
+    const hash = bytesToHex(new Uint8Array(digest)).slice(0, 24)
+    return `"notes-${hash}"`
+}
+
+function parseIfNoneMatchHeader(value: string | undefined): string[] {
+    if (!value) return []
+    return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => item.replace(/^W\//i, '').trim())
+}
+
 type UploadFileLike = {
     name: string
     type: string
@@ -283,6 +302,28 @@ notes.get('/', async (c) => {
             before_id: beforeId,
             limit,
         })
+
+        const etagSeed = JSON.stringify({
+            user_id: user.id,
+            channel_id: channelId ?? null,
+            q,
+            archived: archivedMode,
+            limit,
+            before_id: beforeId ?? null,
+            total: result.total,
+            max_last_modified_at: result.max_last_modified_at,
+        })
+        const etag = await buildNotesListEtag(etagSeed)
+
+        c.header('Cache-Control', 'private, no-cache, must-revalidate')
+        c.header('Vary', 'Authorization')
+        c.header('ETag', etag)
+
+        const ifNoneMatchValues = parseIfNoneMatchHeader(c.req.header('if-none-match'))
+        if (ifNoneMatchValues.includes(etag)) {
+            return c.body(null, 304)
+        }
+
         return c.json({
             data: result.notes,
             meta: {
@@ -292,6 +333,7 @@ notes.get('/', async (c) => {
                 archived: archivedMode,
                 limit,
                 before_id: beforeId ?? null,
+                max_last_modified_at: result.max_last_modified_at,
             },
         })
     } catch (err) {

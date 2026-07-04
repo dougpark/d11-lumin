@@ -23,6 +23,7 @@ dev-prod:
 # Deploy production
 deploy:
     bun run deploy
+    @date
 
 # Stream real-time production logs (accepts optional filtering arguments)
 logs *args:

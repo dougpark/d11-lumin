@@ -1411,6 +1411,7 @@
             pollTimer: null,
             noteListRequestSeq: 0,
             noteListAppliedSeq: 0,
+            noteListEtagByScope: new Map(),
             noteCardNodeById: new Map(),
             noteCardSignatureById: new Map(),
             noteSearchRenderKey: '',
@@ -1490,6 +1491,15 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;')
+        }
+
+        function isNotesPollingDebugEnabled() {
+            return localStorage.getItem('d11_notes_poll_debug') === '1'
+        }
+
+        function logNotesPollingDebug(payload) {
+            if (!isNotesPollingDebugEnabled()) return
+            console.debug('[notes-poll]', payload)
         }
 
         async function api(path, options = {}) {
@@ -1893,6 +1903,7 @@
             if (state.noteListScope === 'channel' && !state.currentNoteChannelId) return
 
             const requestSeq = ++state.noteListRequestSeq
+            const previousStatus = state.lastNoteStatus
 
             if (!silent) {
                 state.lastNoteStatus = 'Loading...'
@@ -1910,13 +1921,62 @@
             }
             if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
 
-            const res = await api(`/api/notes?${params.toString()}`)
-            if (!res) return
+            const scopePath = `/api/notes?${params.toString()}`
+            const scopeKey = scopePath
+            const headers = {
+                ...authHeaders(),
+            }
+            const priorEtag = state.noteListEtagByScope.get(scopeKey)
+            if (priorEtag) {
+                headers['If-None-Match'] = priorEtag
+            }
+
+            const response = await fetch(scopePath, { headers })
+            logNotesPollingDebug({
+                stage: 'response',
+                status: response.status,
+                scope: scopeKey,
+                sent_if_none_match: priorEtag || null,
+                response_etag: response.headers.get('etag'),
+            })
+            if (response.status === 401) {
+                doLogout()
+                return
+            }
 
             if (requestSeq < state.noteListAppliedSeq) {
                 return
             }
             state.noteListAppliedSeq = requestSeq
+
+            if (response.status === 304) {
+                logNotesPollingDebug({
+                    stage: 'not-modified',
+                    status: 304,
+                    scope: scopeKey,
+                })
+                if (!silent && state.activePage !== 'note-editor') {
+                    state.lastNoteStatus = previousStatus
+                    el.statusText.textContent = state.lastNoteStatus
+                }
+                return
+            }
+
+            const res = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(res.error || 'Request failed')
+            }
+
+            const responseEtag = response.headers.get('etag')
+            if (responseEtag) {
+                state.noteListEtagByScope.set(scopeKey, responseEtag)
+            }
+            logNotesPollingDebug({
+                stage: 'applied',
+                status: response.status,
+                scope: scopeKey,
+                stored_etag: responseEtag || null,
+            })
 
             state.notes = res.data || []
             state.lastNoteStatus = `${res.meta.total || 0} notes`
