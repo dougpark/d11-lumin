@@ -45,13 +45,15 @@
 
     <!-- ── Nav ── -->
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
-        <div class="max-w-5xl mx-auto px-6 h-14 flex items-center gap-3">
+        <div class="max-w-5xl mx-auto px-6 h-16 flex items-center gap-3">
             <a href="/" class="flex-shrink-0">
-                <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
-            <span class="text-g-border select-none">|</span>
-            <h1 class="text-sm font-semibold text-g-black flex-1">Admin</h1>
-            <div class="relative">
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">Lumin Admin</h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Loading user...</p>
+            </div>
+            <div class="relative flex-shrink-0">
                 <button id="btn-suite-menu"
                     class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors"
                     aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
@@ -271,6 +273,12 @@
         }
         function fmt(n) { return Number(n).toLocaleString() }
 
+        function setHeaderUserName(user) {
+            const el = qs('#header-user-name')
+            if (!el || !user) return
+            el.textContent = user.full_name || user.slug_prefix || 'User'
+        }
+
         function closeSuiteNavMenu() {
             const menu = qs('#suite-menu')
             const btn = qs('#btn-suite-menu')
@@ -320,6 +328,7 @@
                 if (!meRes.ok) { location.href = '/'; return }
                 me = await meRes.json()
                 currentUserId = me.id
+                setHeaderUserName(me)
                 setSuiteNavAccess(me.is_admin === 1)
             } catch { location.href = '/'; return }
 

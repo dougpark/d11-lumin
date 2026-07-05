@@ -163,12 +163,15 @@ const SHARED_SCRIPT = `<script>
     function _headerSetUser(user) {
         if (!user) return
         var initials = ((user.full_name || user.slug_prefix || '?')).slice(0, 2).toUpperCase()
+        var displayName = user.full_name || user.slug_prefix || 'User'
         var avatarEl = document.getElementById('user-avatar')
         if (avatarEl) avatarEl.textContent = initials
+        var headerUserNameEl = document.getElementById('header-user-name')
+        if (headerUserNameEl) headerUserNameEl.textContent = displayName
         var handleEl = document.getElementById('user-handle')
         if (handleEl) handleEl.textContent = user.slug_prefix || ''
         var nameEl = document.getElementById('menu-name')
-        if (nameEl) nameEl.textContent = user.full_name || user.slug_prefix || ''
+        if (nameEl) nameEl.textContent = displayName
         var prefixEl = document.getElementById('menu-prefix')
         if (prefixEl) prefixEl.textContent = 'd11.me/l/' + (user.slug_prefix || '') + '/\u2026'
         var isAdmin = user.is_admin === 1
@@ -284,6 +287,7 @@ export function renderHeader(config: HeaderConfig): string {
     } = config
 
     const hiddenCls = initiallyHidden ? ' hidden' : ''
+    const showUserControl = activePage === 'app'
 
     const addButton = showAdd
         ? `<button onclick="openAddModal()" class="bg-g-blue text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-blue-600 transition-all flex items-center gap-1.5 flex-shrink-0">
@@ -292,10 +296,15 @@ export function renderHeader(config: HeaderConfig): string {
 
     return `<!-- %%HEADER%% — rendered by renderHeader() -->
     <header id="shared-header" class="sticky top-0 z-50${hiddenCls} bg-white/90 backdrop-blur-md border-b border-g-border">
-        <div class="max-w-7xl mx-auto px-6 h-14 flex items-center gap-3">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center gap-3">
             <a href="/" class="flex-shrink-0">
                 <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
+
+            <div class="min-w-0 flex-shrink-0 max-w-[220px]">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">Lumin <span id="page-title" class="capitalize">${pageTitle}</span></h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Loading user...</p>
+            </div>
 
             <!-- Back / Forward / Top -->
             <div class="flex items-center gap-0.5 flex-shrink-0">
@@ -312,9 +321,6 @@ export function renderHeader(config: HeaderConfig): string {
                     ${svg(ICON.grid)}
                 </button>
             </div>
-
-            <span class="text-g-border select-none hidden sm:block">|</span>
-            <h1 id="page-title" class="hidden sm:block text-sm font-semibold text-g-black flex-shrink-0 capitalize">${pageTitle}</h1>
 
             <!-- Search -->
             <div class="flex-1 relative min-w-0">
@@ -337,6 +343,7 @@ export function renderHeader(config: HeaderConfig): string {
                 ${suiteDropdown(activePage)}
             </div>
 
+            ${showUserControl ? `
             <!-- User avatar + dropdown -->
             <div class="relative flex-shrink-0">
                 <button onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-g-gray hover:text-g-black transition-colors">
@@ -351,6 +358,7 @@ export function renderHeader(config: HeaderConfig): string {
                     ${desktopDropdown(dropdownItems)}
                 </div>
             </div>
+            ` : ''}
         </div>
     </header>
 ${showMobileFooter ? mobileFooterNav(activePage) : ''}

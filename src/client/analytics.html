@@ -49,21 +49,15 @@
 
     <!-- ── Nav ── -->
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
-        <div class="max-w-3xl mx-auto px-6 h-14 flex items-center gap-3">
+        <div class="max-w-3xl mx-auto px-6 h-16 flex items-center gap-3">
             <a href="/" class="flex-shrink-0">
-                <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
-            <span class="text-g-border select-none">|</span>
-            <div class="flex items-center gap-2 flex-1">
-                <div class="w-7 h-7 bg-blue-50 rounded-[8px] flex items-center justify-center">
-                    <svg class="w-4 h-4 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                </div>
-                <h1 class="text-sm font-semibold text-g-black">Analytics</h1>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">Lumin Analytics</h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Loading user...</p>
             </div>
-            <div class="relative">
+            <div class="relative flex-shrink-0">
                 <button id="btn-suite-menu"
                     class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors"
                     aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
@@ -177,6 +171,12 @@
             return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         }
 
+        function setHeaderUserName(user) {
+            const el = qs('#header-user-name')
+            if (!el || !user) return
+            el.textContent = user.full_name || user.slug_prefix || 'User'
+        }
+
         function closeSuiteNavMenu() {
             const menu = qs('#suite-menu')
             const btn = qs('#btn-suite-menu')
@@ -232,6 +232,7 @@
                 const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
                 if (!meRes.ok) { location.href = '/'; return }
                 const me = await meRes.json()
+                setHeaderUserName(me)
                 setSuiteNavAccess(me.is_admin === 1)
             } catch { location.href = '/'; return }
 
