@@ -1201,6 +1201,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1 ml-2">
+                    <button id="btn-create-note" class="header-icon-btn" title="Create note" aria-label="Create note"
+                        aria-disabled="false">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6">
+                            </path>
+                        </svg>
+                    </button>
                     <button id="btn-search" class="header-icon-btn" title="Search notes" aria-label="Toggle search"
                         aria-pressed="false">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -1418,6 +1425,7 @@
             noteSearchRenderKey: '',
             notePreviewHydrationToken: 0,
             notePreviewHydratingNoteId: null,
+            noteCreateInFlight: false,
             activePage: 'channels',
             lastNoteStatus: 'Loading notes...',
             isDesktopView: false,
@@ -1439,6 +1447,7 @@
             notesMetaHost: null,
             notesCardsHost: null,
             btnBack: document.getElementById('btn-back'),
+            btnCreateNote: document.getElementById('btn-create-note'),
             btnSearch: document.getElementById('btn-search'),
             // btnProfile: document.getElementById('btn-profile'),
             btnProfileBack: document.getElementById('btn-profile-back'),
@@ -1474,6 +1483,7 @@
         }
 
         const DESKTOP_LAYOUT_QUERY = '(min-width: 1100px)'
+        const NEW_NOTE_STARTER_CONTENT = '# '
 
         // ─── Shared utilities ─────────────────────────────────────────────────
 
@@ -1781,6 +1791,14 @@
         }
 
         function updateHeaderButtons() {
+            const canCreateInCurrentScope = state.noteListScope === 'channel' && Boolean(state.currentNoteChannelId)
+            const createNoteDisabled = !canCreateInCurrentScope || state.noteCreateInFlight
+            el.btnCreateNote.disabled = createNoteDisabled
+            el.btnCreateNote.setAttribute('aria-disabled', createNoteDisabled ? 'true' : 'false')
+            el.btnCreateNote.title = canCreateInCurrentScope
+                ? (state.noteCreateInFlight ? 'Creating note...' : 'Create note')
+                : 'Create note (available only in a folder)'
+
             el.btnSearch.classList.toggle('active', state.noteSearchOpen)
             el.btnSearch.setAttribute('aria-pressed', state.noteSearchOpen ? 'true' : 'false')
             // el.btnProfile.classList.toggle('active', state.activePage === 'profile')
@@ -1841,6 +1859,13 @@
             setActivePage('channels', { sync })
         }
 
+        function scrollNotesListToTop() {
+            el.notesList.scrollTop = 0
+            if (el.notesCardsHost?.isConnected) {
+                el.notesCardsHost.scrollTop = 0
+            }
+        }
+
         // ─── Note channels ────────────────────────────────────────────────────
 
         function formatCountLabel(value) {
@@ -1878,7 +1903,7 @@
             }
 
             for (const btn of el.noteChannels.querySelectorAll('button[data-note-channel-id]')) {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     state.noteListScope = 'channel'
                     state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
                     state.noteSearchOpen = false
@@ -1886,8 +1911,9 @@
                     clearEditingNote()
                     renderNoteChannels()
                     goToNotesListPage()
-                    loadNotes()
-                    if (!el.composer.hidden) el.messageInput.focus()
+                    scrollNotesListToTop()
+                    await loadNotes()
+                    scrollNotesListToTop()
                 })
             }
         }
@@ -2190,7 +2216,7 @@
 
         async function createNote(content) {
             if (state.noteListScope !== 'channel' || !state.currentNoteChannelId) return
-            await api('/api/notes', {
+            const res = await api('/api/notes', {
                 method: 'POST',
                 body: JSON.stringify({
                     channel_id: state.currentNoteChannelId,
@@ -2198,6 +2224,36 @@
                 }),
             })
             await loadNotes({ silent: true })
+            return res?.data || null
+        }
+
+        async function createNoteAndOpenEditor() {
+            if (state.noteCreateInFlight) return
+            if (state.noteListScope !== 'channel' || !state.currentNoteChannelId) return
+
+            state.noteCreateInFlight = true
+            updateHeaderButtons()
+
+            try {
+                const createdNote = await createNote(NEW_NOTE_STARTER_CONTENT)
+
+                // Fallback in case the API omits created note payload.
+                const noteToOpen = createdNote && createdNote.note_id
+                    ? createdNote
+                    : state.notes.find((note) => note.channel_id === state.currentNoteChannelId && note.is_archived !== 1)
+
+                if (!noteToOpen) {
+                    throw new Error('Failed to find the newly created note')
+                }
+
+                openNoteEditor(noteToOpen)
+                enterNoteEditMode()
+            } catch (error) {
+                alert(error?.message || 'Unable to create note')
+            } finally {
+                state.noteCreateInFlight = false
+                updateHeaderButtons()
+            }
         }
 
         // ─── Note editor ──────────────────────────────────────────────────────
@@ -2888,7 +2944,7 @@
 
                 if (state.noteListScope !== 'channel' || state.currentNoteChannelId) {
                     goToNotesListPage({ sync: false })
-                    if (!el.composer.hidden) el.messageInput.focus()
+                    scrollNotesListToTop()
                 } else {
                     goToChannelsPage({ sync: false })
                 }
@@ -2934,6 +2990,10 @@
         })
 
         el.btnBack.addEventListener('click', () => goToChannelsPage())
+
+        el.btnCreateNote.addEventListener('click', () => {
+            createNoteAndOpenEditor().catch(() => null)
+        })
 
         el.btnSearch.addEventListener('click', () => {
             state.noteSearchOpen = !state.noteSearchOpen
