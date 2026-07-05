@@ -1484,6 +1484,7 @@
 
         const DESKTOP_LAYOUT_QUERY = '(min-width: 1100px)'
         const NEW_NOTE_STARTER_CONTENT = '# '
+        const LAST_CHANNEL_STORAGE_KEY = 'lumin_note_last_channel'
 
         // ─── Shared utilities ─────────────────────────────────────────────────
 
@@ -1583,6 +1584,34 @@
             }
         }
 
+        function readLastChannelFromStorage() {
+            try {
+                const raw = localStorage.getItem(LAST_CHANNEL_STORAGE_KEY)
+                if (!raw) return null
+                const parsed = parseInt(raw, 10)
+                return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+            } catch {
+                return null
+            }
+        }
+
+        function writeLastChannelToStorage(channelId) {
+            if (!Number.isInteger(channelId) || channelId < 1) return
+            try {
+                localStorage.setItem(LAST_CHANNEL_STORAGE_KEY, String(channelId))
+            } catch {
+                // Ignore storage failures (private mode, quota, blocked storage).
+            }
+        }
+
+        function clearLastChannelFromStorage() {
+            try {
+                localStorage.removeItem(LAST_CHANNEL_STORAGE_KEY)
+            } catch {
+                // Ignore storage failures.
+            }
+        }
+
         function buildNoteCardText(content) {
             const source = String(content || '')
             const strippedHtml = source.replace(/<[^>]*>/g, ' ')
@@ -1664,8 +1693,6 @@
             const params = new URLSearchParams()
             if (state.noteListScope !== 'channel') {
                 params.set('scope', state.noteListScope)
-            } else if (state.currentNoteChannelId) {
-                params.set('channel', String(state.currentNoteChannelId))
             }
             if (state.noteSearchQuery) params.set('q', state.noteSearchQuery)
             const next = params.toString()
@@ -1906,6 +1933,7 @@
                 btn.addEventListener('click', async () => {
                     state.noteListScope = 'channel'
                     state.currentNoteChannelId = Number(btn.dataset.noteChannelId)
+                    writeLastChannelToStorage(state.currentNoteChannelId)
                     state.noteSearchOpen = false
                     state.noteSearchQuery = ''
                     clearEditingNote()
@@ -1924,8 +1952,14 @@
             state.noteChannels = res.data || []
             state.noteAllActiveCount = Number(res.meta?.all_active_count || 0)
             state.noteArchivedCount = Number(res.meta?.archived_count || 0)
-            if ((!state.currentNoteChannelId || !state.noteChannels.some((channel) => channel.id === state.currentNoteChannelId)) && state.noteChannels[0]) {
+            const hasCurrentChannel = state.noteChannels.some((channel) => channel.id === state.currentNoteChannelId)
+            if (!hasCurrentChannel && state.noteChannels[0]) {
                 state.currentNoteChannelId = state.noteChannels[0].id
+                writeLastChannelToStorage(state.currentNoteChannelId)
+            } else if (hasCurrentChannel) {
+                writeLastChannelToStorage(state.currentNoteChannelId)
+            } else {
+                clearLastChannelFromStorage()
             }
             renderNoteChannels()
         }
@@ -2622,6 +2656,7 @@
             if (res?.data) {
                 state.editingNote = res.data
                 state.currentNoteChannelId = channelId
+                writeLastChannelToStorage(channelId)
                 updateNoteEditorPane()
                 await loadNoteChannels()
                 await loadNotes({ silent: true })
@@ -2931,7 +2966,13 @@
                     state.noteListScope = fromScope
                 }
                 const fromChannel = query.get('channel') ? parseInt(query.get('channel'), 10) : null
-                if (Number.isInteger(fromChannel) && fromChannel > 0) state.currentNoteChannelId = fromChannel
+                const hasChannelQueryParam = Number.isInteger(fromChannel) && fromChannel > 0
+                if (hasChannelQueryParam) {
+                    state.currentNoteChannelId = fromChannel
+                } else {
+                    const storedChannelId = readLastChannelFromStorage()
+                    if (storedChannelId) state.currentNoteChannelId = storedChannelId
+                }
                 const fromQ = query.get('q')?.trim() ?? ''
                 if (fromQ) {
                     state.noteSearchQuery = fromQ
