@@ -1338,15 +1338,17 @@
                         <button id="btn-note-attachments-toggle" type="button" aria-label="Hide attachments"
                             title="Hide attachments" aria-pressed="true"
                             class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border hover:border-primary">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                aria-hidden="true">
+                            <svg id="note-attachments-toggle-outline" class="w-4 h-4 hidden" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.27 2.943 9.542 7-1.273 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                    d="M21.44 11.05l-9.19 9.19a6 6 0 11-8.49-8.49l9.19-9.19a4.5 4.5 0 116.36 6.36l-9.19 9.19a3 3 0 11-4.24-4.24l8.49-8.48">
                                 </path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0"></path>
-                                <path id="note-attachments-toggle-slash" stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2" d="M4 20L20 4" class="hidden"></path>
+                            </svg>
+                            <svg id="note-attachments-toggle-solid" class="w-4 h-4" fill="currentColor"
+                                viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                    d="M15.59 14.37a5 5 0 01-7.07 0L3.57 9.42a3 3 0 114.24-4.24l4.95 4.95a1 1 0 11-1.42 1.41L6.4 6.6a1 1 0 00-1.42 1.42l4.95 4.95a3 3 0 004.24 0l4.95-4.95a5 5 0 10-7.07-7.07L6.4 6.6a1 1 0 01-1.42-1.42L9.93.23a7 7 0 119.9 9.9l-4.24 4.24z">
+                                </path>
                             </svg>
                         </button>
                     </div>
@@ -1466,7 +1468,8 @@
             noteAttachmentsList: document.getElementById('note-attachments-list'),
             btnNoteAttach: document.getElementById('btn-note-attach'),
             btnNoteAttachmentsToggle: document.getElementById('btn-note-attachments-toggle'),
-            noteAttachmentsToggleSlash: document.getElementById('note-attachments-toggle-slash'),
+            noteAttachmentsToggleOutline: document.getElementById('note-attachments-toggle-outline'),
+            noteAttachmentsToggleSolid: document.getElementById('note-attachments-toggle-solid'),
             btnNoteSave: document.getElementById('btn-note-save'),
             btnNotePreview: document.getElementById('btn-note-preview'),
             btnNoteMenu: document.getElementById('btn-note-menu'),
@@ -2418,8 +2421,11 @@
                 el.btnNoteAttachmentsToggle.setAttribute('aria-label', open ? 'Hide attachments' : 'Show attachments')
                 el.btnNoteAttachmentsToggle.title = open ? 'Hide attachments' : 'Show attachments'
             }
-            if (el.noteAttachmentsToggleSlash) {
-                el.noteAttachmentsToggleSlash.classList.toggle('hidden', open)
+            if (el.noteAttachmentsToggleOutline) {
+                el.noteAttachmentsToggleOutline.classList.toggle('hidden', open)
+            }
+            if (el.noteAttachmentsToggleSolid) {
+                el.noteAttachmentsToggleSolid.classList.toggle('hidden', !open)
             }
         }
 
