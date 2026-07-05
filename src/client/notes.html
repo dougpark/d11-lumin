@@ -1164,10 +1164,38 @@
                             <p id="channels-user-name" class="text-xs text-muted-fg truncate">Loading user...</p>
                         </div>
                     </div>
-                    <!-- <div class="flex items-center gap-2">
-                        <a href="/"
-                            class="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:border-primary hover:text-primary transition whitespace-nowrap">Dashboard</a>
-                    </div> -->
+                    <div class="relative">
+                        <button id="btn-suite-menu-channels" class="header-icon-btn" title="Suite navigation"
+                            aria-label="Open suite navigation" aria-expanded="false">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                                </path>
+                            </svg>
+                        </button>
+                        <div id="suite-menu-channels"
+                            class="hidden absolute right-0 top-10 bg-white border border-border rounded-xl shadow-lg w-56 p-2 z-50">
+                            <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-muted-fg">Suite</p>
+                            <a href="/"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Dashboard</a>
+                            <a href="/n"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">News</a>
+                            <a href="/e"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Explore</a>
+                            <a href="/chat"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Chat</a>
+                            <a href="/notes"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-primary/10 text-primary font-semibold transition-colors">Notes</a>
+                            <div class="my-1 border-t border-border"></div>
+                            <a href="#" data-href="/admin"
+                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
+                                aria-disabled="true">Admin</a>
+                            <a href="#" data-href="/analytics"
+                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
+                                aria-disabled="true">Analytics</a>
+                        </div>
+                    </div>
                 </div>
             </header>
             <div class="flex-1 overflow-y-auto p-4">
@@ -1201,6 +1229,38 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1 ml-2">
+                    <div class="relative">
+                        <button id="btn-suite-menu-list" class="header-icon-btn" title="Suite navigation"
+                            aria-label="Open suite navigation" aria-expanded="false">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                                </path>
+                            </svg>
+                        </button>
+                        <div id="suite-menu-list"
+                            class="hidden absolute right-0 top-10 bg-white border border-border rounded-xl shadow-lg w-56 p-2 z-50 text-[#1a1a2e]">
+                            <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-muted-fg">Suite</p>
+                            <a href="/"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Dashboard</a>
+                            <a href="/n"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">News</a>
+                            <a href="/e"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Explore</a>
+                            <a href="/chat"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Chat</a>
+                            <a href="/notes"
+                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-primary/10 text-primary font-semibold transition-colors">Notes</a>
+                            <div class="my-1 border-t border-border"></div>
+                            <a href="#" data-href="/admin"
+                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
+                                aria-disabled="true">Admin</a>
+                            <a href="#" data-href="/analytics"
+                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
+                                aria-disabled="true">Analytics</a>
+                        </div>
+                    </div>
                     <button id="btn-create-note" class="header-icon-btn" title="Create note" aria-label="Create note"
                         aria-disabled="false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -1544,6 +1604,44 @@
             localStorage.removeItem('d11_token')
             document.cookie = 'd11_auth=; path=/; SameSite=Lax; Secure; max-age=0'
             location.href = '/'
+        }
+
+        function closeSuiteNavMenus() {
+            document.querySelectorAll('#suite-menu-channels, #suite-menu-list').forEach((menu) => {
+                menu.classList.add('hidden')
+            })
+            document.querySelectorAll('#btn-suite-menu-channels, #btn-suite-menu-list').forEach((btn) => {
+                btn.setAttribute('aria-expanded', 'false')
+            })
+        }
+
+        function toggleSuiteNavMenu(menuId, btnId, event) {
+            if (event) event.stopPropagation()
+            const menu = document.getElementById(menuId)
+            const btn = document.getElementById(btnId)
+            if (!menu || !btn) return
+            const willOpen = menu.classList.contains('hidden')
+            closeSuiteNavMenus()
+            if (willOpen) {
+                menu.classList.remove('hidden')
+                btn.setAttribute('aria-expanded', 'true')
+            }
+        }
+
+        function setSuiteNavAccess(isAdmin) {
+            document.querySelectorAll('.suite-admin-only').forEach((link) => {
+                if (!(link instanceof HTMLAnchorElement)) return
+                if (isAdmin) {
+                    link.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
+                    link.removeAttribute('aria-disabled')
+                    const target = link.dataset.href
+                    if (target) link.setAttribute('href', target)
+                    return
+                }
+                link.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
+                link.setAttribute('aria-disabled', 'true')
+                link.setAttribute('href', '#')
+            })
         }
 
         function formatBytes(bytes) {
@@ -2962,6 +3060,7 @@
                 const me = await api('/api/auth/me', { method: 'GET' })
                 if (!me) return
                 state.user = me
+                setSuiteNavAccess(state.user.is_admin === 1)
 
                 el.channelsUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
                 el.profileUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
@@ -3059,6 +3158,24 @@
                     if (input) input.focus()
                 })
             }
+        })
+
+        const suiteMenuChannelsBtn = document.getElementById('btn-suite-menu-channels')
+        if (suiteMenuChannelsBtn) {
+            suiteMenuChannelsBtn.addEventListener('click', (event) => toggleSuiteNavMenu('suite-menu-channels', 'btn-suite-menu-channels', event))
+        }
+
+        const suiteMenuListBtn = document.getElementById('btn-suite-menu-list')
+        if (suiteMenuListBtn) {
+            suiteMenuListBtn.addEventListener('click', (event) => toggleSuiteNavMenu('suite-menu-list', 'btn-suite-menu-list', event))
+        }
+
+        document.addEventListener('click', (event) => {
+            const target = event.target
+            if (!(target instanceof Element)) return
+            if (target.closest('#suite-menu-channels') || target.closest('#suite-menu-list')) return
+            if (target.closest('#btn-suite-menu-channels') || target.closest('#btn-suite-menu-list')) return
+            closeSuiteNavMenus()
         })
 
         el.notesList.addEventListener('click', (event) => {

@@ -29,6 +29,10 @@ const ICON = {
     dashboard: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
     explore: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7',
     news: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h6m-6-4h.01',
+    chat: 'M8 10h8M8 14h5m8 7l-4-4H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2z',
+    notes: 'M9 2h6a2 2 0 012 2v16l-5-3-5 3V4a2 2 0 012-2z',
+    admin: 'M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm8.94 3a7.94 7.94 0 00-.34-2l2.02-1.57-2-3.46-2.46.99a8.16 8.16 0 00-1.74-1L16 1h-4l-.42 2.96a8.16 8.16 0 00-1.74 1l-2.46-.99-2 3.46L7.4 9a8.2 8.2 0 000 4l-2.02 1.57 2 3.46 2.46-.99a8.16 8.16 0 001.74 1L12 21h4l.42-2.96a8.16 8.16 0 001.74-1l2.46.99 2-3.46L20.6 13c.23-.65.34-1.32.34-2z',
+    analytics: 'M5 3v18M19 21H5M9 17V9m4 8V5m4 12v-6',
     bookmark: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z',
     tag: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z',
     back: 'M15 19l-7-7 7-7',
@@ -51,8 +55,6 @@ const LNKA = (href: string, label: string, extra = '') =>
 function desktopDropdown(type: 'full' | 'compact'): string {
     if (type === 'full') {
         return `
-            ${LNKA('/chat', 'Chat')}
-            ${BTN("window.location.href='/analytics'", 'Analytics')}
             ${BTN('openRenameTagModal(); toggleUserMenu()', 'Rename Tag')}
             ${BTN('doExportBookmarks(); toggleUserMenu()', 'Export Bookmarks')}
             ${BTN('openImportFile(); toggleUserMenu()', 'Import Bookmarks')}
@@ -60,17 +62,34 @@ function desktopDropdown(type: 'full' | 'compact'): string {
             ${LNKA('/import/browser', 'Import from Browser')}
             ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}
             ${BTN('copyLoginLink()', 'Copy Login Link')}
-            ${LNKA('/admin', 'Admin', 'id="desktop-admin-link" ')}
             ${BTN('doLogout()', 'Sign Out', 'text-red-500 hover:bg-red-50')}`
     }
     // compact (explore / news)
     return `
-            ${LNKA('/', 'Dashboard')}
-            ${LNKA('/chat', 'Chat')}
-            ${BTN("window.location.href='/analytics'", 'Analytics')}
             ${BTN('copyLoginLink()', 'Copy Login Link')}
-            ${LNKA('/admin', 'Admin', 'id="desktop-admin-link" ')}
             ${BTN('doLogout()', 'Sign Out', 'text-red-500 hover:bg-red-50')}`
+}
+
+function suiteMenuLink(href: string, label: string, iconPath: string, isActive = false, adminOnly = false): string {
+    const baseCls = 'flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg transition-colors'
+    const activeCls = isActive ? 'bg-blue-50 text-g-blue font-semibold' : 'text-g-gray hover:bg-[#F3F4F6]'
+    const adminCls = adminOnly ? ' suite-admin-only opacity-40 cursor-not-allowed pointer-events-none' : ''
+    return `<a href="${href}" data-href="${href}" class="${baseCls} ${activeCls}${adminCls}" ${adminOnly ? 'aria-disabled="true"' : ''}>${svg(iconPath, 'w-4 h-4')}<span>${label}</span></a>`
+}
+
+function suiteDropdown(activePage: 'app' | 'explore' | 'news'): string {
+    return `
+        <div id="suite-menu" class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
+            <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-g-gray">Suite</p>
+            ${suiteMenuLink('/', 'Dashboard', ICON.dashboard, activePage === 'app')}
+            ${suiteMenuLink('/n', 'News', ICON.news, activePage === 'news')}
+            ${suiteMenuLink('/e', 'Explore', ICON.explore, activePage === 'explore')}
+            ${suiteMenuLink('/chat', 'Chat', ICON.chat)}
+            ${suiteMenuLink('/notes', 'Notes', ICON.notes)}
+            <div class="my-1 border-t border-g-border"></div>
+            ${suiteMenuLink('/admin', 'Admin', ICON.admin, false, true)}
+            ${suiteMenuLink('/analytics', 'Analytics', ICON.analytics, false, true)}
+        </div>`
 }
 
 // ── Mobile bottom nav ────────────────────────────────────────────────────────
@@ -153,10 +172,24 @@ const SHARED_SCRIPT = `<script>
         var prefixEl = document.getElementById('menu-prefix')
         if (prefixEl) prefixEl.textContent = 'd11.me/l/' + (user.slug_prefix || '') + '/\u2026'
         var isAdmin = user.is_admin === 1
-        var adminLink = document.getElementById('desktop-admin-link')
-        if (adminLink) adminLink.classList.toggle('hidden', !isAdmin)
-        var mobileAdminLink = document.getElementById('mobile-admin-link')
-        if (mobileAdminLink) mobileAdminLink.classList.toggle('hidden', !isAdmin)
+        setSuiteAdminAccess(isAdmin)
+    }
+
+    function setSuiteAdminAccess(isAdmin) {
+        var adminLinks = document.querySelectorAll('.suite-admin-only')
+        adminLinks.forEach(function(link) {
+            if (!link) return
+            if (isAdmin) {
+                link.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
+                link.removeAttribute('aria-disabled')
+                var target = link.getAttribute('data-href')
+                if (target) link.setAttribute('href', target)
+                return
+            }
+            link.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
+            link.setAttribute('aria-disabled', 'true')
+            link.setAttribute('href', '#')
+        })
     }
 
     async function _headerInit() {
@@ -184,6 +217,15 @@ const SHARED_SCRIPT = `<script>
         if (m) m.classList.toggle('hidden')
     }
 
+    function toggleSuiteMenu(event) {
+        if (event) event.stopPropagation()
+        var menu = document.getElementById('suite-menu')
+        if (!menu) return
+        var userMenu = document.getElementById('user-menu')
+        if (userMenu) userMenu.classList.add('hidden')
+        menu.classList.toggle('hidden')
+    }
+
     // Close dropdowns on outside click
     document.addEventListener('click', function(e) {
         var menu = document.getElementById('user-menu')
@@ -195,6 +237,11 @@ const SHARED_SCRIPT = `<script>
         if (mMenu && !mMenu.classList.contains('hidden') &&
             !e.target.closest('[onclick="toggleMobileUserMenu()"]') && !mMenu.contains(e.target)) {
             mMenu.classList.add('hidden')
+        }
+        var suiteMenu = document.getElementById('suite-menu')
+        if (suiteMenu && !suiteMenu.classList.contains('hidden') &&
+            !e.target.closest('[onclick="toggleSuiteMenu(event)"]') && !suiteMenu.contains(e.target)) {
+            suiteMenu.classList.add('hidden')
         }
     })
 
@@ -208,6 +255,8 @@ const SHARED_SCRIPT = `<script>
         if (m) m.classList.add('hidden')
         var mm = document.getElementById('mobile-user-menu')
         if (mm) mm.classList.add('hidden')
+        var sm = document.getElementById('suite-menu')
+        if (sm) sm.classList.add('hidden')
     }
 
     function doLogout() {
@@ -235,20 +284,6 @@ export function renderHeader(config: HeaderConfig): string {
     } = config
 
     const hiddenCls = initiallyHidden ? ' hidden' : ''
-
-    // Nav links — omit the link for the current page
-    const exploreLink = activePage !== 'explore'
-        ? `<a href="/e" class="hidden sm:flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors flex-shrink-0">
-                ${svg(ICON.explore, 'w-3.5 h-3.5')} Explore
-            </a>` : ''
-    const newsLink = activePage !== 'news'
-        ? `<a href="/n" class="hidden sm:flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors flex-shrink-0">
-                ${svg(ICON.news, 'w-3.5 h-3.5')} News
-            </a>` : ''
-    const dashLink = activePage !== 'app'
-        ? `<a href="/" class="hidden sm:flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors flex-shrink-0">
-                ${svg(ICON.dashboard, 'w-3.5 h-3.5')} Dashboard
-            </a>` : ''
 
     const addButton = showAdd
         ? `<button onclick="openAddModal()" class="bg-g-blue text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-blue-600 transition-all flex items-center gap-1.5 flex-shrink-0">
@@ -292,10 +327,15 @@ export function renderHeader(config: HeaderConfig): string {
             </div>
 
             ${navSlot}
-            ${exploreLink}
-            ${newsLink}
-            ${dashLink}
             ${addButton}
+
+            <!-- Suite nav (bento) -->
+            <div class="relative flex-shrink-0">
+                <button onclick="toggleSuiteMenu(event)" class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors" aria-label="Open suite navigation" title="Suite navigation">
+                    ${svg(ICON.grid, 'w-4 h-4')}
+                </button>
+                ${suiteDropdown(activePage)}
+            </div>
 
             <!-- User avatar + dropdown -->
             <div class="relative flex-shrink-0">

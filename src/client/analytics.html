@@ -63,13 +63,35 @@
                 </div>
                 <h1 class="text-sm font-semibold text-g-black">Analytics</h1>
             </div>
-            <a href="/" class="flex items-center gap-1.5 text-xs text-g-gray hover:text-g-blue transition-colors">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                Dashboard
-            </a>
+            <div class="relative">
+                <button id="btn-suite-menu"
+                    class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors"
+                    aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </button>
+                <div id="suite-menu"
+                    class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
+                    <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-g-gray">Suite</p>
+                    <a href="/"
+                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Dashboard</a>
+                    <a href="/n"
+                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">News</a>
+                    <a href="/e"
+                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Explore</a>
+                    <a href="/chat"
+                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Chat</a>
+                    <a href="/notes"
+                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Notes</a>
+                    <div class="my-1 border-t border-g-border"></div>
+                    <a href="#" data-href="/admin"
+                        class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
+                    <a href="#" data-href="/analytics"
+                        class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-blue-50 text-g-blue font-semibold transition-colors">Analytics</a>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -155,6 +177,42 @@
             return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         }
 
+        function closeSuiteNavMenu() {
+            const menu = qs('#suite-menu')
+            const btn = qs('#btn-suite-menu')
+            if (menu) menu.classList.add('hidden')
+            if (btn) btn.setAttribute('aria-expanded', 'false')
+        }
+
+        function toggleSuiteNavMenu(event) {
+            if (event) event.stopPropagation()
+            const menu = qs('#suite-menu')
+            const btn = qs('#btn-suite-menu')
+            if (!menu || !btn) return
+            const willOpen = menu.classList.contains('hidden')
+            closeSuiteNavMenu()
+            if (willOpen) {
+                menu.classList.remove('hidden')
+                btn.setAttribute('aria-expanded', 'true')
+            }
+        }
+
+        function setSuiteNavAccess(isAdmin) {
+            document.querySelectorAll('.suite-admin-only').forEach((link) => {
+                if (!(link instanceof HTMLAnchorElement)) return
+                if (isAdmin) {
+                    link.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
+                    link.removeAttribute('aria-disabled')
+                    const target = link.dataset.href
+                    if (target) link.setAttribute('href', target)
+                    return
+                }
+                link.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
+                link.setAttribute('aria-disabled', 'true')
+                link.setAttribute('href', '#')
+            })
+        }
+
         function api(method, path) {
             const token = localStorage.getItem('d11_token')
             return fetch(path, {
@@ -173,6 +231,8 @@
             try {
                 const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
                 if (!meRes.ok) { location.href = '/'; return }
+                const me = await meRes.json()
+                setSuiteNavAccess(me.is_admin === 1)
             } catch { location.href = '/'; return }
 
             try {
@@ -458,6 +518,14 @@
                 ctx.fillText(label, x, H - pad.bottom + 14)
             })
         }
+
+        qs('#btn-suite-menu')?.addEventListener('click', toggleSuiteNavMenu)
+        document.addEventListener('click', (event) => {
+            const target = event.target
+            if (!(target instanceof Element)) return
+            if (target.closest('#suite-menu') || target.closest('#btn-suite-menu')) return
+            closeSuiteNavMenu()
+        })
 
         boot()
     </script>
