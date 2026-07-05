@@ -1,8 +1,11 @@
 node_modules/
 dist/
 .wrangler/
-.dev.vars
+
 *.local
 .DS_Store
 
-
+# Local secrets - NEVER commit
+.dev.vars
+.env
+.env*.local
