@@ -6,7 +6,8 @@
 - Hono
 • Infrastructure: Cloudflare Workers. Use wrangler for deployment and local development.
 • Database: D1 (SQLite). Focus on SQL-native queries or lightweight ORMs compatible with Cloudflare D1.
-• Styling: Tailwind CSS. Utilize the custom tailwind.config.js (Gemini-Modern aesthetic) provided previously.
+• Styling: Tailwind CSS. Utilize the custom   
+./tailwind.config.js (Gemini-Modern aesthetic) provided previously.
 
 ### Architectural Standards
 • Module System: ES Modules (ESM) only. Use import/export syntax. No require.
