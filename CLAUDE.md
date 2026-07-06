@@ -38,5 +38,10 @@ When generating code for this project:
 
 5. Concise Modules: Keep files small and focused. Export individual functions rather than large monolithic objects.
 
+### D1 Database Guidelines
+- use ./migrations/ for schema changes. Each migration should be a separate SQL file with a timestamp prefix.
+- Use the D1 CLI for migrations: `wrangler d1 migrations apply <database>`
+- update ./schema.sql with the latest schema after applying migrations.
+- Use parameterized queries to prevent SQL injection.
 
 

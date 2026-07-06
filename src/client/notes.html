@@ -344,6 +344,16 @@
             box-shadow: 0 10px 22px rgba(21, 101, 192, 0.08);
         }
 
+        .note-card.is-active {
+            border-color: rgba(21, 101, 192, 0.55);
+            box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.22), 0 12px 26px rgba(21, 101, 192, 0.16);
+        }
+
+        .note-card.pinned.is-active {
+            border-color: rgba(21, 101, 192, 0.7);
+            box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.28), 0 14px 30px rgba(21, 101, 192, 0.2);
+        }
+
         .note-card-preview-layout {
             position: relative;
             overflow: hidden;
@@ -1443,6 +1453,7 @@
             noteSaveInFlight: false,
             editingNote: null,
             noteEditorMenuOpen: false,
+            noteAutosaveTimer: null,
             pollTimer: null,
             noteListRequestSeq: 0,
             noteListAppliedSeq: 0,
@@ -1754,7 +1765,9 @@
         }
 
         function clearEditingNote({ keepContent = false } = {}) {
+            stopNoteAutosave()
             state.editingNote = null
+            syncNoteCardSelectionStyles()
             state.noteAttachments = []
             state.noteImagePreviews = []
             state.noteAttachmentAccessUrls = {}
@@ -2135,7 +2148,7 @@
             const selected = state.editingNote?.note_id === note.note_id
 
             return `
-                <article class="note-card note-card-preview-layout ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'ring-2 ring-primary/40' : ''} mb-3" data-note-open="${note.note_id}">
+                <article class="note-card note-card-preview-layout ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'is-active' : ''} mb-3" data-note-open="${note.note_id}">
                     <div class="note-card-preview-body min-w-0">
                         <div class="note-card-preview-main">
                             <div class="note-card-meta-row">
@@ -2222,6 +2235,15 @@
                 if (card?.isConnected) card.remove()
                 state.noteCardNodeById.delete(noteId)
                 state.noteCardSignatureById.delete(noteId)
+            }
+        }
+
+        function syncNoteCardSelectionStyles() {
+            const selectedId = state.editingNote?.note_id || null
+            for (const [noteId, card] of state.noteCardNodeById.entries()) {
+                if (!card?.isConnected) continue
+                const isSelected = selectedId === noteId
+                card.classList.toggle('is-active', isSelected)
             }
         }
 
@@ -2523,6 +2545,7 @@
 
         function openNoteEditor(note) {
             state.editingNote = note
+            syncNoteCardSelectionStyles()
             state.noteAttachments = []
             state.noteImagePreviews = []
             state.noteLastSavedContent = (note.content || '').trim()
@@ -2533,8 +2556,24 @@
             setNoteEditorValue(note.content || '')
             setNotePreviewOpen(true, { deferHydrationRender: true })
             updateNoteEditorPane()
+            startNoteAutosave()
             window.D11NotesEditorShortcuts?.refresh?.()
             hydrateNotePreviewForSelection(note.note_id).catch(() => null)
+        }
+
+        function stopNoteAutosave() {
+            if (state.noteAutosaveTimer) {
+                clearInterval(state.noteAutosaveTimer)
+                state.noteAutosaveTimer = null
+            }
+        }
+
+        function startNoteAutosave() {
+            stopNoteAutosave()
+            state.noteAutosaveTimer = setInterval(() => {
+                if (!canUseEditorInteractions()) return
+                saveEditingNote().catch(() => null)
+            }, 10000)
         }
 
         function enterNoteEditMode() {
