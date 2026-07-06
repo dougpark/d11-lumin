@@ -13,7 +13,7 @@ export interface HeaderConfig {
     navTopTitle: string
     /** Show the blue + Add button (app only) */
     showAdd: boolean
-    /** full = all app menu items; compact = explore/news subset (Dashboard, Analytics, Copy Link, Sign Out) */
+    /** full = app management items; compact = minimal account items */
     dropdownItems: 'full' | 'compact'
     /** Optional HTML injected between search and nav links (Mine/All pill, Feed/Topics pill, etc.) */
     navSlot?: string
@@ -33,6 +33,7 @@ const ICON = {
     notes: 'M9 2h6a2 2 0 012 2v16l-5-3-5 3V4a2 2 0 012-2z',
     admin: 'M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm8.94 3a7.94 7.94 0 00-.34-2l2.02-1.57-2-3.46-2.46.99a8.16 8.16 0 00-1.74-1L16 1h-4l-.42 2.96a8.16 8.16 0 00-1.74 1l-2.46-.99-2 3.46L7.4 9a8.2 8.2 0 000 4l-2.02 1.57 2 3.46 2.46-.99a8.16 8.16 0 001.74 1L12 21h4l.42-2.96a8.16 8.16 0 001.74-1l2.46.99 2-3.46L20.6 13c.23-.65.34-1.32.34-2z',
     analytics: 'M5 3v18M19 21H5M9 17V9m4 8V5m4 12v-6',
+    settings: 'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 4a7.94 7.94 0 00-.34-2l2.02-1.57-2-3.46-2.46.99a8.16 8.16 0 00-1.74-1L16 1h-4l-.42 2.96a8.16 8.16 0 00-1.74 1l-2.46-.99-2 3.46L7.4 10a8.2 8.2 0 000 4l-2.02 1.57 2 3.46 2.46-.99a8.16 8.16 0 001.74 1L12 23h4l.42-2.96a8.16 8.16 0 001.74-1l2.46.99 2-3.46L20.6 14c.23-.65.34-1.32.34-2z',
     bookmark: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z',
     tag: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z',
     back: 'M15 19l-7-7 7-7',
@@ -60,14 +61,11 @@ function desktopDropdown(type: 'full' | 'compact'): string {
             ${BTN('openImportFile(); toggleUserMenu()', 'Import Bookmarks')}
             ${LNKA('/import/pinboard', 'Import from Pinboard')}
             ${LNKA('/import/browser', 'Import from Browser')}
-            ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}
-            ${BTN('copyLoginLink()', 'Copy Login Link')}
-            ${BTN('doLogout()', 'Sign Out', 'text-red-500 hover:bg-red-50')}`
+            ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}`
     }
     // compact (explore / news)
     return `
-            ${BTN('copyLoginLink()', 'Copy Login Link')}
-            ${BTN('doLogout()', 'Sign Out', 'text-red-500 hover:bg-red-50')}`
+            ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}`
 }
 
 function suiteMenuLink(href: string, label: string, iconPath: string, isActive = false, adminOnly = false): string {
@@ -86,6 +84,7 @@ function suiteDropdown(activePage: 'app' | 'explore' | 'news'): string {
             ${suiteMenuLink('/e', 'Explore', ICON.explore, activePage === 'explore')}
             ${suiteMenuLink('/chat', 'Chat', ICON.chat)}
             ${suiteMenuLink('/notes', 'Notes', ICON.notes)}
+            ${suiteMenuLink('/settings', 'Settings', ICON.settings)}
             <div class="my-1 border-t border-g-border"></div>
             ${suiteMenuLink('/admin', 'Admin', ICON.admin, false, true)}
             ${suiteMenuLink('/analytics', 'Analytics', ICON.analytics, false, true)}

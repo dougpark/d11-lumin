@@ -33,6 +33,8 @@ import adminHtml from './client/admin.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import analyticsHtml from './client/analytics.html'
 // @ts-expect-error — text module loaded by Wrangler rule
+import settingsHtml from './client/settings.html'
+// @ts-expect-error — text module loaded by Wrangler rule
 import homepageHtml from './client/homepage.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import mobileHtml from './client/m.html'
@@ -1445,6 +1447,7 @@ app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))
 app.get('/admin', (c) => c.html(adminHtml as string))
 app.get('/analytics', (c) => c.html(analyticsHtml as string))
+app.get('/settings', (c) => c.html(settingsHtml as string))
 app.get('/chat', (c) => c.html(chatHtml as string))
 app.get('/notes', (c) => c.html(notesHtml as string))
 
