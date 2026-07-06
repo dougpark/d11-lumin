@@ -8,6 +8,7 @@
         { key: 'explore', href: '/e', label: 'Explore' },
         { key: 'chat', href: '/chat', label: 'Chat' },
         { key: 'notes', href: '/notes', label: 'Notes' },
+        { key: 'drive', href: '/drive', label: 'Drive' },
         { key: 'settings', href: '/settings', label: 'Settings' },
     ]
 

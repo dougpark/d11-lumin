@@ -109,13 +109,13 @@ database_name  = "d11-db"
 database_id    = "PASTE_YOUR_ID_HERE"   # ← replace this line
 ```
 
-### 3 — Apply the schema (remote)
+### 3 — Apply migrations
 
 ```bash
-bun run db:migrate:remote --remote
+bun run db:migrate:remote
 ```
 
-> For local dev only (no remote write needed): `bun run db:migrate:local`
+> For local dev only: `bun run db:migrate:local`
 
 ### 4 — Set the TOKEN_SECRET
 
@@ -161,7 +161,7 @@ bun run dev
 # Opens http://localhost:8787
 ```
 
-The local D1 database is in `.wrangler/state/`. Run `bun run db:migrate:local` to apply the schema locally.
+The local D1 database is in `.wrangler/state/`. Run `bun run db:migrate:local` to apply migrations locally.
 
 ---
 
@@ -171,8 +171,8 @@ The local D1 database is in `.wrangler/state/`. Run `bun run db:migrate:local` t
 |--------|-------------|
 | `bun run dev` | `wrangler dev` — hot-reload local Worker |
 | `bun run deploy` | `wrangler deploy` — push to Cloudflare |
-| `bun run db:migrate:local` | Apply `schema.sql` to local D1 |
-| `bun run db:migrate:remote` | Apply `schema.sql` to remote (production) D1 |
+| `bun run db:migrate:local` | Apply D1 migrations from `migrations/` to local DB |
+| `bun run db:migrate:remote` | Apply D1 migrations from `migrations/` to remote DB |
 | `bun run cf-typegen` | Regenerate `worker-configuration.d.ts` from bindings |
 
 ---

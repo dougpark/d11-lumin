@@ -521,6 +521,14 @@ notes.post('/:id/attachments', async (c) => {
     }
 
     const objectKey = `notes/${user.id}/${id}/${Date.now()}-${crypto.randomUUID()}-${filename}`
+    const fileLastModifiedRaw = form.get('fileLastModified')
+    let fileLastModified: string | null = null
+    if (typeof fileLastModifiedRaw === 'string' && fileLastModifiedRaw.trim()) {
+        const parsedMs = parseInt(fileLastModifiedRaw, 10)
+        if (Number.isInteger(parsedMs) && parsedMs > 0) {
+            fileLastModified = new Date(parsedMs).toISOString()
+        }
+    }
 
     try {
         await c.env.ATTACHMENTS.put(objectKey, filePart.stream(), {
@@ -539,6 +547,8 @@ notes.post('/:id/attachments', async (c) => {
             content_type: contentType,
             size,
             url: objectKey,
+            file_last_modified: fileLastModified,
+            file_etag: null,
         })
 
         const permalink_url = buildAttachmentPermalink(c.req.url, attachment.attachment_slug)
@@ -579,8 +589,8 @@ notes.delete('/:id/attachments/:attachmentId', async (c) => {
     })
     if (!deleted) return c.json({ error: 'Attachment not found' }, 404)
 
-    if (c.env.ATTACHMENTS) {
-        try { await c.env.ATTACHMENTS.delete(deleted.url) } catch { /* ignore */ }
+    if (c.env.ATTACHMENTS && deleted.should_delete_object) {
+        try { await c.env.ATTACHMENTS.delete(deleted.attachment.url) } catch { /* ignore */ }
     }
 
     return c.json({ data: { attachment_id: attachmentId } })

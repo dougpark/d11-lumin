@@ -1,4 +1,5 @@
 import { toFtsQuery } from '../utils/search.ts'
+import { countAttachmentReferences } from './drive.ts'
 import type { Attachment, Note, NoteChannel } from './types.ts'
 
 export type NoteChannelWithCounts = NoteChannel & {
@@ -275,7 +276,16 @@ export async function listNoteAttachments(db: D1Database, userId: number, noteId
 
 export async function addNoteAttachment(
     db: D1Database,
-    input: { user_id: number; note_id: number; filename: string; content_type: string; size: number; url: string },
+    input: {
+        user_id: number
+        note_id: number
+        filename: string
+        content_type: string
+        size: number
+        url: string
+        file_last_modified?: string | null
+        file_etag?: string | null
+    },
 ): Promise<Attachment> {
     const note = await getNoteById(db, input.user_id, input.note_id)
     if (!note) throw new Error('Note not found')
@@ -288,11 +298,22 @@ export async function addNoteAttachment(
         try {
             created = await db
                 .prepare(
-                    `INSERT INTO attachments (attachment_slug, filename, content_type, size, url)
-                     VALUES (?, ?, ?, ?, ?)
+                    `INSERT INTO attachments (
+                        attachment_slug, owner_user_id, filename, content_type, size, url, file_last_modified, file_etag
+                    )
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                      RETURNING *`,
                 )
-                .bind(slug, input.filename, input.content_type, input.size, input.url)
+                .bind(
+                    slug,
+                    input.user_id,
+                    input.filename,
+                    input.content_type,
+                    input.size,
+                    input.url,
+                    input.file_last_modified ?? null,
+                    input.file_etag ?? null,
+                )
                 .first<Attachment>()
         } catch (err) {
             const message = (err as Error).message || ''
@@ -353,7 +374,7 @@ export async function getNoteAttachment(db: D1Database, userId: number, noteId: 
 export async function removeNoteAttachment(
     db: D1Database,
     input: { user_id: number; note_id: number; attachment_id: number },
-): Promise<Attachment | null> {
+): Promise<{ attachment: Attachment; should_delete_object: boolean } | null> {
     const attachment = await getNoteAttachment(db, input.user_id, input.note_id, input.attachment_id)
     if (!attachment) return null
 
@@ -362,10 +383,15 @@ export async function removeNoteAttachment(
         .bind(input.note_id, input.attachment_id)
         .run()
 
-    await db
-        .prepare('DELETE FROM attachments WHERE attachment_id = ?')
-        .bind(input.attachment_id)
-        .run()
+    const refsRemaining = await countAttachmentReferences(db, input.attachment_id)
+    let shouldDeleteObject = false
+    if (refsRemaining === 0) {
+        await db
+            .prepare('DELETE FROM attachments WHERE attachment_id = ?')
+            .bind(input.attachment_id)
+            .run()
+        shouldDeleteObject = true
+    }
 
     await db
         .prepare(
@@ -379,7 +405,7 @@ export async function removeNoteAttachment(
         .bind(input.note_id, input.note_id, input.user_id)
         .run()
 
-    return attachment
+    return { attachment, should_delete_object: shouldDeleteObject }
 }
 
 export async function deleteNoteWithAttachments(
@@ -401,14 +427,21 @@ export async function deleteNoteWithAttachments(
         .all<{ attachment_id: number; url: string }>()
 
     const attachmentIds = attachments.results.map((attachment) => attachment.attachment_id)
+    const attachmentUrlById = new Map(attachments.results.map((attachment) => [attachment.attachment_id, attachment.url]))
+    const deletableUrls: string[] = []
 
     await db.prepare('DELETE FROM attachment_list WHERE note_id = ?').bind(noteId).run()
     for (const attachmentId of attachmentIds) {
-        await db.prepare('DELETE FROM attachments WHERE attachment_id = ?').bind(attachmentId).run()
+        const refsRemaining = await countAttachmentReferences(db, attachmentId)
+        if (refsRemaining === 0) {
+            await db.prepare('DELETE FROM attachments WHERE attachment_id = ?').bind(attachmentId).run()
+            const url = attachmentUrlById.get(attachmentId)
+            if (typeof url === 'string' && url) deletableUrls.push(url)
+        }
     }
     await db.prepare('DELETE FROM notes WHERE note_id = ? AND user_id = ?').bind(noteId, userId).run()
 
-    return { noteDeleted: true, attachmentUrls: attachments.results.map((attachment) => attachment.url) }
+    return { noteDeleted: true, attachmentUrls: deletableUrls }
 }
 
 export async function getAttachmentForDownload(db: D1Database, noteId: number, attachmentId: number): Promise<(Attachment & { owner_user_id: number }) | null> {

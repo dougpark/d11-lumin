@@ -100,10 +100,15 @@ export type Note = {
 export type Attachment = {
     attachment_id: number
     attachment_slug: string
+    owner_user_id: number
     filename: string
     content_type: string
     size: number
     url: string
+    file_last_modified: string | null
+    file_category: string | null
+    file_etag: string | null
+    deleted_at: string | null
     cache_version: number
     tag_list: string
     summary: string
@@ -111,6 +116,18 @@ export type Attachment = {
     ai_summary: string
     ai_processed_at: string | null
     created_at: string
+}
+
+export type DriveItem = {
+    drive_item_id: number
+    user_id: number
+    parent_id: number | null
+    kind: 'folder' | 'file'
+    display_name: string
+    is_public: number
+    deleted_at: string | null
+    created_at: string
+    updated_at: string
 }
 
 export type ChatMessage = {

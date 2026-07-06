@@ -6,8 +6,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:create": "wrangler d1 create d11-db",
-    "db:migrate:local": "wrangler d1 execute d11-db --local --file=./schema.sql",
-    "db:migrate:remote": "wrangler d1 execute d11-db --file=./schema.sql",
+    "db:migrate:local": "wrangler d1 migrations apply d11-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply d11-db --remote",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

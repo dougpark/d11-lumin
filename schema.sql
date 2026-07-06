@@ -1,7 +1,7 @@
 -- =============================================================================
 -- d11.me — D1 Schema
--- Apply locally:  wrangler d1 execute d11-db --local --file=./schema.sql
--- Apply remote:   wrangler d1 execute d11-db --file=./schema.sql
+-- Snapshot of latest schema. Incremental updates should be applied via
+-- Wrangler D1 migrations from the migrations/ directory.
 -- =============================================================================
 
 -- ─── Users ────────────────────────────────────────────────────────────────────
@@ -184,10 +184,15 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_modified     ON notes (user_id, last_m
 CREATE TABLE IF NOT EXISTS attachments (
   attachment_id    INTEGER PRIMARY KEY AUTOINCREMENT,
   attachment_slug  TEXT    NOT NULL UNIQUE,
+  owner_user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   filename         TEXT    NOT NULL,
   content_type     TEXT    NOT NULL,
   size             INTEGER NOT NULL,
   url              TEXT    NOT NULL,
+  file_last_modified TEXT  DEFAULT NULL,
+  file_category    TEXT    DEFAULT NULL,
+  file_etag        TEXT    DEFAULT NULL,
+  deleted_at       TEXT    DEFAULT NULL,
   cache_version    INTEGER NOT NULL DEFAULT 1,
   tag_list         TEXT    NOT NULL DEFAULT '[]',
   summary          TEXT    NOT NULL DEFAULT '',
@@ -198,6 +203,8 @@ CREATE TABLE IF NOT EXISTS attachments (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachments_attachment_slug ON attachments (attachment_slug);
+CREATE INDEX IF NOT EXISTS idx_attachments_owner_user_id ON attachments (owner_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_attachments_deleted_at ON attachments (deleted_at);
 
 CREATE TABLE IF NOT EXISTS attachment_list (
   note_id        INTEGER NOT NULL REFERENCES notes (note_id) ON DELETE CASCADE,
@@ -207,6 +214,32 @@ CREATE TABLE IF NOT EXISTS attachment_list (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attachment_list_note_id ON attachment_list (note_id, sort_order ASC);
+
+-- ─── Drive Objects (V1) ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS drive_items (
+  drive_item_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id         INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  parent_id       INTEGER REFERENCES drive_items (drive_item_id) ON DELETE CASCADE,
+  kind            TEXT    NOT NULL CHECK (kind IN ('folder', 'file')),
+  display_name    TEXT    NOT NULL,
+  is_public       INTEGER NOT NULL DEFAULT 0 CHECK (is_public IN (0, 1)),
+  deleted_at      TEXT    DEFAULT NULL,
+  created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_drive_items_user_parent ON drive_items (user_id, parent_id, deleted_at, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_drive_items_user_kind ON drive_items (user_id, kind, deleted_at, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_drive_items_user_name ON drive_items (user_id, display_name);
+
+CREATE TABLE IF NOT EXISTS drive_list (
+  drive_item_id   INTEGER NOT NULL REFERENCES drive_items (drive_item_id) ON DELETE CASCADE,
+  attachment_id   INTEGER NOT NULL REFERENCES attachments (attachment_id) ON DELETE CASCADE,
+  PRIMARY KEY (drive_item_id, attachment_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_drive_list_drive_item_id ON drive_list (drive_item_id);
+CREATE INDEX IF NOT EXISTS idx_drive_list_attachment_id ON drive_list (attachment_id);
 
 -- ─── Chats (V1) ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chats (
