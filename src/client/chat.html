@@ -403,6 +403,7 @@
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/vendor/suite-menu.js"></script>
 </head>
 
 <body class="bg-[#f5f5f5] text-[#1a1a2e] font-sans">
@@ -433,26 +434,6 @@
                         </button>
                         <div id="suite-menu-channels"
                             class="hidden absolute right-0 top-10 bg-white border border-border rounded-xl shadow-lg w-56 p-2 z-50">
-                            <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-muted-fg">Suite</p>
-                            <a href="/"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Dashboard</a>
-                            <a href="/n"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">News</a>
-                            <a href="/e"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Explore</a>
-                            <a href="/chat"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-primary/10 text-primary font-semibold transition-colors">Chat</a>
-                            <a href="/notes"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Notes</a>
-                            <a href="/settings"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors">Settings</a>
-                            <div class="my-1 border-t border-border"></div>
-                            <a href="#" data-href="/admin"
-                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
-                                aria-disabled="true">Admin</a>
-                            <a href="#" data-href="/analytics"
-                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-[#1a1a2e] hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
-                                aria-disabled="true">Analytics</a>
                         </div>
                     </div>
                 </div>
@@ -499,26 +480,6 @@
                         </button>
                         <div id="suite-menu-messages"
                             class="hidden absolute right-0 top-10 bg-white border border-border rounded-xl shadow-lg w-56 p-2 z-50 text-[#1a1a2e]">
-                            <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-muted-fg">Suite</p>
-                            <a href="/"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Dashboard</a>
-                            <a href="/n"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">News</a>
-                            <a href="/e"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Explore</a>
-                            <a href="/chat"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-primary/10 text-primary font-semibold transition-colors">Chat</a>
-                            <a href="/notes"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Notes</a>
-                            <a href="/settings"
-                                class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors">Settings</a>
-                            <div class="my-1 border-t border-border"></div>
-                            <a href="#" data-href="/admin"
-                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
-                                aria-disabled="true">Admin</a>
-                            <a href="#" data-href="/analytics"
-                                class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors opacity-40 cursor-not-allowed pointer-events-none"
-                                aria-disabled="true">Analytics</a>
                         </div>
                     </div>
                     <button id="btn-search" class="header-icon-btn" title="Search" aria-label="Open search">
@@ -778,44 +739,6 @@
             localStorage.removeItem('d11_token')
             document.cookie = 'd11_auth=; path=/; SameSite=Lax; Secure; max-age=0'
             location.href = '/'
-        }
-
-        function closeSuiteNavMenus() {
-            document.querySelectorAll('#suite-menu-channels, #suite-menu-messages').forEach((menu) => {
-                menu.classList.add('hidden')
-            })
-            document.querySelectorAll('#btn-suite-menu-channels, #btn-suite-menu-messages').forEach((btn) => {
-                btn.setAttribute('aria-expanded', 'false')
-            })
-        }
-
-        function toggleSuiteNavMenu(menuId, btnId, event) {
-            if (event) event.stopPropagation()
-            const menu = document.getElementById(menuId)
-            const btn = document.getElementById(btnId)
-            if (!menu || !btn) return
-            const willOpen = menu.classList.contains('hidden')
-            closeSuiteNavMenus()
-            if (willOpen) {
-                menu.classList.remove('hidden')
-                btn.setAttribute('aria-expanded', 'true')
-            }
-        }
-
-        function setSuiteNavAccess(isAdmin) {
-            document.querySelectorAll('.suite-admin-only').forEach((link) => {
-                if (!(link instanceof HTMLAnchorElement)) return
-                if (isAdmin) {
-                    link.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
-                    link.removeAttribute('aria-disabled')
-                    const target = link.dataset.href
-                    if (target) link.setAttribute('href', target)
-                    return
-                }
-                link.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
-                link.setAttribute('aria-disabled', 'true')
-                link.setAttribute('href', '#')
-            })
         }
 
         function syncUrlState() {
@@ -1591,7 +1514,7 @@
                 const me = await api('/api/auth/me', { method: 'GET' })
                 if (!me) return
                 state.user = me
-                setSuiteNavAccess(state.user.is_admin === 1)
+                window.LuminSuiteMenu.setAdminAccess(state.user.is_admin === 1)
                 if (state.user.is_admin === 1) {
                     el.btnReports.classList.remove('hidden')
                 }
@@ -1744,22 +1667,17 @@
         el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
         el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
 
-        const suiteMenuChannelsBtn = document.getElementById('btn-suite-menu-channels')
-        if (suiteMenuChannelsBtn) {
-            suiteMenuChannelsBtn.addEventListener('click', (event) => toggleSuiteNavMenu('suite-menu-channels', 'btn-suite-menu-channels', event))
-        }
-
-        const suiteMenuMessagesBtn = document.getElementById('btn-suite-menu-messages')
-        if (suiteMenuMessagesBtn) {
-            suiteMenuMessagesBtn.addEventListener('click', (event) => toggleSuiteNavMenu('suite-menu-messages', 'btn-suite-menu-messages', event))
-        }
-
-        document.addEventListener('click', (event) => {
-            const target = event.target
-            if (!(target instanceof Element)) return
-            if (target.closest('#suite-menu-channels') || target.closest('#suite-menu-messages')) return
-            if (target.closest('#btn-suite-menu-channels') || target.closest('#btn-suite-menu-messages')) return
-            closeSuiteNavMenus()
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu-channels',
+            menuId: 'suite-menu-channels',
+            activePage: 'chat',
+            mode: 'accent',
+        })
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu-messages',
+            menuId: 'suite-menu-messages',
+            activePage: 'chat',
+            mode: 'accent',
         })
 
 

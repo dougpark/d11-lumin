@@ -27,6 +27,7 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/vendor/suite-menu.js"></script>
     <style>
         .spinner {
             border: 2px solid #E3E3E3;
@@ -68,24 +69,6 @@
                 </button>
                 <div id="suite-menu"
                     class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
-                    <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-g-gray">Suite</p>
-                    <a href="/"
-                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Dashboard</a>
-                    <a href="/n"
-                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">News</a>
-                    <a href="/e"
-                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Explore</a>
-                    <a href="/chat"
-                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Chat</a>
-                    <a href="/notes"
-                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Notes</a>
-                    <a href="/settings"
-                        class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Settings</a>
-                    <div class="my-1 border-t border-g-border"></div>
-                    <a href="#" data-href="/admin"
-                        class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg text-g-gray hover:bg-[#F3F4F6] transition-colors">Admin</a>
-                    <a href="#" data-href="/analytics"
-                        class="suite-admin-only flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg bg-blue-50 text-g-blue font-semibold transition-colors">Analytics</a>
                 </div>
             </div>
         </div>
@@ -179,42 +162,6 @@
             el.textContent = user.full_name || user.slug_prefix || 'User'
         }
 
-        function closeSuiteNavMenu() {
-            const menu = qs('#suite-menu')
-            const btn = qs('#btn-suite-menu')
-            if (menu) menu.classList.add('hidden')
-            if (btn) btn.setAttribute('aria-expanded', 'false')
-        }
-
-        function toggleSuiteNavMenu(event) {
-            if (event) event.stopPropagation()
-            const menu = qs('#suite-menu')
-            const btn = qs('#btn-suite-menu')
-            if (!menu || !btn) return
-            const willOpen = menu.classList.contains('hidden')
-            closeSuiteNavMenu()
-            if (willOpen) {
-                menu.classList.remove('hidden')
-                btn.setAttribute('aria-expanded', 'true')
-            }
-        }
-
-        function setSuiteNavAccess(isAdmin) {
-            document.querySelectorAll('.suite-admin-only').forEach((link) => {
-                if (!(link instanceof HTMLAnchorElement)) return
-                if (isAdmin) {
-                    link.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
-                    link.removeAttribute('aria-disabled')
-                    const target = link.dataset.href
-                    if (target) link.setAttribute('href', target)
-                    return
-                }
-                link.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
-                link.setAttribute('aria-disabled', 'true')
-                link.setAttribute('href', '#')
-            })
-        }
-
         function api(method, path) {
             const token = localStorage.getItem('d11_token')
             return fetch(path, {
@@ -235,7 +182,7 @@
                 if (!meRes.ok) { location.href = '/'; return }
                 const me = await meRes.json()
                 setHeaderUserName(me)
-                setSuiteNavAccess(me.is_admin === 1)
+                window.LuminSuiteMenu.setAdminAccess(me.is_admin === 1)
             } catch { location.href = '/'; return }
 
             try {
@@ -522,12 +469,11 @@
             })
         }
 
-        qs('#btn-suite-menu')?.addEventListener('click', toggleSuiteNavMenu)
-        document.addEventListener('click', (event) => {
-            const target = event.target
-            if (!(target instanceof Element)) return
-            if (target.closest('#suite-menu') || target.closest('#btn-suite-menu')) return
-            closeSuiteNavMenu()
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu',
+            menuId: 'suite-menu',
+            activePage: 'analytics',
+            mode: 'light',
         })
 
         boot()
