@@ -136,6 +136,59 @@
             bottom: calc(100% + 0.25rem);
             top: auto;
         }
+
+        .crumbs {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            overflow-x: auto;
+            white-space: nowrap;
+            max-width: min(100%, 680px);
+            padding-bottom: 2px;
+        }
+
+        .crumb-btn {
+            max-width: 170px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .crumb-sep {
+            color: #9ca3af;
+            user-select: none;
+        }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 110px 170px 180px;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .sort-btn {
+            border: 1px solid #e3e3e3;
+            border-radius: 6px;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        .sort-btn:hover {
+            color: #1f1f1f;
+            background: #f8f9fa;
+        }
+
+        .sort-btn.active {
+            color: #2563eb;
+            border-color: #93c5fd;
+            background: #eff6ff;
+        }
     </style>
 </head>
 
@@ -194,7 +247,11 @@
                     <div class="flex flex-wrap gap-2 items-center justify-between">
                         <div>
                             <h2 class="text-sm font-semibold text-g-black">Current Location</h2>
-                            <p id="crumbs" class="text-xs text-g-gray mt-1">/ My Drive</p>
+                            <div class="mt-1 flex items-center gap-2">
+                                <button id="btn-go-up" type="button"
+                                    class="hidden text-xs px-2 py-1 rounded-md border border-g-border text-g-gray hover:text-g-black hover:bg-[#F8F9FA]">Up</button>
+                                <div id="crumbs" class="crumbs text-xs text-g-gray">/ My Drive</div>
+                            </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <button id="btn-new-folder"
@@ -281,11 +338,15 @@
             mode: 'drive',
             parentId: null,
             crumbs: ['/ My Drive'],
+            drivePath: [{ id: null, label: 'My Drive' }],
+            isSearchMode: false,
             items: [],
             loading: false,
             uploadQueue: [],
             currentPlayingId: null,
             audioEl: null,
+            sortField: 'name',
+            sortDir: 'asc',
         }
 
         function setStatus(message, tone = 'muted') {
@@ -351,8 +412,47 @@
             return state.parentId === null ? 'root' : String(state.parentId)
         }
 
+        function syncDriveCrumbsFromPath() {
+            state.crumbs = state.drivePath.map((entry, idx) => (idx === 0 ? '/ My Drive' : entry.label))
+        }
+
+        function renderUpButton() {
+            const btn = qs('#btn-go-up')
+            if (!btn) return
+
+            const canGoUp = state.mode === 'drive' && !state.isSearchMode && state.drivePath.length > 1
+            btn.classList.toggle('hidden', !canGoUp)
+            if (!canGoUp) return
+
+            const parent = state.drivePath[state.drivePath.length - 2]
+            btn.textContent = parent?.label ? `Up to ${parent.label}` : 'Up'
+        }
+
         function renderCrumbs() {
-            qs('#crumbs').textContent = state.crumbs.join(' / ')
+            const host = qs('#crumbs')
+            if (!host) return
+
+            if (state.mode === 'drive' && !state.isSearchMode) {
+                const segments = state.drivePath.map((entry, idx) => ({
+                    index: idx,
+                    label: idx === 0 ? 'My Drive' : (entry.label || `Folder ${entry.id}`),
+                }))
+
+                const html = segments.map((segment, idx) => {
+                    const isLast = idx === segments.length - 1
+                    const sep = idx > 0 ? '<span class="crumb-sep">/</span>' : ''
+                    if (isLast) {
+                        return `${sep}<span class="crumb-btn text-g-black font-medium" title="${esc(segment.label)}">${esc(segment.label)}</span>`
+                    }
+                    return `${sep}<button type="button" data-crumb-index="${segment.index}" class="crumb-btn text-g-gray hover:text-g-blue hover:underline" title="Go to ${esc(segment.label)}">${esc(segment.label)}</button>`
+                }).join('')
+
+                host.innerHTML = html || '/ My Drive'
+            } else {
+                host.textContent = state.crumbs.join(' / ')
+            }
+
+            renderUpButton()
         }
 
         function renderViewFocus() {
@@ -384,6 +484,64 @@
                 idx += 1
             }
             return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[idx]}`
+        }
+
+        function formatLastModified(ts) {
+            if (!ts) return ' - '
+            const d = new Date(ts)
+            if (Number.isNaN(d.getTime())) return ' - '
+            return d.toLocaleString([], {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+            })
+        }
+
+        function getItemLastModified(item) {
+            return item?.file_last_modified || item?.updated_at || item?.created_at || null
+        }
+
+        function normalizeName(value) {
+            return String(value || '').toLocaleLowerCase()
+        }
+
+        function getSortedItems(items) {
+            const multiplier = state.sortDir === 'desc' ? -1 : 1
+            const sorted = [...items].sort((a, b) => {
+                // Keep folders grouped before files in Drive views.
+                if (state.mode !== 'attachments') {
+                    const kindA = a.kind === 'folder' ? 0 : 1
+                    const kindB = b.kind === 'folder' ? 0 : 1
+                    if (kindA !== kindB) return kindA - kindB
+                }
+
+                if (state.sortField === 'size') {
+                    const sizeA = Number(a.size || 0)
+                    const sizeB = Number(b.size || 0)
+                    if (sizeA !== sizeB) return (sizeA - sizeB) * multiplier
+                    return normalizeName(a.display_name).localeCompare(normalizeName(b.display_name))
+                }
+
+                if (state.sortField === 'modified') {
+                    const tsA = Date.parse(getItemLastModified(a) || '')
+                    const tsB = Date.parse(getItemLastModified(b) || '')
+                    const valA = Number.isNaN(tsA) ? 0 : tsA
+                    const valB = Number.isNaN(tsB) ? 0 : tsB
+                    if (valA !== valB) return (valA - valB) * multiplier
+                    return normalizeName(a.display_name).localeCompare(normalizeName(b.display_name))
+                }
+
+                return normalizeName(a.display_name).localeCompare(normalizeName(b.display_name)) * multiplier
+            })
+
+            return sorted
+        }
+
+        function renderSortIcon(field, dir, glyph) {
+            const active = state.sortField === field && state.sortDir === dir
+            return `<button type="button" data-sort-field="${field}" data-sort-dir="${dir}" class="sort-btn ${active ? 'active' : ''}" title="Sort ${field} ${dir}">${glyph}</button>`
         }
 
         function isImageContentType(contentType) {
@@ -844,9 +1002,10 @@
             const isRootMyDrive = state.mode === 'drive'
                 && state.parentId === null
                 && !searchQuery
-            const items = isRootMyDrive
+            const filteredItems = isRootMyDrive
                 ? state.items.filter((item) => !(item.kind === 'folder' && String(item.display_name || '').trim().toLowerCase() === 'attachments'))
                 : state.items
+            const items = getSortedItems(filteredItems)
 
             const host = qs('#items-list')
             if (!items.length) {
@@ -854,7 +1013,27 @@
                 return
             }
 
-            host.innerHTML = items.map((item) => {
+            const header = `
+                <div class="px-4 py-2 border-b border-g-border bg-[#FAFAFA]">
+                    <div class="items-grid text-[11px] uppercase tracking-wide text-g-gray">
+                        <div class="flex items-center gap-2">
+                            <span>Name</span>
+                            <span class="inline-flex items-center gap-1">${renderSortIcon('name', 'asc', '▲')}${renderSortIcon('name', 'desc', '▼')}</span>
+                        </div>
+                        <div class="flex items-center justify-end gap-1">
+                            <span>Size</span>
+                            <span class="inline-flex items-center gap-1">${renderSortIcon('size', 'asc', '▲')}${renderSortIcon('size', 'desc', '▼')}</span>
+                        </div>
+                        <div class="flex items-center justify-end gap-1">
+                            <span>Last Modified</span>
+                            <span class="inline-flex items-center gap-1">${renderSortIcon('modified', 'asc', '▲')}${renderSortIcon('modified', 'desc', '▼')}</span>
+                        </div>
+                        <div class="text-right">Actions</div>
+                    </div>
+                </div>
+            `
+
+            const rows = items.map((item) => {
                 const isFolder = item.kind === 'folder'
                 const icon = isFolder
                     ? '<span class="text-base">📁</span>'
@@ -862,19 +1041,26 @@
                 const detail = isFolder
                     ? 'Folder'
                     : `${esc(item.content_type || 'application/octet-stream')} • ${formatBytes(item.size)}`
+                const lastModified = formatLastModified(getItemLastModified(item))
                 return `
-                    <div class="px-4 py-3 flex items-center justify-between gap-3">
-                        <div class="min-w-0 flex items-center gap-3">
+                    <div class="px-4 py-3">
+                        <div class="items-grid gap-y-2">
+                            <div class="min-w-0 flex items-center gap-3">
                             ${icon}
                             <div class="min-w-0">
                                 <p class="text-sm font-medium text-g-black truncate">${esc(item.display_name)}</p>
                                 <p class="text-xs text-g-gray truncate">${detail}</p>
                             </div>
+                            </div>
+                            <div class="text-xs text-g-gray text-right">${formatBytes(item.size)}</div>
+                            <div class="text-xs text-g-gray text-right">${esc(lastModified)}</div>
+                            <div class="flex items-center justify-end gap-3">${itemActions(item)}</div>
                         </div>
-                        <div class="flex items-center gap-3">${itemActions(item)}</div>
                     </div>
                 `
             }).join('')
+
+            host.innerHTML = `${header}${rows}`
         }
 
         async function loadItems() {
@@ -936,15 +1122,40 @@
             }
         }
 
+        async function goUpOneLevel() {
+            if (state.mode !== 'drive' || state.isSearchMode || state.drivePath.length <= 1) return
+            state.drivePath.pop()
+            const parent = state.drivePath[state.drivePath.length - 1]
+            state.parentId = parent?.id ?? null
+            syncDriveCrumbsFromPath()
+            await loadItems()
+        }
+
+        async function goToPathIndex(index) {
+            const pathIndex = Number(index)
+            if (!Number.isInteger(pathIndex)) return
+            if (state.mode !== 'drive' || state.isSearchMode) return
+            if (pathIndex < 0 || pathIndex >= state.drivePath.length) return
+
+            state.drivePath = state.drivePath.slice(0, pathIndex + 1)
+            const parent = state.drivePath[state.drivePath.length - 1]
+            state.parentId = parent?.id ?? null
+            syncDriveCrumbsFromPath()
+            await loadItems()
+        }
+
         async function runSearch() {
             const q = qs('#search-input').value.trim()
             if (!q) {
+                state.isSearchMode = false
+                if (state.mode === 'drive') syncDriveCrumbsFromPath()
                 await loadItems()
                 return
             }
 
             setLoading(true)
             try {
+                state.isSearchMode = true
                 const res = await api(`/api/drive/search?q=${encodeURIComponent(q)}`)
                 state.items = Array.isArray(res.data) ? res.data : []
                 state.crumbs = ['/ Search', q]
@@ -1039,7 +1250,9 @@
             qs('#btn-view-root').addEventListener('click', async () => {
                 state.mode = 'drive'
                 state.parentId = null
-                state.crumbs = ['/ My Drive']
+                state.isSearchMode = false
+                state.drivePath = [{ id: null, label: 'My Drive' }]
+                syncDriveCrumbsFromPath()
                 renderViewFocus()
                 await loadItems()
             })
@@ -1047,9 +1260,22 @@
             qs('#btn-view-attachments').addEventListener('click', async () => {
                 state.mode = 'attachments'
                 state.parentId = null
+                state.isSearchMode = false
                 state.crumbs = ['/ Attachments']
                 renderViewFocus()
                 await loadItems()
+            })
+
+            qs('#btn-go-up').addEventListener('click', () => {
+                goUpOneLevel().catch(() => null)
+            })
+
+            qs('#crumbs').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                const crumbIndex = target.getAttribute('data-crumb-index')
+                if (crumbIndex === null) return
+                goToPathIndex(crumbIndex).catch(() => null)
             })
 
             qs('#btn-new-folder').addEventListener('click', () => {
@@ -1130,6 +1356,18 @@
                 const target = event.target
                 if (!(target instanceof HTMLElement)) return
 
+                const sortEl = target.closest('[data-sort-field]')
+                if (sortEl instanceof HTMLElement) {
+                    const field = sortEl.getAttribute('data-sort-field')
+                    const dir = sortEl.getAttribute('data-sort-dir')
+                    if (field && dir) {
+                        state.sortField = field
+                        state.sortDir = dir
+                        renderItems()
+                    }
+                    return
+                }
+
                 const toggleEl = target.closest('[data-menu-toggle]')
                 if (toggleEl instanceof HTMLElement) {
                     const menuId = toggleEl.getAttribute('data-menu-toggle')
@@ -1164,9 +1402,20 @@
                 const openId = target.getAttribute('data-open')
                 if (openId) {
                     state.mode = 'drive'
+                    state.isSearchMode = false
                     state.parentId = parseInt(openId, 10)
                     const folder = state.items.find((item) => item.drive_item_id === state.parentId)
-                    state.crumbs = ['/ My Drive', folder?.display_name || `Folder ${openId}`]
+                    const folderLabel = folder?.display_name || `Folder ${openId}`
+                    if (state.drivePath.length === 0) {
+                        state.drivePath = [{ id: null, label: 'My Drive' }]
+                    }
+                    const existingIdx = state.drivePath.findIndex((entry) => entry.id === state.parentId)
+                    if (existingIdx >= 0) {
+                        state.drivePath = state.drivePath.slice(0, existingIdx + 1)
+                    } else {
+                        state.drivePath.push({ id: state.parentId, label: folderLabel })
+                    }
+                    syncDriveCrumbsFromPath()
                     renderViewFocus()
                     loadItems().catch(() => null)
                     return
