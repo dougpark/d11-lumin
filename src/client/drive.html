@@ -378,6 +378,14 @@
                 .replace(/\"/g, '&quot;')
         }
 
+        function debounce(fn, wait = 220) {
+            let timer = null
+            return (...args) => {
+                if (timer) clearTimeout(timer)
+                timer = setTimeout(() => fn(...args), wait)
+            }
+        }
+
         const state = {
             token: '',
             user: null,
@@ -401,6 +409,8 @@
                 options: [],
             },
             moveRequestId: 0,
+            searchRequestId: 0,
+            attachmentsItems: [],
         }
 
         function setStatus(message, tone = 'muted') {
@@ -1251,6 +1261,9 @@
                 const parent = currentParentParam()
                 const res = await api(`/api/drive/tree?parent_id=${encodeURIComponent(parent)}`)
                 state.items = Array.isArray(res.data) ? res.data : []
+                if (state.mode === 'attachments') {
+                    state.attachmentsItems = [...state.items]
+                }
                 renderItems()
                 renderCrumbs()
             } catch (err) {
@@ -1331,22 +1344,42 @@
             if (!q) {
                 state.isSearchMode = false
                 if (state.mode === 'drive') syncDriveCrumbsFromPath()
+                else state.crumbs = ['/ Attachments']
                 await loadItems()
                 return
             }
 
+            if (state.mode === 'attachments') {
+                state.isSearchMode = true
+                const needle = q.toLowerCase()
+                const source = Array.isArray(state.attachmentsItems) ? state.attachmentsItems : []
+                state.items = source.filter((item) => {
+                    const name = String(item.display_name || '').toLowerCase()
+                    const fileName = String(item.filename || '').toLowerCase()
+                    const contentType = String(item.content_type || '').toLowerCase()
+                    return name.includes(needle) || fileName.includes(needle) || contentType.includes(needle)
+                })
+                state.crumbs = ['/ Attachments Search', q]
+                renderItems()
+                renderCrumbs()
+                return
+            }
+
+            const requestId = ++state.searchRequestId
             setLoading(true)
             try {
                 state.isSearchMode = true
                 const res = await api(`/api/drive/search?q=${encodeURIComponent(q)}`)
+                if (requestId !== state.searchRequestId) return
                 state.items = Array.isArray(res.data) ? res.data : []
                 state.crumbs = ['/ Search', q]
                 renderItems()
                 renderCrumbs()
             } catch (err) {
+                if (requestId !== state.searchRequestId) return
                 setStatus(err.message || 'Search failed', 'error')
             } finally {
-                setLoading(false)
+                if (requestId === state.searchRequestId) setLoading(false)
             }
         }
 
@@ -1424,6 +1457,9 @@
         function bindEvents() {
             const searchInput = qs('#search-input')
             const clearSearchBtn = qs('#btn-clear-search')
+            const runSearchDebounced = debounce(() => {
+                runSearch().catch(() => null)
+            })
             const updateSearchClearVisibility = () => {
                 const hasValue = Boolean(searchInput?.value?.trim())
                 clearSearchBtn?.classList.toggle('hidden', !hasValue)
@@ -1437,6 +1473,9 @@
                 syncDriveCrumbsFromPath()
                 renderViewFocus()
                 await loadItems()
+                if (searchInput?.value?.trim()) {
+                    await runSearch()
+                }
             })
 
             qs('#btn-view-attachments').addEventListener('click', async () => {
@@ -1446,6 +1485,9 @@
                 state.crumbs = ['/ Attachments']
                 renderViewFocus()
                 await loadItems()
+                if (searchInput?.value?.trim()) {
+                    await runSearch()
+                }
             })
 
             qs('#btn-go-up').addEventListener('click', () => {
@@ -1480,10 +1522,14 @@
 
             searchInput.addEventListener('input', () => {
                 updateSearchClearVisibility()
+                runSearchDebounced()
             })
 
             searchInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') runSearch().catch(() => null)
+                if (event.key === 'Enter') {
+                    event.preventDefault()
+                    runSearch().catch(() => null)
+                }
             })
 
             clearSearchBtn.addEventListener('click', () => {
