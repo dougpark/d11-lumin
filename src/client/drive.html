@@ -79,6 +79,19 @@
             font-weight: 600;
         }
 
+        .tok-tag {
+            color: #7c3aed;
+            font-weight: 600;
+        }
+
+        .tok-attr {
+            color: #0f5cc0;
+        }
+
+        .tok-punct {
+            color: #6b7280;
+        }
+
         .drive-markdown-viewer.markdown-body {
             background: transparent;
             color: #1f2937;
@@ -347,6 +360,10 @@
             return typeof contentType === 'string' && contentType.toLowerCase() === 'application/pdf'
         }
 
+        function isVideoContentType(contentType) {
+            return typeof contentType === 'string' && contentType.toLowerCase().startsWith('video/')
+        }
+
         function isTextPreviewContentType(contentType) {
             if (typeof contentType !== 'string') return false
             const normalized = contentType.toLowerCase()
@@ -375,12 +392,21 @@
             return isMarkdownContentType(item?.content_type) || isMarkdownFileName(item?.display_name)
         }
 
-        function inferLanguageFromContentType(contentType) {
+        function inferLanguage(contentType, fileName) {
             const normalized = (contentType || '').toLowerCase()
+            const name = (fileName || '').toLowerCase().trim()
+            const hasExt = (extList) => extList.some((ext) => name.endsWith(ext))
+
             if (normalized.includes('json')) return 'json'
+            if (normalized.includes('html') || normalized.includes('xhtml') || normalized.includes('xml')) return 'markup'
+            if (normalized.includes('css')) return 'css'
             if (normalized.includes('javascript') || normalized.includes('typescript')) return 'code'
             if (normalized.includes('x-python')) return 'code'
             if (normalized.includes('x-shellscript') || normalized.includes('x-sh')) return 'code'
+            if (hasExt(['.html', '.htm', '.xhtml', '.xml', '.svg'])) return 'markup'
+            if (hasExt(['.css'])) return 'css'
+            if (hasExt(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.py', '.sh', '.bash', '.zsh'])) return 'code'
+            if (hasExt(['.json'])) return 'json'
             if (normalized.startsWith('text/')) return 'text'
             return 'text'
         }
@@ -444,10 +470,70 @@
             return out
         }
 
-        function highlightText(content, contentType) {
-            const language = inferLanguageFromContentType(contentType)
+        function highlightMarkup(raw) {
+            const tokenRegex = new RegExp("<!--[\\s\\S]*?-->|<\\/?[A-Za-z][A-Za-z0-9:-]*|\\/?>|\\s[A-Za-z_:][A-Za-z0-9:._-]*(?=\\s*=)|=|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'", 'g')
+            let out = ''
+            let last = 0
+            let match
+
+            while ((match = tokenRegex.exec(raw)) !== null) {
+                const value = match[0]
+                out += esc(raw.slice(last, match.index))
+
+                let cls = 'tok-punct'
+                if (value.startsWith('<!--')) {
+                    cls = 'tok-comment'
+                } else if (value.startsWith('<')) {
+                    cls = 'tok-tag'
+                } else if (value.startsWith('"') || value.startsWith("'")) {
+                    cls = 'tok-string'
+                } else if (/^\s[A-Za-z_:][A-Za-z0-9:._-]*$/.test(value)) {
+                    cls = 'tok-attr'
+                }
+
+                out += `<span class="${cls}">${esc(value)}</span>`
+                last = match.index + value.length
+            }
+
+            out += esc(raw.slice(last))
+            return out
+        }
+
+        function highlightCss(raw) {
+            const tokenRegex = /(\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[0-9a-fA-F]{3,8}\b|-?\d+(?:\.\d+)?(?:%|px|rem|em|vh|vw|s|ms|deg)?|\b(?:@media|@supports|@keyframes|from|to|var|calc|rgb|rgba|hsl|hsla|url|important)\b|[A-Za-z-]+(?=\s*:))/g
+            let out = ''
+            let last = 0
+            let match
+
+            while ((match = tokenRegex.exec(raw)) !== null) {
+                const value = match[0]
+                out += esc(raw.slice(last, match.index))
+
+                let cls = 'tok-number'
+                if (value.startsWith('/*')) {
+                    cls = 'tok-comment'
+                } else if (value.startsWith('"') || value.startsWith("'")) {
+                    cls = 'tok-string'
+                } else if (value.startsWith('@')) {
+                    cls = 'tok-keyword'
+                } else if (/^[A-Za-z-]+$/.test(value)) {
+                    cls = 'tok-key'
+                }
+
+                out += `<span class="${cls}">${esc(value)}</span>`
+                last = match.index + value.length
+            }
+
+            out += esc(raw.slice(last))
+            return out
+        }
+
+        function highlightText(content, contentType, fileName) {
+            const language = inferLanguage(contentType, fileName)
             if (language === 'json') return highlightJson(content)
             if (language === 'code') return highlightCode(content)
+            if (language === 'markup') return highlightMarkup(content)
+            if (language === 'css') return highlightCss(content)
             return esc(content)
         }
 
@@ -467,12 +553,12 @@
             viewer.classList.add('hidden')
         }
 
-        function openTextViewer(content, title, contentType) {
+        function openTextViewer(content, title, contentType, fileName) {
             const viewer = qs('#text-viewer')
             const label = qs('#text-viewer-title')
             const pre = qs('#text-viewer-content')
             label.textContent = title || 'Text preview'
-            pre.innerHTML = highlightText(content, contentType)
+            pre.innerHTML = highlightText(content, contentType, fileName)
             viewer.classList.remove('hidden')
         }
 
@@ -555,6 +641,11 @@
                 return
             }
 
+            if (isVideoContentType(item.content_type)) {
+                window.open(inlineUrl, '_blank', 'noopener,noreferrer')
+                return
+            }
+
             if (isTextPreviewContentType(item.content_type)) {
                 const textRes = await fetch(inlineUrl)
                 if (!textRes.ok) throw new Error('Unable to load text preview')
@@ -563,11 +654,11 @@
                 const truncated = content.length > maxChars
                     ? `${content.slice(0, maxChars)}\n\n---\nPreview truncated at ${maxChars.toLocaleString()} characters.`
                     : content
-                openTextViewer(truncated, item.display_name, item.content_type)
+                openTextViewer(truncated, item.display_name, item.content_type, item.display_name)
                 return
             }
 
-            throw new Error('Preview is available for images, PDFs, and text files')
+            throw new Error('Preview is available for images, videos, PDFs, and text files')
         }
 
         function itemActions(item) {
@@ -587,6 +678,7 @@
 
             const isAudio = typeof item.content_type === 'string' && item.content_type.toLowerCase().startsWith('audio/')
             const canView = isImageContentType(item.content_type)
+                || isVideoContentType(item.content_type)
                 || isPdfContentType(item.content_type)
                 || isMarkdownItem(item)
                 || isTextPreviewContentType(item.content_type)
