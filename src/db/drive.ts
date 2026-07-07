@@ -50,6 +50,40 @@ export async function getDriveItemById(db: D1Database, userId: number, driveItem
     return row ?? null
 }
 
+async function isDescendantOf(
+    db: D1Database,
+    userId: number,
+    ancestorId: number,
+    possibleDescendantId: number,
+): Promise<boolean> {
+    const row = await db
+        .prepare(
+            `WITH RECURSIVE descendants(drive_item_id) AS (
+                SELECT drive_item_id
+                FROM drive_items
+                WHERE user_id = ?
+                  AND deleted_at IS NULL
+                  AND parent_id = ?
+
+                UNION ALL
+
+                SELECT di.drive_item_id
+                FROM drive_items di
+                JOIN descendants d ON di.parent_id = d.drive_item_id
+                WHERE di.user_id = ?
+                  AND di.deleted_at IS NULL
+            )
+            SELECT drive_item_id
+            FROM descendants
+            WHERE drive_item_id = ?
+            LIMIT 1`,
+        )
+        .bind(userId, ancestorId, userId, possibleDescendantId)
+        .first<{ drive_item_id: number }>()
+
+    return !!row
+}
+
 export async function listDriveChildren(db: D1Database, userId: number, parentId: number | null): Promise<DriveItemWithAttachment[]> {
     const parentClause = parentId === null ? 'di.parent_id IS NULL' : 'di.parent_id = ?'
     const stmt = db
@@ -233,8 +267,12 @@ export async function patchDriveItem(
             const parent = await getDriveItemById(db, userId, patch.parent_id)
             if (!parent) throw new Error('Parent folder not found')
             if (parent.kind !== 'folder') throw new Error('Parent must be a folder')
-            // V1 explicit scope: only one-level reparenting to root-level folders.
-            if (parent.parent_id !== null) throw new Error('Only one-level reparenting is supported in V1')
+
+            // Prevent cyclic trees when moving folders.
+            if (current.kind === 'folder') {
+                const movingIntoDescendant = await isDescendantOf(db, userId, driveItemId, patch.parent_id)
+                if (movingIntoDescendant) throw new Error('Cannot move a folder into its own descendant')
+            }
         }
 
         set.push('parent_id = ?')

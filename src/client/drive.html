@@ -189,6 +189,25 @@
             border-color: #93c5fd;
             background: #eff6ff;
         }
+
+        .move-destination-row {
+            width: 100%;
+            text-align: left;
+            border: 1px solid #e3e3e3;
+            border-radius: 10px;
+            padding: 0.5rem 0.625rem;
+            background: #fff;
+        }
+
+        .move-destination-row:hover {
+            background: #f8f9fa;
+            border-color: #d0d7de;
+        }
+
+        .move-destination-row.active {
+            border-color: #93c5fd;
+            background: #eff6ff;
+        }
     </style>
 </head>
 
@@ -321,6 +340,33 @@
         </div>
     </div>
 
+    <div id="move-dialog" class="hidden fixed inset-0 z-50 bg-black/60 p-4 sm:p-8">
+        <div class="w-full max-w-xl mx-auto bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="px-4 py-3 border-b border-g-border flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-g-black">Move Item</p>
+                    <p id="move-dialog-item" class="text-xs text-g-gray mt-0.5"></p>
+                </div>
+                <button id="btn-close-move-dialog"
+                    class="text-sm px-3 py-1 border border-g-border rounded-md hover:bg-[#F8F9FA]">Close</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <label for="move-search" class="text-xs uppercase tracking-wide text-g-gray">Destination Folder</label>
+                <input id="move-search" type="text" placeholder="Search folders"
+                    class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                <p id="move-selected-label" class="text-xs text-g-gray"></p>
+                <div id="move-destination-list" class="max-h-72 overflow-auto space-y-2"></div>
+            </div>
+            <div class="px-4 py-3 border-t border-g-border flex items-center justify-end gap-2">
+                <button id="btn-cancel-move"
+                    class="text-sm px-3 py-2 border border-g-border rounded-[10px] hover:bg-[#F8F9FA]">Cancel</button>
+                <button id="btn-confirm-move"
+                    class="text-sm px-3 py-2 bg-g-blue text-white rounded-[10px] hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>Move</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/vendor/marked.min.js"></script>
     <script>
         function qs(sel) { return document.querySelector(sel) }
@@ -347,6 +393,14 @@
             audioEl: null,
             sortField: 'name',
             sortDir: 'asc',
+            moveDialog: {
+                itemId: null,
+                itemName: '',
+                selectedParentId: null,
+                query: '',
+                options: [],
+            },
+            moveRequestId: 0,
         }
 
         function setStatus(message, tone = 'muted') {
@@ -799,6 +853,134 @@
             closeMarkdownViewer()
         }
 
+        function renderMoveDestinationList() {
+            const host = qs('#move-destination-list')
+            const selectedLabel = qs('#move-selected-label')
+            const confirmBtn = qs('#btn-confirm-move')
+            if (!host || !selectedLabel || !confirmBtn) return
+
+            const rows = state.moveDialog.options.map((option) => {
+                const isActive = option.parent_id === state.moveDialog.selectedParentId
+                const subtitle = option.parent_id === null
+                    ? 'Root folder'
+                    : option.parent_id_root
+                        ? 'Top-level folder'
+                        : 'Nested folder'
+                return `
+                    <button type="button" data-move-parent-id="${option.parent_id === null ? 'root' : String(option.parent_id)}" class="move-destination-row ${isActive ? 'active' : ''}">
+                        <p class="text-sm text-g-black truncate">${esc(option.label)}</p>
+                        <p class="text-[11px] text-g-gray truncate">${subtitle}</p>
+                    </button>
+                `
+            }).join('')
+
+            host.innerHTML = rows || '<p class="text-xs text-g-gray">No destination folders found.</p>'
+
+            const selected = state.moveDialog.options.find((opt) => opt.parent_id === state.moveDialog.selectedParentId)
+            selectedLabel.textContent = selected
+                ? `Selected: ${selected.label}`
+                : 'Select a destination folder'
+
+            confirmBtn.disabled = state.moveDialog.selectedParentId === undefined
+        }
+
+        async function loadMoveDestinations(query = '') {
+            if (state.moveDialog.itemId === null) return
+            const requestId = ++state.moveRequestId
+            const itemId = state.moveDialog.itemId
+
+            let options = [
+                { parent_id: null, label: 'My Drive', parent_id_root: true },
+            ]
+
+            try {
+                if (query.trim()) {
+                    const res = await api(`/api/drive/search?q=${encodeURIComponent(query.trim())}`)
+                    const rows = Array.isArray(res.data) ? res.data : []
+                    const folders = rows.filter((row) => row.kind === 'folder' && row.drive_item_id !== itemId)
+                    options = options.concat(
+                        folders.map((folder) => ({
+                            parent_id: folder.drive_item_id,
+                            label: folder.display_name,
+                            parent_id_root: folder.parent_id === null,
+                        })),
+                    )
+                } else {
+                    const res = await api('/api/drive/tree?parent_id=root')
+                    const rows = Array.isArray(res.data) ? res.data : []
+                    const folders = rows.filter((row) => row.kind === 'folder' && row.drive_item_id > 0 && row.drive_item_id !== itemId)
+                    options = options.concat(
+                        folders.map((folder) => ({
+                            parent_id: folder.drive_item_id,
+                            label: folder.display_name,
+                            parent_id_root: true,
+                        })),
+                    )
+                }
+            } catch {
+                options = [{ parent_id: null, label: 'My Drive', parent_id_root: true }]
+            }
+
+            if (requestId !== state.moveRequestId) return
+
+            const dedup = new Map()
+            for (const option of options) {
+                const key = option.parent_id === null ? 'root' : String(option.parent_id)
+                if (!dedup.has(key)) dedup.set(key, option)
+            }
+
+            state.moveDialog.options = Array.from(dedup.values())
+            if (!state.moveDialog.options.some((opt) => opt.parent_id === state.moveDialog.selectedParentId)) {
+                state.moveDialog.selectedParentId = null
+            }
+            renderMoveDestinationList()
+        }
+
+        async function openMoveDialog(itemId) {
+            const item = state.items.find((entry) => entry.drive_item_id === itemId)
+            if (!item) return
+
+            state.moveDialog.itemId = itemId
+            state.moveDialog.itemName = item.display_name || `Item ${itemId}`
+            state.moveDialog.selectedParentId = item.parent_id ?? null
+            state.moveDialog.query = ''
+            state.moveDialog.options = []
+
+            qs('#move-dialog-item').textContent = `Moving: ${state.moveDialog.itemName}`
+            qs('#move-search').value = ''
+            qs('#move-dialog').classList.remove('hidden')
+            await loadMoveDestinations('')
+            qs('#move-search').focus()
+        }
+
+        function closeMoveDialog() {
+            qs('#move-dialog').classList.add('hidden')
+            state.moveDialog.itemId = null
+            state.moveDialog.itemName = ''
+            state.moveDialog.selectedParentId = null
+            state.moveDialog.query = ''
+            state.moveDialog.options = []
+            renderMoveDestinationList()
+        }
+
+        async function confirmMoveDialog() {
+            const itemId = state.moveDialog.itemId
+            if (!itemId && itemId !== 0) return
+
+            try {
+                await api(`/api/drive/items/${itemId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parent_id: state.moveDialog.selectedParentId }),
+                })
+                closeMoveDialog()
+                await loadItems()
+                setStatus('Item moved', 'success')
+            } catch (err) {
+                setStatus(err.message || 'Move failed', 'error')
+            }
+        }
+
         function closeAllRowMenus(exceptId = null) {
             document.querySelectorAll('[data-row-menu]').forEach((menu) => {
                 const menuId = menu.getAttribute('data-row-menu')
@@ -834,7 +1016,7 @@
             // Extend this list with actions like move/info/share later.
             const options = [
                 { key: 'rename', label: 'Rename', tone: 'normal' },
-                { key: 'move', label: 'Move', tone: 'muted', disabled: true, badge: 'Soon' },
+                { key: 'move', label: 'Move', tone: 'normal' },
                 { key: 'info', label: 'Info', tone: 'muted', disabled: true, badge: 'Soon' },
                 { key: 'share', label: 'Share', tone: 'muted', disabled: true, badge: 'Soon' },
                 { key: 'delete', label: 'Delete', tone: 'danger' },
@@ -1391,6 +1573,10 @@
                         renameItem(itemId).catch(() => null)
                         return
                     }
+                    if (action === 'move') {
+                        openMoveDialog(itemId).catch(() => null)
+                        return
+                    }
                     if (action === 'delete') {
                         deleteItem(itemId).catch(() => null)
                         return
@@ -1462,6 +1648,33 @@
                 if (!(target instanceof HTMLElement)) return
                 if (target.closest('[data-menu-wrap]')) return
                 closeAllRowMenus()
+            })
+
+            qs('#btn-close-move-dialog').addEventListener('click', closeMoveDialog)
+            qs('#btn-cancel-move').addEventListener('click', closeMoveDialog)
+            qs('#btn-confirm-move').addEventListener('click', () => {
+                confirmMoveDialog().catch(() => null)
+            })
+
+            qs('#move-dialog').addEventListener('click', (event) => {
+                if (event.target === qs('#move-dialog')) closeMoveDialog()
+            })
+
+            qs('#move-search').addEventListener('input', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLInputElement)) return
+                state.moveDialog.query = target.value || ''
+                loadMoveDestinations(state.moveDialog.query).catch(() => null)
+            })
+
+            qs('#move-destination-list').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                const btn = target.closest('[data-move-parent-id]')
+                if (!(btn instanceof HTMLElement)) return
+                const raw = btn.getAttribute('data-move-parent-id')
+                state.moveDialog.selectedParentId = raw === 'root' ? null : parseInt(raw || '', 10)
+                renderMoveDestinationList()
             })
 
             updateSearchClearVisibility()
