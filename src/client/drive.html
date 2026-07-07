@@ -127,6 +127,15 @@
             border-left-color: #d1d5db;
             color: #4b5563;
         }
+
+        .row-menu {
+            min-width: 140px;
+        }
+
+        .row-menu.open-up {
+            bottom: calc(100% + 0.25rem);
+            top: auto;
+        }
     </style>
 </head>
 
@@ -167,8 +176,15 @@
                     class="mt-2 w-full text-left rounded-[10px] px-3 py-2 text-sm text-g-gray hover:bg-[#F8F9FA]">Attachments</button>
                 <div class="mt-5 border-t border-g-border pt-4">
                     <label for="search-input" class="text-xs uppercase tracking-wide text-g-gray">Search</label>
-                    <input id="search-input" type="text" placeholder="Find files or folders"
-                        class="mt-2 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                    <div class="relative mt-2">
+                        <input id="search-input" type="text" placeholder="Find files or folders"
+                            class="w-full text-sm border border-g-border rounded-[10px] px-3 pr-9 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                        <button id="btn-clear-search" type="button"
+                            class="hidden absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full text-g-gray hover:text-g-black hover:bg-[#F1F3F4]"
+                            aria-label="Clear search" title="Clear search">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
                 </div>
                 <p id="status-msg" class="mt-4 text-xs text-g-gray"></p>
             </aside>
@@ -196,7 +212,7 @@
                     <div id="upload-progress" class="mt-3 space-y-2"></div>
                 </div>
 
-                <div class="bg-white border border-g-border rounded-[16px] overflow-hidden">
+                <div class="bg-white border border-g-border rounded-[16px] overflow-visible">
                     <div class="px-4 py-3 border-b border-g-border flex items-center justify-between">
                         <h3 class="text-sm font-semibold">Items</h3>
                         <div id="loading" class="hidden flex items-center gap-2 text-xs text-g-gray">
@@ -337,6 +353,24 @@
 
         function renderCrumbs() {
             qs('#crumbs').textContent = state.crumbs.join(' / ')
+        }
+
+        function renderViewFocus() {
+            const btnRoot = qs('#btn-view-root')
+            const btnAttachments = qs('#btn-view-attachments')
+            const isAttachments = state.mode === 'attachments'
+
+            btnRoot.classList.toggle('bg-blue-50', !isAttachments)
+            btnRoot.classList.toggle('text-g-blue', !isAttachments)
+            btnRoot.classList.toggle('font-medium', !isAttachments)
+            btnRoot.classList.toggle('text-g-gray', isAttachments)
+            btnRoot.classList.toggle('hover:bg-[#F8F9FA]', isAttachments)
+
+            btnAttachments.classList.toggle('bg-blue-50', isAttachments)
+            btnAttachments.classList.toggle('text-g-blue', isAttachments)
+            btnAttachments.classList.toggle('font-medium', isAttachments)
+            btnAttachments.classList.toggle('text-g-gray', !isAttachments)
+            btnAttachments.classList.toggle('hover:bg-[#F8F9FA]', !isAttachments)
         }
 
         function formatBytes(bytes) {
@@ -607,6 +641,71 @@
             closeMarkdownViewer()
         }
 
+        function closeAllRowMenus(exceptId = null) {
+            document.querySelectorAll('[data-row-menu]').forEach((menu) => {
+                const menuId = menu.getAttribute('data-row-menu')
+                const shouldKeepOpen = exceptId !== null && String(menuId) === String(exceptId)
+                menu.classList.toggle('hidden', !shouldKeepOpen)
+            })
+        }
+
+        function toggleRowMenu(id) {
+            const menuWrap = document.querySelector(`[data-menu-wrap="${String(id)}"]`)
+            const menu = document.querySelector(`[data-row-menu="${String(id)}"]`)
+            if (!menu) return
+            const isHidden = menu.classList.contains('hidden')
+            if (!isHidden) {
+                closeAllRowMenus()
+                return
+            }
+
+            closeAllRowMenus(id)
+            menu.classList.remove('open-up')
+
+            if (menuWrap instanceof HTMLElement) {
+                const wrapRect = menuWrap.getBoundingClientRect()
+                const estimatedMenuHeight = Math.max(menu.scrollHeight || 0, 170)
+                const spaceBelow = window.innerHeight - wrapRect.bottom
+                if (spaceBelow < estimatedMenuHeight) {
+                    menu.classList.add('open-up')
+                }
+            }
+        }
+
+        function renderRowMenu(item) {
+            // Extend this list with actions like move/info/share later.
+            const options = [
+                { key: 'rename', label: 'Rename', tone: 'normal' },
+                { key: 'move', label: 'Move', tone: 'muted', disabled: true, badge: 'Soon' },
+                { key: 'info', label: 'Info', tone: 'muted', disabled: true, badge: 'Soon' },
+                { key: 'share', label: 'Share', tone: 'muted', disabled: true, badge: 'Soon' },
+                { key: 'delete', label: 'Delete', tone: 'danger' },
+            ]
+
+            const menuItems = options.map((option) => {
+                const toneClass = option.tone === 'danger'
+                    ? 'text-red-600 hover:bg-red-50'
+                    : option.tone === 'muted'
+                        ? 'text-g-gray'
+                        : 'text-g-black hover:bg-[#F8F9FA]'
+                const disabledClass = option.disabled ? 'opacity-60 cursor-not-allowed' : ''
+                const disabledAttr = option.disabled ? ' data-menu-disabled="1" aria-disabled="true"' : ''
+                const badge = option.badge
+                    ? `<span class="text-[10px] text-g-gray uppercase tracking-wide">${option.badge}</span>`
+                    : ''
+                return `<button type="button" data-menu-action="${option.key}" data-menu-id="${item.drive_item_id}"${disabledAttr} class="w-full text-left px-3 py-2 text-xs rounded-md ${toneClass} ${disabledClass}"><span class="flex items-center justify-between gap-2"><span>${option.label}</span>${badge}</span></button>`
+            }).join('')
+
+            return `
+                <div class="relative" data-menu-wrap="${item.drive_item_id}">
+                    <button type="button" data-menu-toggle="${item.drive_item_id}" aria-label="More actions" title="More actions" class="h-7 w-7 inline-flex items-center justify-center rounded-full text-g-gray hover:text-g-black hover:bg-[#F1F3F4]">⋮</button>
+                    <div data-row-menu="${item.drive_item_id}" class="row-menu hidden absolute right-0 mt-1 z-20 bg-white border border-g-border rounded-[10px] shadow-lg p-1">
+                        ${menuItems}
+                    </div>
+                </div>
+            `
+        }
+
         async function downloadDriveItem(id) {
             const res = await api(`/api/drive/items/${id}/download`)
             if (!res?.data?.url) throw new Error('Download URL unavailable')
@@ -672,8 +771,7 @@
             if (item.kind === 'folder') {
                 return `
                     <button data-open="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">Open</button>
-                    <button data-rename="${item.drive_item_id}" class="text-xs text-g-gray hover:text-g-blue">Rename</button>
-                    <button data-delete="${item.drive_item_id}" class="text-xs text-red-500 hover:underline">Delete</button>
+                    ${renderRowMenu(item)}
                 `
             }
 
@@ -696,8 +794,7 @@
                 ${canView ? `<button data-view="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">View</button>` : ''}
                 ${isAudio ? `<button data-play="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">${playLabel}</button>` : ''}
                 <button data-download="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">Download</button>
-                <button data-rename="${item.drive_item_id}" class="text-xs text-g-gray hover:text-g-blue">Rename</button>
-                <button data-delete="${item.drive_item_id}" class="text-xs text-red-500 hover:underline">Delete</button>
+                ${renderRowMenu(item)}
             `
         }
 
@@ -743,13 +840,21 @@
         }
 
         function renderItems() {
+            const searchQuery = qs('#search-input')?.value?.trim() || ''
+            const isRootMyDrive = state.mode === 'drive'
+                && state.parentId === null
+                && !searchQuery
+            const items = isRootMyDrive
+                ? state.items.filter((item) => !(item.kind === 'folder' && String(item.display_name || '').trim().toLowerCase() === 'attachments'))
+                : state.items
+
             const host = qs('#items-list')
-            if (!state.items.length) {
+            if (!items.length) {
                 host.innerHTML = '<p class="px-4 py-8 text-sm text-g-gray">No items in this location yet.</p>'
                 return
             }
 
-            host.innerHTML = state.items.map((item) => {
+            host.innerHTML = items.map((item) => {
                 const isFolder = item.kind === 'folder'
                 const icon = isFolder
                     ? '<span class="text-base">📁</span>'
@@ -924,10 +1029,18 @@
         }
 
         function bindEvents() {
+            const searchInput = qs('#search-input')
+            const clearSearchBtn = qs('#btn-clear-search')
+            const updateSearchClearVisibility = () => {
+                const hasValue = Boolean(searchInput?.value?.trim())
+                clearSearchBtn?.classList.toggle('hidden', !hasValue)
+            }
+
             qs('#btn-view-root').addEventListener('click', async () => {
                 state.mode = 'drive'
                 state.parentId = null
                 state.crumbs = ['/ My Drive']
+                renderViewFocus()
                 await loadItems()
             })
 
@@ -935,6 +1048,7 @@
                 state.mode = 'attachments'
                 state.parentId = null
                 state.crumbs = ['/ Attachments']
+                renderViewFocus()
                 await loadItems()
             })
 
@@ -956,8 +1070,19 @@
                 event.target.value = ''
             })
 
-            qs('#search-input').addEventListener('keydown', (event) => {
+            searchInput.addEventListener('input', () => {
+                updateSearchClearVisibility()
+            })
+
+            searchInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') runSearch().catch(() => null)
+            })
+
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = ''
+                updateSearchClearVisibility()
+                runSearch().catch(() => null)
+                searchInput.focus()
             })
 
             qs('#btn-close-image-viewer').addEventListener('click', closeImageViewer)
@@ -1005,12 +1130,44 @@
                 const target = event.target
                 if (!(target instanceof HTMLElement)) return
 
+                const toggleEl = target.closest('[data-menu-toggle]')
+                if (toggleEl instanceof HTMLElement) {
+                    const menuId = toggleEl.getAttribute('data-menu-toggle')
+                    if (menuId) toggleRowMenu(menuId)
+                    return
+                }
+
+                const menuActionEl = target.closest('[data-menu-action]')
+                if (menuActionEl instanceof HTMLElement) {
+                    const action = menuActionEl.getAttribute('data-menu-action')
+                    const menuId = menuActionEl.getAttribute('data-menu-id')
+                    const isDisabled = menuActionEl.getAttribute('data-menu-disabled') === '1'
+                    closeAllRowMenus()
+                    if (!action || !menuId) return
+                    if (isDisabled) {
+                        setStatus(`${action} is coming soon`)
+                        return
+                    }
+                    const itemId = parseInt(menuId, 10)
+                    if (action === 'rename') {
+                        renameItem(itemId).catch(() => null)
+                        return
+                    }
+                    if (action === 'delete') {
+                        deleteItem(itemId).catch(() => null)
+                        return
+                    }
+                    setStatus(`${action} is not available yet`, 'error')
+                    return
+                }
+
                 const openId = target.getAttribute('data-open')
                 if (openId) {
                     state.mode = 'drive'
                     state.parentId = parseInt(openId, 10)
                     const folder = state.items.find((item) => item.drive_item_id === state.parentId)
                     state.crumbs = ['/ My Drive', folder?.display_name || `Folder ${openId}`]
+                    renderViewFocus()
                     loadItems().catch(() => null)
                     return
                 }
@@ -1050,6 +1207,16 @@
                     })
                 }
             })
+
+            document.addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                if (target.closest('[data-menu-wrap]')) return
+                closeAllRowMenus()
+            })
+
+            updateSearchClearVisibility()
+            renderViewFocus()
         }
 
         async function bootstrap() {
