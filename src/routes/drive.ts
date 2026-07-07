@@ -7,6 +7,7 @@ import {
     createDriveFolder,
     getDriveDownloadRecord,
     getDriveItemById,
+    listDriveAttachPickerItems,
     listAttachmentShelf,
     listDriveChildren,
     patchDriveItem,
@@ -349,6 +350,24 @@ drive.get('/search', async (c) => {
 
     const results = await searchDriveItems(c.env.DB, user.id, q)
     return c.json({ data: results })
+})
+
+drive.get('/picker', async (c) => {
+    const user = c.get('user')
+    const q = (c.req.query('q') || '').trim()
+    const defaultLimit = q ? 24 : 5
+    const rawLimit = parseInt(c.req.query('limit') || String(defaultLimit), 10)
+    const limit = Math.min(Math.max(Number.isInteger(rawLimit) ? rawLimit : defaultLimit, 1), 50)
+
+    const results = await listDriveAttachPickerItems(c.env.DB, user.id, q, limit)
+    return c.json({
+        data: results,
+        meta: {
+            q,
+            mode: q ? 'search' : 'recent',
+            limit,
+        },
+    })
 })
 
 drive.get('/items/:id/download', async (c) => {

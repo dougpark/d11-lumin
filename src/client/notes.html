@@ -1411,6 +1411,46 @@
             </div>
         </section>
 
+        <div id="drive-attach-picker" class="hidden fixed inset-0 z-[60] bg-black/60 p-4 sm:p-8">
+            <div
+                class="w-full max-w-3xl mx-auto bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-4rem)]">
+                <div class="px-4 py-3 border-b border-g-border flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-g-black truncate">Attach from Lumin Drive</p>
+                        <p id="drive-attach-picker-subtitle" class="text-xs text-g-gray mt-0.5 truncate">Recent files
+                        </p>
+                    </div>
+                    <button id="btn-close-drive-attach-picker" type="button"
+                        class="text-sm px-3 py-1 border border-g-border rounded-md hover:bg-[#F8F9FA]">Close</button>
+                </div>
+                <div class="p-4 space-y-3 min-h-0 flex-1 flex flex-col">
+                    <div>
+                        <label for="drive-attach-picker-search"
+                            class="text-xs uppercase tracking-wide text-g-gray">Search</label>
+                        <input id="drive-attach-picker-search" type="search"
+                            placeholder="Search files by name or tag..."
+                            class="mt-2 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-xs text-g-gray">
+                        <span id="drive-attach-picker-count">5 recent files</span>
+                        <span id="drive-attach-picker-selected">No file selected</span>
+                    </div>
+                    <div id="drive-attach-picker-list" class="min-h-0 flex-1 overflow-auto space-y-2 pr-1"></div>
+                </div>
+                <div class="px-4 py-3 border-t border-g-border flex items-center justify-between gap-2">
+                    <button id="btn-drive-attach-picker-upload" type="button"
+                        class="text-sm px-3 py-2 border border-g-border rounded-[10px] hover:bg-[#F8F9FA]">Upload</button>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-drive-attach-picker-cancel" type="button"
+                            class="text-sm px-3 py-2 border border-g-border rounded-[10px] hover:bg-[#F8F9FA]">Cancel</button>
+                        <button id="btn-drive-attach-picker-attach" type="button"
+                            class="text-sm px-3 py-2 bg-primary text-white rounded-[10px] hover:bg-[#0d47a1] disabled:cursor-not-allowed disabled:bg-primary disabled:text-white disabled:border disabled:border-primary/30"
+                            disabled>Attach</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="note-editor-menu-scrim" class="note-editor-menu-scrim" hidden></div>
         <div id="note-editor-menu" class="note-editor-menu" hidden role="menu" aria-label="Note actions">
             <button id="note-editor-menu-pin" type="button" class="note-editor-menu-item" role="menuitem"
@@ -1468,6 +1508,12 @@
             activePage: 'channels',
             lastNoteStatus: 'Loading notes...',
             isDesktopView: false,
+            driveAttachPickerOpen: false,
+            driveAttachPickerItems: [],
+            driveAttachPickerQuery: '',
+            driveAttachPickerLoading: false,
+            driveAttachPickerSelectedId: null,
+            driveAttachPickerRequestId: 0,
         }
 
         const el = {
@@ -1520,6 +1566,16 @@
             noteEditorCard: document.getElementById('note-editor-card'),
             profileUserName: document.getElementById('profile-user-name'),
             profileUserHandle: document.getElementById('profile-user-handle'),
+            driveAttachPicker: document.getElementById('drive-attach-picker'),
+            driveAttachPickerSubtitle: document.getElementById('drive-attach-picker-subtitle'),
+            driveAttachPickerSearch: document.getElementById('drive-attach-picker-search'),
+            driveAttachPickerCount: document.getElementById('drive-attach-picker-count'),
+            driveAttachPickerSelected: document.getElementById('drive-attach-picker-selected'),
+            driveAttachPickerList: document.getElementById('drive-attach-picker-list'),
+            btnDriveAttachPickerUpload: document.getElementById('btn-drive-attach-picker-upload'),
+            btnDriveAttachPickerCancel: document.getElementById('btn-drive-attach-picker-cancel'),
+            btnDriveAttachPickerAttach: document.getElementById('btn-drive-attach-picker-attach'),
+            btnCloseDriveAttachPicker: document.getElementById('btn-close-drive-attach-picker'),
         }
 
         const DESKTOP_LAYOUT_QUERY = '(min-width: 1100px)'
@@ -1594,6 +1650,26 @@
             return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
         }
 
+        function formatRelativeTime(value) {
+            if (!value) return 'unknown time'
+            const date = new Date(value)
+            if (Number.isNaN(date.getTime())) return 'unknown time'
+            const diffMs = Date.now() - date.getTime()
+            if (diffMs < 60 * 1000) return 'just now'
+            const diffMinutes = Math.floor(diffMs / (60 * 1000))
+            if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes === 1 ? '' : 's'} ago`
+            const diffHours = Math.floor(diffMinutes / 60)
+            if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`
+            const diffDays = Math.floor(diffHours / 24)
+            if (diffDays === 1) return 'Yesterday'
+            if (diffDays < 7) return `${diffDays} days ago`
+            return date.toLocaleDateString([], {
+                month: 'short',
+                day: 'numeric',
+                year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+            })
+        }
+
         function linkifyUrls(text) {
             const parts = []
             let lastIndex = 0
@@ -1621,6 +1697,14 @@
                 return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []
             } catch {
                 return []
+            }
+        }
+
+        function debounce(fn, wait = 240) {
+            let timer = null
+            return (...args) => {
+                if (timer) clearTimeout(timer)
+                timer = setTimeout(() => fn(...args), wait)
             }
         }
 
@@ -1780,6 +1864,7 @@
             renderUploadQueue()
             renderNoteAttachments()
             closeNoteEditorMenu()
+            closeDriveAttachPicker()
             updateNoteEditorPane()
         }
 
@@ -2521,6 +2606,145 @@
             await copyTextToClipboard(markdown)
         }
 
+        function getDrivePickerIcon(contentType) {
+            const normalized = String(contentType || '').toLowerCase()
+            if (normalized.startsWith('image/')) return '🖼'
+            if (normalized.startsWith('video/')) return '🎬'
+            if (normalized.startsWith('audio/')) return '🎵'
+            if (normalized.includes('pdf')) return '📕'
+            if (normalized.includes('json') || normalized.includes('xml') || normalized.includes('csv')) return '🧾'
+            if (normalized.startsWith('text/')) return '📄'
+            return '📄'
+        }
+
+        function updateDriveAttachPickerUi() {
+            if (!el.driveAttachPicker || !el.driveAttachPickerList) return
+
+            const hasQuery = Boolean(state.driveAttachPickerQuery.trim())
+            if (el.driveAttachPickerSubtitle) {
+                el.driveAttachPickerSubtitle.textContent = hasQuery ? 'Search results' : 'Recent files'
+            }
+
+            if (el.driveAttachPickerCount) {
+                el.driveAttachPickerCount.textContent = state.driveAttachPickerLoading
+                    ? 'Loading...'
+                    : hasQuery
+                        ? `${state.driveAttachPickerItems.length} result${state.driveAttachPickerItems.length === 1 ? '' : 's'}`
+                        : `${state.driveAttachPickerItems.length} recent file${state.driveAttachPickerItems.length === 1 ? '' : 's'}`
+            }
+
+            const selected = state.driveAttachPickerItems.find((item) => item.drive_item_id === state.driveAttachPickerSelectedId)
+            if (el.driveAttachPickerSelected) {
+                el.driveAttachPickerSelected.textContent = selected
+                    ? `Selected: ${selected.display_name || selected.filename || 'Drive file'}`
+                    : 'No file selected'
+            }
+
+            if (el.btnDriveAttachPickerAttach) {
+                el.btnDriveAttachPickerAttach.disabled = !selected || state.driveAttachPickerLoading
+            }
+
+            if (state.driveAttachPickerLoading) {
+                el.driveAttachPickerList.innerHTML = '<p class="text-sm text-g-gray py-8 text-center">Loading files...</p>'
+                return
+            }
+
+            if (!state.driveAttachPickerItems.length) {
+                el.driveAttachPickerList.innerHTML = '<p class="text-sm text-g-gray py-8 text-center">No files found.</p>'
+                return
+            }
+
+            el.driveAttachPickerList.innerHTML = state.driveAttachPickerItems.map((item) => {
+                const isSelected = item.drive_item_id === state.driveAttachPickerSelectedId
+                const tags = [...parseJsonArray(item.tag_list), ...parseJsonArray(item.ai_tags)].slice(0, 4)
+                const modifiedAt = item.modified_at || item.file_last_modified || item.created_at
+                return `
+                    <button type="button" data-drive-picker-item="${item.drive_item_id}"
+                        class="w-full text-left rounded-[12px] border ${isSelected ? 'border-g-blue bg-blue-50' : 'border-g-border hover:border-g-blue/40 hover:bg-[#FAFAFA]'} px-3 py-3 transition-colors">
+                        <div class="flex items-start gap-3 min-w-0">
+                            <div class="h-9 w-9 rounded-full bg-[#F3F5F9] flex items-center justify-center text-base flex-shrink-0">${getDrivePickerIcon(item.content_type)}</div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-start justify-between gap-3 min-w-0">
+                                    <p class="text-sm font-medium text-[#1a1a2e] truncate">${esc(item.display_name || item.filename || 'Drive file')}</p>
+                                    <span class="text-[11px] text-muted-fg flex-shrink-0">${esc(formatRelativeTime(modifiedAt))}</span>
+                                </div>
+                                <p class="text-xs text-muted-fg truncate mt-0.5">${esc(item.filename || '')}</p>
+                                <div class="mt-2 flex flex-wrap gap-1.5">${tags.map((tag) => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-[#F3F5F9] text-muted-fg">${esc(tag)}</span>`).join('')}</div>
+                            </div>
+                        </div>
+                    </button>
+                `
+            }).join('')
+        }
+
+        async function loadDriveAttachPicker(query = '') {
+            if (!state.editingNote) return
+            const requestId = ++state.driveAttachPickerRequestId
+            state.driveAttachPickerLoading = true
+            state.driveAttachPickerQuery = query
+            updateDriveAttachPickerUi()
+
+            try {
+                const params = new URLSearchParams()
+                if (query.trim()) params.set('q', query.trim())
+                const res = await api(`/api/drive/picker?${params.toString()}`)
+                if (requestId !== state.driveAttachPickerRequestId) return
+                state.driveAttachPickerItems = Array.isArray(res?.data) ? res.data : []
+                if (!state.driveAttachPickerItems.some((item) => item.drive_item_id === state.driveAttachPickerSelectedId)) {
+                    state.driveAttachPickerSelectedId = null
+                }
+            } catch (err) {
+                if (requestId !== state.driveAttachPickerRequestId) return
+                state.driveAttachPickerItems = []
+                state.driveAttachPickerSelectedId = null
+                alert(err.message || 'Failed to load Drive files')
+            } finally {
+                if (requestId === state.driveAttachPickerRequestId) {
+                    state.driveAttachPickerLoading = false
+                    updateDriveAttachPickerUi()
+                }
+            }
+        }
+
+        function openDriveAttachPicker() {
+            if (!state.editingNote || !el.driveAttachPicker) return
+            state.driveAttachPickerOpen = true
+            state.driveAttachPickerQuery = ''
+            state.driveAttachPickerItems = []
+            state.driveAttachPickerSelectedId = null
+            if (el.driveAttachPickerSearch) el.driveAttachPickerSearch.value = ''
+            el.driveAttachPicker.classList.remove('hidden')
+            el.driveAttachPicker.hidden = false
+            updateDriveAttachPickerUi()
+            loadDriveAttachPicker('').catch(() => null)
+            requestAnimationFrame(() => el.driveAttachPickerSearch?.focus())
+        }
+
+        function closeDriveAttachPicker() {
+            state.driveAttachPickerOpen = false
+            state.driveAttachPickerQuery = ''
+            state.driveAttachPickerItems = []
+            state.driveAttachPickerSelectedId = null
+            state.driveAttachPickerLoading = false
+            if (el.driveAttachPicker) {
+                el.driveAttachPicker.classList.add('hidden')
+                el.driveAttachPicker.hidden = true
+            }
+            if (el.driveAttachPickerSearch) el.driveAttachPickerSearch.value = ''
+            updateDriveAttachPickerUi()
+        }
+
+        async function attachSelectedDriveItemToNote() {
+            if (!state.editingNote || !state.driveAttachPickerSelectedId) return
+            await api(`/api/drive/items/${state.driveAttachPickerSelectedId}/attach-to-note`, {
+                method: 'POST',
+                body: JSON.stringify({ note_id: state.editingNote.note_id }),
+            })
+            await loadNoteAttachments(state.editingNote.note_id)
+            await loadNotes({ silent: true })
+            closeDriveAttachPicker()
+        }
+
         function focusNoteEditorInput() {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -2980,6 +3204,8 @@
                 state.noteUploadQueue = state.noteUploadQueue.filter((item) => item.status === 'Uploading...')
                 renderUploadQueue()
             }, 1000)
+
+            closeDriveAttachPicker()
         }
 
         function getPastedImageFiles(event) {
@@ -3165,8 +3391,66 @@
 
         el.btnNoteAttach.addEventListener('click', () => {
             if (!state.editingNote) return
-            el.noteAttachmentInput.click()
+            openDriveAttachPicker()
         })
+
+        if (el.btnDriveAttachPickerCancel) {
+            el.btnDriveAttachPickerCancel.addEventListener('click', closeDriveAttachPicker)
+        }
+
+        if (el.btnCloseDriveAttachPicker) {
+            el.btnCloseDriveAttachPicker.addEventListener('click', closeDriveAttachPicker)
+        }
+
+        if (el.driveAttachPicker) {
+            el.driveAttachPicker.addEventListener('click', (event) => {
+                if (event.target === el.driveAttachPicker) closeDriveAttachPicker()
+            })
+        }
+
+        if (el.btnDriveAttachPickerUpload) {
+            el.btnDriveAttachPickerUpload.addEventListener('click', () => {
+                if (!state.editingNote) return
+                el.noteAttachmentInput.click()
+            })
+        }
+
+        if (el.btnDriveAttachPickerAttach) {
+            el.btnDriveAttachPickerAttach.addEventListener('click', () => {
+                attachSelectedDriveItemToNote().catch((err) => {
+                    alert(err.message || 'Unable to attach Drive file')
+                })
+            })
+        }
+
+        if (el.driveAttachPickerSearch) {
+            const debouncedPickerSearch = debounce((query) => {
+                loadDriveAttachPicker(query).catch(() => null)
+            })
+            el.driveAttachPickerSearch.addEventListener('input', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLInputElement)) return
+                debouncedPickerSearch(target.value || '')
+            })
+            el.driveAttachPickerSearch.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return
+                event.preventDefault()
+                loadDriveAttachPicker(el.driveAttachPickerSearch.value || '').catch(() => null)
+            })
+        }
+
+        if (el.driveAttachPickerList) {
+            el.driveAttachPickerList.addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                const button = target.closest('[data-drive-picker-item]')
+                if (!(button instanceof HTMLElement)) return
+                const itemId = Number(button.dataset.drivePickerItem)
+                if (!Number.isInteger(itemId) || itemId < 1) return
+                state.driveAttachPickerSelectedId = itemId
+                updateDriveAttachPickerUi()
+            })
+        }
 
         if (el.btnNoteAttachmentsToggle) {
             el.btnNoteAttachmentsToggle.addEventListener('click', () => {
@@ -3179,6 +3463,7 @@
             if (!files.length) return
             await uploadFilesWithProgress(files)
             el.noteAttachmentInput.value = ''
+            closeDriveAttachPicker()
         })
 
             ;['dragenter', 'dragover'].forEach((eventName) => {

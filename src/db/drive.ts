@@ -31,6 +31,10 @@ export type DriveItemWithAttachment = DriveItem & {
     filename: string | null
     content_type: string | null
     size: number | null
+    tag_list?: string | null
+    ai_tags?: string | null
+    summary?: string | null
+    modified_at?: string | null
 }
 
 export type DriveAttachmentShelfItem = Attachment & {
@@ -326,6 +330,52 @@ export async function searchDriveItems(db: D1Database, userId: number, q: string
         )
         .bind(userId, like, like)
         .all<DriveItemWithAttachment>()
+
+    return result.results
+}
+
+export async function listDriveAttachPickerItems(
+    db: D1Database,
+    userId: number,
+    q: string,
+    limit: number,
+): Promise<DriveItemWithAttachment[]> {
+    const normalizedQuery = q.trim().toLowerCase()
+    const useSearch = normalizedQuery.length > 0
+    const like = `%${normalizedQuery}%`
+    const stmt = db
+        .prepare(
+            `SELECT
+                di.*,
+                dl.attachment_id,
+                a.attachment_slug,
+                a.filename,
+                a.content_type,
+                a.size,
+                a.tag_list,
+                a.ai_tags,
+                a.summary,
+                COALESCE(di.updated_at, a.created_at, a.file_last_modified, di.created_at) AS modified_at
+             FROM drive_items di
+             JOIN drive_list dl ON dl.drive_item_id = di.drive_item_id
+             JOIN attachments a ON a.attachment_id = dl.attachment_id
+             WHERE di.user_id = ?
+               AND di.deleted_at IS NULL
+               AND di.kind = 'file'
+               AND a.deleted_at IS NULL
+               ${useSearch ? `AND (
+                    LOWER(di.display_name) LIKE ?
+                    OR LOWER(COALESCE(a.filename, '')) LIKE ?
+                    OR LOWER(COALESCE(a.tag_list, '')) LIKE ?
+                    OR LOWER(COALESCE(a.ai_tags, '')) LIKE ?
+                )` : ''}
+             ORDER BY CASE WHEN a.file_last_modified IS NOT NULL THEN a.file_last_modified ELSE di.updated_at END DESC, di.display_name COLLATE NOCASE ASC
+             LIMIT ?`,
+        )
+
+    const result = useSearch
+        ? await stmt.bind(userId, like, like, like, like, limit).all<DriveItemWithAttachment>()
+        : await stmt.bind(userId, limit).all<DriveItemWithAttachment>()
 
     return result.results
 }
