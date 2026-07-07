@@ -371,8 +371,15 @@
                 || normalized.includes('json')
                 || normalized.includes('xml')
                 || normalized.includes('javascript')
+                || normalized.includes('typescript')
                 || normalized.includes('yaml')
                 || normalized.includes('csv')
+        }
+
+        function isTextPreviewFileName(name) {
+            if (typeof name !== 'string') return false
+            const normalized = name.toLowerCase().trim()
+            return /\.(txt|log|md|markdown|mdx|json|yaml|yml|csv|xml|html|htm|xhtml|svg|css|js|mjs|cjs|ts|tsx|jsx|py|sh|bash|zsh)$/i.test(normalized)
         }
 
         function isMarkdownContentType(contentType) {
@@ -646,7 +653,7 @@
                 return
             }
 
-            if (isTextPreviewContentType(item.content_type)) {
+            if (isTextPreviewContentType(item.content_type) || isTextPreviewFileName(item.display_name)) {
                 const textRes = await fetch(inlineUrl)
                 if (!textRes.ok) throw new Error('Unable to load text preview')
                 const content = await textRes.text()
@@ -682,6 +689,7 @@
                 || isPdfContentType(item.content_type)
                 || isMarkdownItem(item)
                 || isTextPreviewContentType(item.content_type)
+                || isTextPreviewFileName(item.display_name)
             const playLabel = state.currentPlayingId === item.drive_item_id ? 'Stop' : 'Play'
 
             return `
