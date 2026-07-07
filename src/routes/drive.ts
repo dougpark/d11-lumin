@@ -142,9 +142,12 @@ drive.get('/download', async (c) => {
     const object = await c.env.ATTACHMENTS.get(item.url)
     if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
 
+    const inline = c.req.query('inline') === '1'
+    const safeFilename = (item.filename || 'download').replace(/"/g, '')
+
     c.header('Content-Type', item.content_type || 'application/octet-stream')
     c.header('Content-Length', String(item.size ?? 0))
-    c.header('Content-Disposition', `attachment; filename="${(item.filename || 'download').replace(/"/g, '')}"`)
+    c.header('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${safeFilename}"`)
     c.header('Cache-Control', 'private, max-age=60')
     return c.body(object.body)
 })
@@ -362,12 +365,15 @@ drive.get('/items/:id/download', async (c) => {
     const signed = await createDownloadToken(tokenSecret, user.id, id)
     const downloadUrl = new URL('/api/drive/download', c.req.url)
     downloadUrl.searchParams.set('t', signed.token)
+    const inlineUrl = new URL(downloadUrl.toString())
+    inlineUrl.searchParams.set('inline', '1')
 
     return c.json({
         data: {
             drive_item_id: id,
             filename: item.filename,
             url: downloadUrl.toString(),
+            inline_url: inlineUrl.toString(),
             expires_at: new Date(signed.exp * 1000).toISOString(),
         },
     })

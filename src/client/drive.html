@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/vendor/github-markdown.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -43,6 +44,75 @@
             to {
                 transform: rotate(360deg);
             }
+        }
+
+        .tok-key {
+            color: #0f5cc0;
+            font-weight: 600;
+        }
+
+        .tok-string {
+            color: #0b7a3e;
+        }
+
+        .tok-number {
+            color: #9a4d00;
+        }
+
+        .tok-bool {
+            color: #7a1fa2;
+            font-weight: 600;
+        }
+
+        .tok-null {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .tok-comment {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .tok-keyword {
+            color: #0f5cc0;
+            font-weight: 600;
+        }
+
+        .drive-markdown-viewer.markdown-body {
+            background: transparent;
+            color: #1f2937;
+            font-size: 14px;
+            line-height: 1.7;
+            font-family: Inter, Roboto, sans-serif;
+            max-width: none;
+        }
+
+        .drive-markdown-viewer.markdown-body h1,
+        .drive-markdown-viewer.markdown-body h2,
+        .drive-markdown-viewer.markdown-body h3,
+        .drive-markdown-viewer.markdown-body h4 {
+            border-bottom: none;
+            color: #111827;
+            margin-top: 1.25rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .drive-markdown-viewer.markdown-body pre,
+        .drive-markdown-viewer.markdown-body code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        }
+
+        .drive-markdown-viewer.markdown-body pre {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 0.75rem;
+        }
+
+        .drive-markdown-viewer.markdown-body blockquote {
+            border-left-color: #d1d5db;
+            color: #4b5563;
         }
     </style>
 </head>
@@ -127,6 +197,45 @@
         </div>
     </main>
 
+    <div id="image-viewer" class="hidden fixed inset-0 z-50 bg-black/80 p-4 sm:p-8">
+        <div class="w-full h-full flex flex-col">
+            <div class="flex items-center justify-between mb-3 text-white">
+                <p id="image-viewer-title" class="text-sm font-medium truncate pr-4"></p>
+                <button id="btn-close-image-viewer"
+                    class="text-sm px-3 py-1 border border-white/30 rounded-md hover:bg-white/10">Close</button>
+            </div>
+            <div class="flex-1 min-h-0 flex items-center justify-center">
+                <img id="image-viewer-img" alt="Drive image preview"
+                    class="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+            </div>
+        </div>
+    </div>
+
+    <div id="text-viewer" class="hidden fixed inset-0 z-50 bg-black/70 p-4 sm:p-8">
+        <div class="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="px-4 py-3 border-b border-g-border flex items-center justify-between">
+                <p id="text-viewer-title" class="text-sm font-medium text-g-black truncate pr-4"></p>
+                <button id="btn-close-text-viewer"
+                    class="text-sm px-3 py-1 border border-g-border rounded-md hover:bg-[#F8F9FA]">Close</button>
+            </div>
+            <pre id="text-viewer-content"
+                class="flex-1 min-h-0 overflow-auto p-4 text-xs leading-5 text-g-black bg-[#FAFAFA] whitespace-pre-wrap break-words"></pre>
+        </div>
+    </div>
+
+    <div id="markdown-viewer" class="hidden fixed inset-0 z-50 bg-black/70 p-4 sm:p-8">
+        <div class="w-full h-full bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="px-4 py-3 border-b border-g-border flex items-center justify-between">
+                <p id="markdown-viewer-title" class="text-sm font-medium text-g-black truncate pr-4"></p>
+                <button id="btn-close-markdown-viewer"
+                    class="text-sm px-3 py-1 border border-g-border rounded-md hover:bg-[#F8F9FA]">Close</button>
+            </div>
+            <article id="markdown-viewer-content"
+                class="drive-markdown-viewer markdown-body flex-1 min-h-0 overflow-auto p-5 bg-[#FAFAFA]"></article>
+        </div>
+    </div>
+
+    <script src="/vendor/marked.min.js"></script>
     <script>
         function qs(sel) { return document.querySelector(sel) }
         function esc(value) {
@@ -146,6 +255,8 @@
             items: [],
             loading: false,
             uploadQueue: [],
+            currentPlayingId: null,
+            audioEl: null,
         }
 
         function setStatus(message, tone = 'muted') {
@@ -228,6 +339,181 @@
             return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[idx]}`
         }
 
+        function isImageContentType(contentType) {
+            return typeof contentType === 'string' && contentType.toLowerCase().startsWith('image/')
+        }
+
+        function isPdfContentType(contentType) {
+            return typeof contentType === 'string' && contentType.toLowerCase() === 'application/pdf'
+        }
+
+        function isTextPreviewContentType(contentType) {
+            if (typeof contentType !== 'string') return false
+            const normalized = contentType.toLowerCase()
+            return normalized.startsWith('text/')
+                || normalized.includes('json')
+                || normalized.includes('xml')
+                || normalized.includes('javascript')
+                || normalized.includes('yaml')
+                || normalized.includes('csv')
+        }
+
+        function isMarkdownContentType(contentType) {
+            if (typeof contentType !== 'string') return false
+            const normalized = contentType.toLowerCase()
+            return normalized === 'text/markdown'
+                || normalized === 'text/x-markdown'
+                || normalized.includes('markdown')
+        }
+
+        function isMarkdownFileName(name) {
+            if (typeof name !== 'string') return false
+            return /\.(md|markdown|mdx)$/i.test(name.trim())
+        }
+
+        function isMarkdownItem(item) {
+            return isMarkdownContentType(item?.content_type) || isMarkdownFileName(item?.display_name)
+        }
+
+        function inferLanguageFromContentType(contentType) {
+            const normalized = (contentType || '').toLowerCase()
+            if (normalized.includes('json')) return 'json'
+            if (normalized.includes('javascript') || normalized.includes('typescript')) return 'code'
+            if (normalized.includes('x-python')) return 'code'
+            if (normalized.includes('x-shellscript') || normalized.includes('x-sh')) return 'code'
+            if (normalized.startsWith('text/')) return 'text'
+            return 'text'
+        }
+
+        function highlightJson(raw) {
+            let source = raw
+            try {
+                source = JSON.stringify(JSON.parse(raw), null, 2)
+            } catch { /* keep original */ }
+
+            const tokenRegex = /"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g
+            let out = ''
+            let last = 0
+            let match
+
+            while ((match = tokenRegex.exec(source)) !== null) {
+                const value = match[0]
+                out += esc(source.slice(last, match.index))
+
+                let cls = 'tok-number'
+                if (value.startsWith('"')) {
+                    cls = value.endsWith(':') ? 'tok-key' : 'tok-string'
+                } else if (value === 'true' || value === 'false') {
+                    cls = 'tok-bool'
+                } else if (value === 'null') {
+                    cls = 'tok-null'
+                }
+
+                out += `<span class="${cls}">${esc(value)}</span>`
+                last = match.index + value.length
+            }
+
+            out += esc(source.slice(last))
+            return out
+        }
+
+        function highlightCode(raw) {
+            const tokenRegex = /(\/\/.*$|#.*$|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:const|let|var|function|return|if|else|for|while|try|catch|class|import|export|from|async|await|def|lambda|True|False|None)\b|-?\d+(?:\.\d+)?)/gm
+            let out = ''
+            let last = 0
+            let match
+
+            while ((match = tokenRegex.exec(raw)) !== null) {
+                const value = match[0]
+                out += esc(raw.slice(last, match.index))
+
+                let cls = 'tok-number'
+                if (value.startsWith('//') || value.startsWith('#')) {
+                    cls = 'tok-comment'
+                } else if (value.startsWith('"') || value.startsWith("'")) {
+                    cls = 'tok-string'
+                } else if (/^(const|let|var|function|return|if|else|for|while|try|catch|class|import|export|from|async|await|def|lambda|True|False|None)$/.test(value)) {
+                    cls = 'tok-keyword'
+                }
+
+                out += `<span class="${cls}">${esc(value)}</span>`
+                last = match.index + value.length
+            }
+
+            out += esc(raw.slice(last))
+            return out
+        }
+
+        function highlightText(content, contentType) {
+            const language = inferLanguageFromContentType(contentType)
+            if (language === 'json') return highlightJson(content)
+            if (language === 'code') return highlightCode(content)
+            return esc(content)
+        }
+
+        function openImageViewer(url, title) {
+            const viewer = qs('#image-viewer')
+            const img = qs('#image-viewer-img')
+            const label = qs('#image-viewer-title')
+            img.src = url
+            label.textContent = title || 'Image'
+            viewer.classList.remove('hidden')
+        }
+
+        function closeImageViewer() {
+            const viewer = qs('#image-viewer')
+            const img = qs('#image-viewer-img')
+            img.src = ''
+            viewer.classList.add('hidden')
+        }
+
+        function openTextViewer(content, title, contentType) {
+            const viewer = qs('#text-viewer')
+            const label = qs('#text-viewer-title')
+            const pre = qs('#text-viewer-content')
+            label.textContent = title || 'Text preview'
+            pre.innerHTML = highlightText(content, contentType)
+            viewer.classList.remove('hidden')
+        }
+
+        function renderMarkdownHtml(rawContent) {
+            const source = String(rawContent || '')
+            const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
+                return `<pre>${esc(source)}</pre>`
+            }
+            return marked.parse(safeSource, { gfm: true, breaks: true })
+        }
+
+        function openMarkdownViewer(content, title) {
+            const viewer = qs('#markdown-viewer')
+            const label = qs('#markdown-viewer-title')
+            const host = qs('#markdown-viewer-content')
+            label.textContent = title || 'Markdown preview'
+            host.innerHTML = renderMarkdownHtml(content)
+            viewer.classList.remove('hidden')
+        }
+
+        function closeMarkdownViewer() {
+            const viewer = qs('#markdown-viewer')
+            const host = qs('#markdown-viewer-content')
+            host.innerHTML = ''
+            viewer.classList.add('hidden')
+        }
+
+        function closeTextViewer() {
+            const viewer = qs('#text-viewer')
+            const pre = qs('#text-viewer-content')
+            pre.innerHTML = ''
+            viewer.classList.add('hidden')
+        }
+
+        function closeAllViewers() {
+            closeImageViewer()
+            closeTextViewer()
+            closeMarkdownViewer()
+        }
+
         async function downloadDriveItem(id) {
             const res = await api(`/api/drive/items/${id}/download`)
             if (!res?.data?.url) throw new Error('Download URL unavailable')
@@ -237,6 +523,51 @@
             document.body.appendChild(a)
             a.click()
             a.remove()
+        }
+
+        async function viewDriveItem(id) {
+            const item = state.items.find((entry) => entry.drive_item_id === id)
+            if (!item) return
+
+            const res = await api(`/api/drive/items/${id}/download`)
+            const inlineUrl = res?.data?.inline_url
+            if (!inlineUrl) throw new Error('Preview URL unavailable')
+
+            if (isImageContentType(item.content_type)) {
+                openImageViewer(inlineUrl, item.display_name)
+                return
+            }
+
+            if (isMarkdownItem(item)) {
+                const textRes = await fetch(inlineUrl)
+                if (!textRes.ok) throw new Error('Unable to load markdown preview')
+                const content = await textRes.text()
+                const maxChars = 300000
+                const truncated = content.length > maxChars
+                    ? `${content.slice(0, maxChars)}\n\n---\nPreview truncated at ${maxChars.toLocaleString()} characters.`
+                    : content
+                openMarkdownViewer(truncated, item.display_name)
+                return
+            }
+
+            if (isPdfContentType(item.content_type)) {
+                window.open(inlineUrl, '_blank', 'noopener,noreferrer')
+                return
+            }
+
+            if (isTextPreviewContentType(item.content_type)) {
+                const textRes = await fetch(inlineUrl)
+                if (!textRes.ok) throw new Error('Unable to load text preview')
+                const content = await textRes.text()
+                const maxChars = 200000
+                const truncated = content.length > maxChars
+                    ? `${content.slice(0, maxChars)}\n\n---\nPreview truncated at ${maxChars.toLocaleString()} characters.`
+                    : content
+                openTextViewer(truncated, item.display_name, item.content_type)
+                return
+            }
+
+            throw new Error('Preview is available for images, PDFs, and text files')
         }
 
         function itemActions(item) {
@@ -254,11 +585,61 @@
                     : '<span class="text-xs text-g-gray">Attachment shelf</span>'
             }
 
+            const isAudio = typeof item.content_type === 'string' && item.content_type.toLowerCase().startsWith('audio/')
+            const canView = isImageContentType(item.content_type)
+                || isPdfContentType(item.content_type)
+                || isMarkdownItem(item)
+                || isTextPreviewContentType(item.content_type)
+            const playLabel = state.currentPlayingId === item.drive_item_id ? 'Stop' : 'Play'
+
             return `
+                ${canView ? `<button data-view="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">View</button>` : ''}
+                ${isAudio ? `<button data-play="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">${playLabel}</button>` : ''}
                 <button data-download="${item.drive_item_id}" class="text-xs text-g-blue hover:underline">Download</button>
                 <button data-rename="${item.drive_item_id}" class="text-xs text-g-gray hover:text-g-blue">Rename</button>
                 <button data-delete="${item.drive_item_id}" class="text-xs text-red-500 hover:underline">Delete</button>
             `
+        }
+
+        function stopCurrentAudio() {
+            if (!state.audioEl) return
+            state.audioEl.pause()
+            state.audioEl.currentTime = 0
+            state.audioEl = null
+            state.currentPlayingId = null
+        }
+
+        async function togglePlayItem(itemId) {
+            const currentItem = state.items.find((item) => item.drive_item_id === itemId)
+            if (!currentItem) return
+
+            if (state.currentPlayingId === itemId && state.audioEl) {
+                stopCurrentAudio()
+                renderItems()
+                setStatus('Playback stopped')
+                return
+            }
+
+            stopCurrentAudio()
+
+            const res = await api(`/api/drive/items/${itemId}/download`)
+            const inlineUrl = res?.data?.inline_url
+            if (!inlineUrl) throw new Error('Audio URL unavailable')
+
+            const audio = new Audio(inlineUrl)
+            audio.preload = 'none'
+            audio.addEventListener('ended', () => {
+                if (state.currentPlayingId === itemId) {
+                    stopCurrentAudio()
+                    renderItems()
+                }
+            })
+
+            await audio.play()
+            state.audioEl = audio
+            state.currentPlayingId = itemId
+            renderItems()
+            setStatus(`Playing ${currentItem.display_name}`, 'success')
         }
 
         function renderItems() {
@@ -479,6 +860,22 @@
                 if (event.key === 'Enter') runSearch().catch(() => null)
             })
 
+            qs('#btn-close-image-viewer').addEventListener('click', closeImageViewer)
+            qs('#image-viewer').addEventListener('click', (event) => {
+                if (event.target === qs('#image-viewer')) closeImageViewer()
+            })
+            qs('#btn-close-text-viewer').addEventListener('click', closeTextViewer)
+            qs('#text-viewer').addEventListener('click', (event) => {
+                if (event.target === qs('#text-viewer')) closeTextViewer()
+            })
+            qs('#btn-close-markdown-viewer').addEventListener('click', closeMarkdownViewer)
+            qs('#markdown-viewer').addEventListener('click', (event) => {
+                if (event.target === qs('#markdown-viewer')) closeMarkdownViewer()
+            })
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') closeAllViewers()
+            })
+
             const dropzone = qs('#dropzone')
                 ;['dragenter', 'dragover'].forEach((name) => {
                     dropzone.addEventListener(name, (event) => {
@@ -534,6 +931,22 @@
                 if (downloadId) {
                     downloadDriveItem(parseInt(downloadId, 10)).catch((err) => {
                         setStatus(err.message || 'Download failed', 'error')
+                    })
+                    return
+                }
+
+                const viewId = target.getAttribute('data-view')
+                if (viewId) {
+                    viewDriveItem(parseInt(viewId, 10)).catch((err) => {
+                        setStatus(err.message || 'Preview failed', 'error')
+                    })
+                    return
+                }
+
+                const playId = target.getAttribute('data-play')
+                if (playId) {
+                    togglePlayItem(parseInt(playId, 10)).catch((err) => {
+                        setStatus(err.message || 'Audio playback failed', 'error')
                     })
                 }
             })
