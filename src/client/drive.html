@@ -431,6 +431,12 @@
                 loading: false,
                 error: '',
                 data: null,
+                savingField: '',
+                saveError: '',
+                editingSummary: false,
+                draftSummary: '',
+                editingTags: false,
+                draftTags: [],
             },
         }
 
@@ -629,6 +635,110 @@
             return tags.map((tag) => `<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F3F5F9] text-[11px] text-g-gray">${esc(tag)}</span>`).join('')
         }
 
+        function normalizeEditableTags(tags) {
+            const seen = new Set()
+            const normalized = []
+            for (const rawTag of Array.isArray(tags) ? tags : []) {
+                if (typeof rawTag !== 'string') continue
+                const tag = rawTag.trim().replace(/\s+/g, ' ').slice(0, 64)
+                if (!tag) continue
+                const key = tag.toLocaleLowerCase()
+                if (seen.has(key)) continue
+                seen.add(key)
+                normalized.push(tag)
+                if (normalized.length >= 50) break
+            }
+            return normalized
+        }
+
+        function resetInfoPanelEditState() {
+            state.infoPanel.savingField = ''
+            state.infoPanel.saveError = ''
+            state.infoPanel.editingSummary = false
+            state.infoPanel.draftSummary = ''
+            state.infoPanel.editingTags = false
+            state.infoPanel.draftTags = []
+        }
+
+        function getInspectorPatchEndpoint() {
+            if (state.selectedDriveItemId !== null) {
+                return `/api/drive/items/${state.selectedDriveItemId}/inspector`
+            }
+            if (state.selectedAttachmentId !== null) {
+                return `/api/drive/attachments/${state.selectedAttachmentId}/inspector`
+            }
+            return ''
+        }
+
+        async function saveInspectorPatch(patch, options = {}) {
+            const endpoint = getInspectorPatchEndpoint()
+            if (!endpoint || !state.infoPanel.data) return false
+
+            const field = options.field || 'metadata'
+            state.infoPanel.savingField = field
+            state.infoPanel.saveError = ''
+            renderInfoPanel()
+
+            try {
+                const res = await api(endpoint, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(patch),
+                })
+                state.infoPanel.data = res?.data || state.infoPanel.data
+                state.infoPanel.saveError = ''
+                return true
+            } catch (err) {
+                state.infoPanel.saveError = err.message || 'Save failed'
+                return false
+            } finally {
+                state.infoPanel.savingField = ''
+                renderInfoPanel()
+            }
+        }
+
+        function renderEditableTagEditor(tags) {
+            const draftTags = normalizeEditableTags(state.infoPanel.draftTags.length ? state.infoPanel.draftTags : tags)
+            return `
+                <div data-tags-editor class="rounded-[10px] border border-g-blue/30 bg-blue-50/50 p-2 space-y-2">
+                    <div class="flex flex-wrap gap-1.5">
+                        ${draftTags.length
+                    ? draftTags.map((tag) => `
+                                <span class="inline-flex items-center gap-1 rounded-full bg-white border border-g-border px-2 py-0.5 text-[11px] text-g-black">
+                                    <span>${esc(tag)}</span>
+                                    <button type="button" data-tag-remove="${esc(tag)}" class="text-g-gray hover:text-red-600" aria-label="Remove ${esc(tag)}">×</button>
+                                </span>
+                            `).join('')
+                    : '<span class="text-xs text-g-gray">No tags yet.</span>'}
+                    </div>
+                    <input data-tag-input type="text" placeholder="Add tag and press Enter or Space"
+                        class="w-full text-xs border border-g-border rounded-[8px] px-2.5 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
+                    <p class="text-[10px] text-g-gray">Enter or space adds a tag. Click outside to finish.</p>
+                </div>
+            `
+        }
+
+        function renderEditableSummary(summary) {
+            const value = state.infoPanel.editingSummary ? state.infoPanel.draftSummary : summary
+            if (state.infoPanel.editingSummary) {
+                return `
+                    <div data-summary-shell class="space-y-1.5">
+                        <textarea data-summary-input rows="5"
+                            class="w-full text-xs text-g-black bg-white border border-g-blue rounded-[10px] p-2 outline-none focus:ring-2 focus:ring-g-blue/20">${esc(value || '')}</textarea>
+                        <p class="text-[10px] text-g-gray">Click away to save. Press Esc to cancel. Press Cmd/Ctrl+Enter to save.</p>
+                    </div>
+                `
+            }
+
+            const display = value || 'Add a summary'
+            const tone = value ? 'text-g-gray' : 'text-g-gray italic'
+            return `
+                <button type="button" data-summary-display class="w-full text-left text-xs ${tone} bg-[#FAFAFA] border border-g-border rounded-[10px] p-2 hover:border-g-blue/30 hover:bg-[#F7FAFF] transition-colors">
+                    ${esc(display)}
+                </button>
+            `
+        }
+
         function buildNoteDeepLink(note) {
             const params = new URLSearchParams()
             if (Number.isInteger(note.channel_id) && note.channel_id > 0) {
@@ -665,6 +775,12 @@
             const userTags = normalizeTagArray(data.tag_list)
             const aiTags = normalizeTagArray(data.ai_tags)
             const noteRows = Array.isArray(data.notes) ? data.notes : []
+            const saveError = state.infoPanel.saveError
+            const saveStatus = state.infoPanel.savingField
+                ? `<p class="text-[11px] text-g-blue">Saving ${esc(state.infoPanel.savingField)}...</p>`
+                : saveError
+                    ? `<p class="text-[11px] text-red-600">${esc(saveError)}</p>`
+                    : ''
 
             host.innerHTML = `
                 <section class="space-y-1">
@@ -686,7 +802,9 @@
                     <p class="text-xs uppercase tracking-wide text-g-gray">Tags</p>
                     <div class="space-y-1">
                         <p class="text-[11px] text-g-gray">User tags</p>
-                        <div class="flex flex-wrap gap-1.5">${renderTags(userTags)}</div>
+                        ${state.infoPanel.editingTags
+                    ? renderEditableTagEditor(userTags)
+                    : `<button type="button" data-tags-display class="w-full text-left rounded-[10px] border border-transparent p-1 -m-1 hover:border-g-blue/20 hover:bg-[#F7FAFF] transition-colors"><div class="flex flex-wrap gap-1.5">${renderTags(userTags)}</div></button>`}
                     </div>
                     <div class="space-y-1">
                         <p class="text-[11px] text-g-gray">AI tags</p>
@@ -696,9 +814,10 @@
 
                 <section class="space-y-2">
                     <p class="text-xs uppercase tracking-wide text-g-gray">Summary</p>
-                    <div class="text-xs text-g-gray bg-[#FAFAFA] border border-g-border rounded-[10px] p-2 max-h-32 overflow-auto">${esc(data.summary || 'Not available')}</div>
+                    ${renderEditableSummary(data.summary || '')}
                     <p class="text-[11px] uppercase tracking-wide text-g-gray">AI Summary</p>
                     <div class="text-xs text-g-gray bg-[#FAFAFA] border border-g-border rounded-[10px] p-2 max-h-36 overflow-auto">${esc(data.ai_summary || 'Not available')}</div>
+                    ${saveStatus}
                 </section>
 
                 <section class="space-y-2">
@@ -719,7 +838,7 @@
 
         async function loadInfoPanelForSelection(item) {
             if (!item || item.kind !== 'file') {
-                state.infoPanel = { loading: false, error: '', data: null }
+                state.infoPanel = { loading: false, error: '', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
                 renderInfoPanel()
                 return
             }
@@ -730,12 +849,12 @@
             const hasAttachment = Number.isInteger(attachmentId) && attachmentId > 0
 
             if (!hasDriveItem && !hasAttachment) {
-                state.infoPanel = { loading: false, error: 'No file metadata found for this item.', data: null }
+                state.infoPanel = { loading: false, error: 'No file metadata found for this item.', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
                 renderInfoPanel()
                 return
             }
 
-            state.infoPanel = { loading: true, error: '', data: null }
+            state.infoPanel = { loading: true, error: '', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
             renderInfoPanel()
 
             try {
@@ -743,9 +862,9 @@
                     ? `/api/drive/items/${driveItemId}/info`
                     : `/api/drive/attachments/${attachmentId}/info`
                 const res = await api(endpoint)
-                state.infoPanel = { loading: false, error: '', data: res?.data || null }
+                state.infoPanel = { loading: false, error: '', data: res?.data || null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
             } catch (err) {
-                state.infoPanel = { loading: false, error: err.message || 'Failed to load file info', data: null }
+                state.infoPanel = { loading: false, error: err.message || 'Failed to load file info', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
             }
 
             renderInfoPanel()
@@ -758,6 +877,87 @@
             state.selectedAttachmentId = Number.isInteger(attachmentId) && attachmentId > 0 ? attachmentId : null
             renderItems()
             loadInfoPanelForSelection(item).catch(() => null)
+        }
+
+        function beginSummaryEdit() {
+            const data = state.infoPanel.data
+            if (!data) return
+            state.infoPanel.editingSummary = true
+            state.infoPanel.draftSummary = data.summary || ''
+            state.infoPanel.saveError = ''
+            renderInfoPanel()
+            requestAnimationFrame(() => qs('[data-summary-input]')?.focus())
+        }
+
+        function cancelSummaryEdit() {
+            state.infoPanel.editingSummary = false
+            state.infoPanel.draftSummary = ''
+            state.infoPanel.saveError = ''
+            renderInfoPanel()
+        }
+
+        async function commitSummaryEdit() {
+            if (!state.infoPanel.editingSummary || !state.infoPanel.data) return
+            const nextSummary = String(state.infoPanel.draftSummary || '').trim()
+            const currentSummary = String(state.infoPanel.data.summary || '').trim()
+            if (nextSummary === currentSummary) {
+                cancelSummaryEdit()
+                return
+            }
+
+            const saved = await saveInspectorPatch({ summary: nextSummary }, { field: 'summary' })
+            if (saved) {
+                state.infoPanel.editingSummary = false
+                state.infoPanel.draftSummary = ''
+            }
+            renderInfoPanel()
+        }
+
+        function beginTagsEdit() {
+            const data = state.infoPanel.data
+            if (!data) return
+            state.infoPanel.editingTags = true
+            state.infoPanel.draftTags = normalizeEditableTags(normalizeTagArray(data.tag_list))
+            state.infoPanel.saveError = ''
+            renderInfoPanel()
+            requestAnimationFrame(() => qs('[data-tag-input]')?.focus())
+        }
+
+        function finishTagsEdit() {
+            state.infoPanel.editingTags = false
+            state.infoPanel.draftTags = []
+            state.infoPanel.saveError = ''
+            renderInfoPanel()
+        }
+
+        async function persistDraftTags(options = {}) {
+            if (!state.infoPanel.data) return false
+            const nextTags = normalizeEditableTags(state.infoPanel.draftTags)
+            const currentTags = normalizeEditableTags(normalizeTagArray(state.infoPanel.data.tag_list))
+            if (JSON.stringify(nextTags) === JSON.stringify(currentTags)) {
+                if (options.closeEditor) finishTagsEdit()
+                return true
+            }
+
+            const saved = await saveInspectorPatch({ tag_list: nextTags }, { field: 'tags' })
+            if (saved && options.closeEditor) finishTagsEdit()
+            return saved
+        }
+
+        async function addDraftTag(rawTag) {
+            const nextTag = String(rawTag || '').trim().replace(/\s+/g, ' ')
+            if (!nextTag) return
+            state.infoPanel.draftTags = normalizeEditableTags([...(state.infoPanel.draftTags || []), nextTag])
+            const saved = await persistDraftTags()
+            renderInfoPanel()
+            if (saved && state.infoPanel.editingTags) requestAnimationFrame(() => qs('[data-tag-input]')?.focus())
+        }
+
+        async function removeDraftTag(tagToRemove) {
+            state.infoPanel.draftTags = normalizeEditableTags((state.infoPanel.draftTags || []).filter((tag) => tag !== tagToRemove))
+            const saved = await persistDraftTags()
+            renderInfoPanel()
+            if (saved && state.infoPanel.editingTags) requestAnimationFrame(() => qs('[data-tag-input]')?.focus())
         }
 
         function getItemLastModified(item) {
@@ -1937,6 +2137,83 @@
                         return false
                     })
                     if (item) selectItem(item)
+                }
+            })
+
+            qs('#info-panel').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+
+                const summaryDisplay = target.closest('[data-summary-display]')
+                if (summaryDisplay instanceof HTMLElement) {
+                    beginSummaryEdit()
+                    return
+                }
+
+                const tagsDisplay = target.closest('[data-tags-display]')
+                if (tagsDisplay instanceof HTMLElement) {
+                    beginTagsEdit()
+                    return
+                }
+
+                const removeTagBtn = target.closest('[data-tag-remove]')
+                if (removeTagBtn instanceof HTMLElement) {
+                    const tag = removeTagBtn.getAttribute('data-tag-remove') || ''
+                    removeDraftTag(tag).catch(() => null)
+                }
+            })
+
+            qs('#info-panel').addEventListener('input', (event) => {
+                const target = event.target
+                if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
+                    state.infoPanel.draftSummary = target.value
+                }
+            })
+
+            qs('#info-panel').addEventListener('keydown', (event) => {
+                const target = event.target
+                if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
+                    if (event.key === 'Escape') {
+                        event.preventDefault()
+                        cancelSummaryEdit()
+                        return
+                    }
+                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                        event.preventDefault()
+                        commitSummaryEdit().catch(() => null)
+                    }
+                    return
+                }
+
+                if (target instanceof HTMLInputElement && target.matches('[data-tag-input]')) {
+                    if (event.key === 'Escape') {
+                        event.preventDefault()
+                        finishTagsEdit()
+                        return
+                    }
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        const value = target.value.trim()
+                        if (!value) return
+                        event.preventDefault()
+                        target.value = ''
+                        addDraftTag(value).catch(() => null)
+                    }
+                }
+            })
+
+            qs('#info-panel').addEventListener('focusout', (event) => {
+                const target = event.target
+                const next = event.relatedTarget
+                if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
+                    if (next instanceof Node && target.closest('[data-summary-shell]')?.contains(next)) return
+                    commitSummaryEdit().catch(() => null)
+                    return
+                }
+
+                if (target instanceof HTMLElement && target.closest('[data-tags-editor]')) {
+                    const editor = target.closest('[data-tags-editor]')
+                    if (next instanceof Node && editor?.contains(next)) return
+                    persistDraftTags({ closeEditor: true }).catch(() => null)
                 }
             })
 

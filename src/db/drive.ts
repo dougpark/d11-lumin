@@ -73,6 +73,33 @@ export type DriveAttachmentInfo = {
     notes: DriveAttachmentNoteRef[]
 }
 
+type DriveAttachmentInspectorPatch = {
+    summary?: string
+    tag_list?: string[]
+}
+
+function normalizeInspectorSummary(value: string | undefined): string | undefined {
+    if (value === undefined) return undefined
+    return String(value).trim().slice(0, 4000)
+}
+
+function normalizeInspectorTagList(tags: string[] | undefined): string[] | undefined {
+    if (tags === undefined) return undefined
+    const seen = new Set<string>()
+    const normalized: string[] = []
+    for (const rawTag of tags) {
+        if (typeof rawTag !== 'string') continue
+        const tag = rawTag.trim().replace(/\s+/g, ' ').slice(0, 64)
+        if (!tag) continue
+        const key = tag.toLocaleLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        normalized.push(tag)
+        if (normalized.length >= 50) break
+    }
+    return normalized
+}
+
 export async function getDriveItemById(db: D1Database, userId: number, driveItemId: number): Promise<DriveItem | null> {
     const row = await db
         .prepare(
@@ -580,6 +607,81 @@ export async function getDriveAttachmentInfoByAttachmentId(
     if (!row) return null
     const notes = await listAttachmentNoteRefs(db, userId, row.attachment_id)
     return { ...row, notes }
+}
+
+async function updateDriveAttachmentInspectorByAttachmentIdInternal(
+    db: D1Database,
+    userId: number,
+    attachmentId: number,
+    patch: DriveAttachmentInspectorPatch,
+): Promise<DriveAttachmentInfo | null> {
+    const setClauses: string[] = []
+    const bindings: Array<string | number> = []
+
+    const summary = normalizeInspectorSummary(patch.summary)
+    if (summary !== undefined) {
+        setClauses.push('summary = ?')
+        bindings.push(summary)
+    }
+
+    const tagList = normalizeInspectorTagList(patch.tag_list)
+    if (tagList !== undefined) {
+        setClauses.push('tag_list = ?')
+        bindings.push(JSON.stringify(tagList))
+    }
+
+    if (!setClauses.length) {
+        return getDriveAttachmentInfoByAttachmentId(db, userId, attachmentId)
+    }
+
+    const updated = await db
+        .prepare(
+            `UPDATE attachments
+             SET ${setClauses.join(', ')}
+             WHERE attachment_id = ?
+               AND owner_user_id = ?
+               AND deleted_at IS NULL
+             RETURNING attachment_id`,
+        )
+        .bind(...bindings, attachmentId, userId)
+        .first<{ attachment_id: number }>()
+
+    if (!updated) return null
+    return getDriveAttachmentInfoByAttachmentId(db, userId, attachmentId)
+}
+
+export async function updateDriveAttachmentInspectorByDriveItemId(
+    db: D1Database,
+    userId: number,
+    driveItemId: number,
+    patch: DriveAttachmentInspectorPatch,
+): Promise<DriveAttachmentInfo | null> {
+    const link = await db
+        .prepare(
+            `SELECT a.attachment_id
+             FROM drive_items di
+             JOIN drive_list dl ON dl.drive_item_id = di.drive_item_id
+             JOIN attachments a ON a.attachment_id = dl.attachment_id
+             WHERE di.drive_item_id = ?
+               AND di.user_id = ?
+               AND di.deleted_at IS NULL
+               AND a.deleted_at IS NULL
+             LIMIT 1`,
+        )
+        .bind(driveItemId, userId)
+        .first<{ attachment_id: number }>()
+
+    if (!link) return null
+    return updateDriveAttachmentInspectorByAttachmentIdInternal(db, userId, link.attachment_id, patch)
+}
+
+export async function updateDriveAttachmentInspectorByAttachmentId(
+    db: D1Database,
+    userId: number,
+    attachmentId: number,
+    patch: DriveAttachmentInspectorPatch,
+): Promise<DriveAttachmentInfo | null> {
+    return updateDriveAttachmentInspectorByAttachmentIdInternal(db, userId, attachmentId, patch)
 }
 
 export async function countAttachmentReferences(db: D1Database, attachmentId: number): Promise<number> {

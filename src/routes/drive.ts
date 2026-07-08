@@ -15,6 +15,8 @@ import {
     patchDriveItem,
     searchDriveItems,
     softDeleteDriveItem,
+    updateDriveAttachmentInspectorByAttachmentId,
+    updateDriveAttachmentInspectorByDriveItemId,
 } from '../db/drive.ts'
 import { appendAttachmentMarkdownToNote } from '../db/notes.ts'
 
@@ -30,6 +32,15 @@ function parseJsonArrayField(raw: string | null | undefined): string[] {
         return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : []
     } catch {
         return []
+    }
+}
+
+function serializeDriveAttachmentInfo(info: Awaited<ReturnType<typeof getDriveAttachmentInfoByAttachmentId>>) {
+    if (!info) return null
+    return {
+        ...info,
+        tag_list: parseJsonArrayField(info.tag_list),
+        ai_tags: parseJsonArrayField(info.ai_tags),
     }
 }
 
@@ -437,13 +448,7 @@ drive.get('/items/:id/info', async (c) => {
     const info = await getDriveAttachmentInfoByDriveItemId(c.env.DB, user.id, id)
     if (!info) return c.json({ error: 'File not found' }, 404)
 
-    return c.json({
-        data: {
-            ...info,
-            tag_list: parseJsonArrayField(info.tag_list),
-            ai_tags: parseJsonArrayField(info.ai_tags),
-        },
-    })
+    return c.json({ data: serializeDriveAttachmentInfo(info) })
 })
 
 drive.get('/attachments/:attachmentId/info', async (c) => {
@@ -454,13 +459,63 @@ drive.get('/attachments/:attachmentId/info', async (c) => {
     const info = await getDriveAttachmentInfoByAttachmentId(c.env.DB, user.id, attachmentId)
     if (!info) return c.json({ error: 'Attachment not found' }, 404)
 
-    return c.json({
-        data: {
-            ...info,
-            tag_list: parseJsonArrayField(info.tag_list),
-            ai_tags: parseJsonArrayField(info.ai_tags),
-        },
+    return c.json({ data: serializeDriveAttachmentInfo(info) })
+})
+
+drive.patch('/items/:id/inspector', async (c) => {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id') ?? '', 10)
+    if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid item id' }, 400)
+
+    let body: { summary?: unknown; tag_list?: unknown }
+    try {
+        body = await c.req.json()
+    } catch {
+        return c.json({ error: 'Invalid JSON body' }, 400)
+    }
+
+    if (body.summary !== undefined && typeof body.summary !== 'string') {
+        return c.json({ error: 'summary must be a string' }, 400)
+    }
+    if (body.tag_list !== undefined && !Array.isArray(body.tag_list)) {
+        return c.json({ error: 'tag_list must be an array of strings' }, 400)
+    }
+
+    const info = await updateDriveAttachmentInspectorByDriveItemId(c.env.DB, user.id, id, {
+        summary: body.summary as string | undefined,
+        tag_list: body.tag_list as string[] | undefined,
     })
+
+    if (!info) return c.json({ error: 'File not found' }, 404)
+    return c.json({ data: serializeDriveAttachmentInfo(info) })
+})
+
+drive.patch('/attachments/:attachmentId/inspector', async (c) => {
+    const user = c.get('user')
+    const attachmentId = parseInt(c.req.param('attachmentId') ?? '', 10)
+    if (!Number.isInteger(attachmentId) || attachmentId < 1) return c.json({ error: 'Invalid attachment id' }, 400)
+
+    let body: { summary?: unknown; tag_list?: unknown }
+    try {
+        body = await c.req.json()
+    } catch {
+        return c.json({ error: 'Invalid JSON body' }, 400)
+    }
+
+    if (body.summary !== undefined && typeof body.summary !== 'string') {
+        return c.json({ error: 'summary must be a string' }, 400)
+    }
+    if (body.tag_list !== undefined && !Array.isArray(body.tag_list)) {
+        return c.json({ error: 'tag_list must be an array of strings' }, 400)
+    }
+
+    const info = await updateDriveAttachmentInspectorByAttachmentId(c.env.DB, user.id, attachmentId, {
+        summary: body.summary as string | undefined,
+        tag_list: body.tag_list as string[] | undefined,
+    })
+
+    if (!info) return c.json({ error: 'Attachment not found' }, 404)
+    return c.json({ data: serializeDriveAttachmentInfo(info) })
 })
 
 // Attach a file from Drive to a note without duplicating the R2 object.
