@@ -2736,10 +2736,18 @@
 
         async function attachSelectedDriveItemToNote() {
             if (!state.editingNote || !state.driveAttachPickerSelectedId) return
-            await api(`/api/drive/items/${state.driveAttachPickerSelectedId}/attach-to-note`, {
+            const res = await api(`/api/drive/items/${state.driveAttachPickerSelectedId}/attach-to-note`, {
                 method: 'POST',
                 body: JSON.stringify({ note_id: state.editingNote.note_id }),
             })
+
+            if (res?.note && state.editingNote && res.note.note_id === state.editingNote.note_id) {
+                state.editingNote = res.note
+                setNoteEditorValue(res.note.content || '')
+                state.noteLastSavedContent = (res.note.content || '').trim()
+                if (state.notePreviewOpen) renderNoteMarkdownPreview()
+            }
+
             await loadNoteAttachments(state.editingNote.note_id)
             await loadNotes({ silent: true })
             closeDriveAttachPicker()

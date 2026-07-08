@@ -14,6 +14,7 @@ import {
     searchDriveItems,
     softDeleteDriveItem,
 } from '../db/drive.ts'
+import { appendAttachmentMarkdownToNote } from '../db/notes.ts'
 
 const drive = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -45,6 +46,22 @@ function sanitizeFilename(filename: string): string {
         .trim()
         .slice(0, 180)
     return cleaned || 'file'
+}
+
+function escapeMarkdownLabel(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/\]/g, '\\]')
+}
+
+function buildDriveAttachmentMarkdown(filename: string, contentType: string, url: string): string {
+    const label = escapeMarkdownLabel(filename || 'file')
+    if (contentType.toLowerCase().startsWith('image/')) {
+        return `![${label}](${url})`
+    }
+    return `📄 [${label}](${url})`
+}
+
+function buildNoteAttachmentPermalink(baseUrl: string, attachmentSlug: string): string {
+    return new URL(`/api/notes/attachments/p/${attachmentSlug}`, baseUrl).toString()
 }
 
 function getTokenSecret(secret: string | undefined | null): string | null {
@@ -427,6 +444,13 @@ drive.post('/items/:id/attach-to-note', async (c) => {
 
     if (!link) return c.json({ error: 'Attachment link not found' }, 404)
 
+    const attachment = await c.env.DB
+        .prepare('SELECT attachment_id, attachment_slug, filename, content_type FROM attachments WHERE attachment_id = ? LIMIT 1')
+        .bind(link.attachment_id)
+        .first<{ attachment_id: number; attachment_slug: string; filename: string; content_type: string }>()
+
+    if (!attachment) return c.json({ error: 'Attachment not found' }, 404)
+
     const note = await c.env.DB
         .prepare('SELECT note_id FROM notes WHERE note_id = ? AND user_id = ? LIMIT 1')
         .bind(noteId, user.id)
@@ -456,7 +480,22 @@ drive.post('/items/:id/attach-to-note', async (c) => {
         .bind(noteId, noteId, user.id)
         .run()
 
-    return c.json({ data: { note_id: noteId, attachment_id: link.attachment_id } })
+    const permalinkUrl = buildNoteAttachmentPermalink(c.req.url, attachment.attachment_slug)
+    const markdown = buildDriveAttachmentMarkdown(
+        attachment.filename || driveItem.display_name,
+        attachment.content_type || 'application/octet-stream',
+        permalinkUrl,
+    )
+    const updatedNote = await appendAttachmentMarkdownToNote(c.env.DB, {
+        user_id: user.id,
+        note_id: noteId,
+        markdown,
+    })
+
+    return c.json({
+        data: { note_id: noteId, attachment_id: link.attachment_id, markdown },
+        note: updatedNote,
+    })
 })
 
 export default drive
