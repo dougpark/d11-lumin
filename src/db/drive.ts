@@ -74,8 +74,14 @@ export type DriveAttachmentInfo = {
 }
 
 type DriveAttachmentInspectorPatch = {
+    filename?: string
     summary?: string
     tag_list?: string[]
+}
+
+function normalizeInspectorFilename(value: string | undefined): string | undefined {
+    if (value === undefined) return undefined
+    return sanitizeDisplayName(String(value))
 }
 
 function normalizeInspectorSummary(value: string | undefined): string | undefined {
@@ -626,6 +632,12 @@ async function updateDriveAttachmentInspectorByAttachmentIdInternal(
     const setClauses: string[] = []
     const bindings: Array<string | number> = []
 
+    const filename = normalizeInspectorFilename(patch.filename)
+    if (filename !== undefined) {
+        setClauses.push('filename = ?')
+        bindings.push(filename)
+    }
+
     const summary = normalizeInspectorSummary(patch.summary)
     if (summary !== undefined) {
         setClauses.push('summary = ?')
@@ -655,6 +667,25 @@ async function updateDriveAttachmentInspectorByAttachmentIdInternal(
         .first<{ attachment_id: number }>()
 
     if (!updated) return null
+
+    if (filename !== undefined) {
+        await db
+            .prepare(
+                `UPDATE drive_items
+                 SET display_name = ?,
+                     updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE user_id = ?
+                   AND deleted_at IS NULL
+                   AND drive_item_id IN (
+                        SELECT drive_item_id
+                        FROM drive_list
+                        WHERE attachment_id = ?
+                   )`,
+            )
+            .bind(filename, userId, attachmentId)
+            .run()
+    }
+
     return getDriveAttachmentInfoByAttachmentId(db, userId, attachmentId)
 }
 

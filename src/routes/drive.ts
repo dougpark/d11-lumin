@@ -471,13 +471,16 @@ drive.patch('/items/:id/inspector', async (c) => {
     const id = parseInt(c.req.param('id') ?? '', 10)
     if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid item id' }, 400)
 
-    let body: { summary?: unknown; tag_list?: unknown }
+    let body: { filename?: unknown; summary?: unknown; tag_list?: unknown }
     try {
         body = await c.req.json()
     } catch {
         return c.json({ error: 'Invalid JSON body' }, 400)
     }
 
+    if (body.filename !== undefined && typeof body.filename !== 'string') {
+        return c.json({ error: 'filename must be a string' }, 400)
+    }
     if (body.summary !== undefined && typeof body.summary !== 'string') {
         return c.json({ error: 'summary must be a string' }, 400)
     }
@@ -486,6 +489,7 @@ drive.patch('/items/:id/inspector', async (c) => {
     }
 
     const info = await updateDriveAttachmentInspectorByDriveItemId(c.env.DB, user.id, id, {
+        filename: body.filename as string | undefined,
         summary: body.summary as string | undefined,
         tag_list: body.tag_list as string[] | undefined,
     })
@@ -499,13 +503,16 @@ drive.patch('/attachments/:attachmentId/inspector', async (c) => {
     const attachmentId = parseInt(c.req.param('attachmentId') ?? '', 10)
     if (!Number.isInteger(attachmentId) || attachmentId < 1) return c.json({ error: 'Invalid attachment id' }, 400)
 
-    let body: { summary?: unknown; tag_list?: unknown }
+    let body: { filename?: unknown; summary?: unknown; tag_list?: unknown }
     try {
         body = await c.req.json()
     } catch {
         return c.json({ error: 'Invalid JSON body' }, 400)
     }
 
+    if (body.filename !== undefined && typeof body.filename !== 'string') {
+        return c.json({ error: 'filename must be a string' }, 400)
+    }
     if (body.summary !== undefined && typeof body.summary !== 'string') {
         return c.json({ error: 'summary must be a string' }, 400)
     }
@@ -514,6 +521,7 @@ drive.patch('/attachments/:attachmentId/inspector', async (c) => {
     }
 
     const info = await updateDriveAttachmentInspectorByAttachmentId(c.env.DB, user.id, attachmentId, {
+        filename: body.filename as string | undefined,
         summary: body.summary as string | undefined,
         tag_list: body.tag_list as string[] | undefined,
     })

@@ -472,6 +472,8 @@
                 data: null,
                 savingField: '',
                 saveError: '',
+                editingFilename: false,
+                draftFilename: '',
                 editingSummary: false,
                 draftSummary: '',
                 editingTags: false,
@@ -487,6 +489,8 @@
                 data: null,
                 savingField: '',
                 saveError: '',
+                editingFilename: false,
+                draftFilename: '',
                 editingSummary: false,
                 draftSummary: '',
                 editingTags: false,
@@ -702,6 +706,10 @@
         }
 
         const INSPECTOR_EDIT_POLICY = {
+            filename: {
+                shellSelector: '[data-filename-shell]',
+                inputSelector: '[data-filename-input]',
+            },
             summary: {
                 shellSelector: '[data-summary-shell]',
                 inputSelector: '[data-summary-input]',
@@ -731,6 +739,8 @@
         function resetInfoPanelEditState() {
             state.infoPanel.savingField = ''
             state.infoPanel.saveError = ''
+            state.infoPanel.editingFilename = false
+            state.infoPanel.draftFilename = ''
             state.infoPanel.editingSummary = false
             state.infoPanel.draftSummary = ''
             state.infoPanel.editingTags = false
@@ -738,6 +748,7 @@
         }
 
         function isInspectorEditing(field) {
+            if (field === 'filename') return Boolean(state.infoPanel.editingFilename)
             if (field === 'summary') return Boolean(state.infoPanel.editingSummary)
             if (field === 'tags') return Boolean(state.infoPanel.editingTags)
             return false
@@ -762,6 +773,10 @@
             if (!data) return
 
             state.infoPanel.saveError = ''
+            if (field === 'filename') {
+                state.infoPanel.editingFilename = true
+                state.infoPanel.draftFilename = data.filename || data.drive_display_name || ''
+            }
             if (field === 'summary') {
                 state.infoPanel.editingSummary = true
                 state.infoPanel.draftSummary = data.summary || ''
@@ -776,6 +791,10 @@
 
         function cancelInspectorEdit(field) {
             state.infoPanel.saveError = ''
+            if (field === 'filename') {
+                state.infoPanel.editingFilename = false
+                state.infoPanel.draftFilename = ''
+            }
             if (field === 'summary') {
                 state.infoPanel.editingSummary = false
                 state.infoPanel.draftSummary = ''
@@ -789,6 +808,20 @@
 
         async function commitInspectorEdit(field, options = {}) {
             if (!state.infoPanel.data) return false
+
+            if (field === 'filename') {
+                if (!state.infoPanel.editingFilename) return false
+                const nextFilename = String(state.infoPanel.draftFilename || '').trim()
+                const currentFilename = String(state.infoPanel.data.filename || state.infoPanel.data.drive_display_name || '').trim()
+                if (nextFilename === currentFilename) {
+                    if (options.closeEditor !== false) cancelInspectorEdit('filename')
+                    return true
+                }
+
+                const saved = await saveInspectorPatch({ filename: nextFilename }, { field: 'filename' })
+                if (saved && options.closeEditor !== false) cancelInspectorEdit('filename')
+                return saved
+            }
 
             if (field === 'summary') {
                 if (!state.infoPanel.editingSummary) return false
@@ -830,6 +863,37 @@
             return ''
         }
 
+        function syncRenamedItemInLists(infoData) {
+            if (!infoData) return
+
+            const selectedDriveId = state.selectedDriveItemId
+            const selectedAttachmentId = state.selectedAttachmentId
+            if (selectedDriveId === null && selectedAttachmentId === null) return
+
+            const nextDisplayName = String(infoData.drive_display_name || infoData.filename || '').trim()
+            const nextFilename = String(infoData.filename || infoData.drive_display_name || '').trim()
+
+            const updateRows = (rows) => rows.map((row) => {
+                const rowDriveId = Number(row?.drive_item_id)
+                const rowAttachmentId = Number(row?.attachment_id)
+                const matchesSelected = (selectedDriveId !== null && Number.isInteger(rowDriveId) && rowDriveId === selectedDriveId)
+                    || (selectedAttachmentId !== null && Number.isInteger(rowAttachmentId) && rowAttachmentId === selectedAttachmentId)
+
+                if (!matchesSelected) return row
+
+                return {
+                    ...row,
+                    ...(nextDisplayName ? { display_name: nextDisplayName } : {}),
+                    ...(nextFilename ? { filename: nextFilename } : {}),
+                }
+            })
+
+            state.items = updateRows(Array.isArray(state.items) ? state.items : [])
+            state.attachmentsItems = updateRows(Array.isArray(state.attachmentsItems) ? state.attachmentsItems : [])
+
+            renderItems()
+        }
+
         async function saveInspectorPatch(patch, options = {}) {
             const endpoint = getInspectorPatchEndpoint()
             if (!endpoint || !state.infoPanel.data) return false
@@ -846,6 +910,9 @@
                     body: JSON.stringify(patch),
                 })
                 state.infoPanel.data = res?.data || state.infoPanel.data
+                if (patch && Object.prototype.hasOwnProperty.call(patch, 'filename')) {
+                    syncRenamedItemInLists(state.infoPanel.data)
+                }
                 state.infoPanel.saveError = ''
                 return true
             } catch (err) {
@@ -901,6 +968,32 @@
                 <button type="button" data-summary-display class="w-full text-left bg-white border border-g-border rounded-[10px] p-2 hover:border-g-blue/30 hover:bg-[#F7FAFF] transition-colors">
                     <span class="flex items-start justify-between gap-2">
                         <span class="text-xs ${tone}">${esc(display)}</span>
+                        ${renderEditPencilIcon()}
+                    </span>
+                </button>
+            `
+        }
+
+        function renderEditableFilename(data) {
+            const value = state.infoPanel.editingFilename
+                ? state.infoPanel.draftFilename
+                : (data.filename || data.drive_display_name || '')
+            if (state.infoPanel.editingFilename) {
+                return `
+                    <div data-filename-shell class="space-y-1.5">
+                        <input data-filename-input type="text" value="${esc(value || '')}"
+                            class="w-full text-sm font-semibold text-g-black bg-white border border-g-blue rounded-[10px] p-2 outline-none focus:ring-2 focus:ring-g-blue/20" />
+                        <p class="text-[10px] text-g-gray">Click away to save. Press Esc to cancel. Press Enter to save.</p>
+                    </div>
+                `
+            }
+
+            const display = value || 'Add filename'
+            const tone = value ? 'text-g-black' : 'text-g-gray italic'
+            return `
+                <button type="button" data-filename-display class="w-full text-left bg-white border border-g-border rounded-[10px] p-2 hover:border-g-blue/30 hover:bg-[#F7FAFF] transition-colors">
+                    <span class="flex items-start justify-between gap-2">
+                        <span class="text-sm font-semibold ${tone} break-words">${esc(display)}</span>
                         ${renderEditPencilIcon()}
                     </span>
                 </button>
@@ -986,8 +1079,10 @@
                     ${loadingOverlay}
                 <section class="space-y-1">
                     <p class="text-xs uppercase tracking-wide text-g-gray">Basic</p>
-                    <p class="text-sm font-semibold text-g-black break-words">${esc(data.drive_display_name || data.filename || 'Untitled')}</p>
-                    <p class="text-xs text-g-gray break-all">${esc(data.filename || 'Not available')}</p>
+                    ${renderEditableFilename(data)}
+                    ${data.drive_display_name && data.filename && data.drive_display_name !== data.filename
+                    ? `<p class="text-xs text-g-gray break-all">Drive name synced from filename</p>`
+                    : ''}
                     <p class="text-xs text-g-gray">${esc(data.content_type || 'Unknown')} • ${formatBytes(data.size)}</p>
                     <p class="text-xs text-g-gray">Category: ${esc(data.file_category || 'Not available')}</p>
                 </section>
@@ -2299,6 +2394,12 @@
                 const target = event.target
                 if (!(target instanceof HTMLElement)) return
 
+                const filenameDisplay = target.closest('[data-filename-display]')
+                if (filenameDisplay instanceof HTMLElement) {
+                    beginInspectorEdit('filename')
+                    return
+                }
+
                 const summaryDisplay = target.closest('[data-summary-display]')
                 if (summaryDisplay instanceof HTMLElement) {
                     beginInspectorEdit('summary')
@@ -2320,6 +2421,10 @@
 
             qs('#info-panel').addEventListener('input', (event) => {
                 const target = event.target
+                if (target instanceof HTMLInputElement && target.matches('[data-filename-input]')) {
+                    state.infoPanel.draftFilename = target.value
+                    return
+                }
                 if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
                     state.infoPanel.draftSummary = target.value
                 }
@@ -2327,6 +2432,19 @@
 
             qs('#info-panel').addEventListener('keydown', (event) => {
                 const target = event.target
+                if (target instanceof HTMLInputElement && target.matches('[data-filename-input]')) {
+                    if (event.key === 'Escape') {
+                        event.preventDefault()
+                        cancelInspectorEdit('filename')
+                        return
+                    }
+                    if (event.key === 'Enter') {
+                        event.preventDefault()
+                        commitInspectorEdit('filename').catch(() => null)
+                    }
+                    return
+                }
+
                 if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
                     if (event.key === 'Escape') {
                         event.preventDefault()
@@ -2359,6 +2477,12 @@
             qs('#info-panel').addEventListener('focusout', (event) => {
                 const target = event.target
                 const next = event.relatedTarget
+                if (target instanceof HTMLInputElement && target.matches(getInspectorInputSelector('filename'))) {
+                    if (next instanceof Node && target.closest(getInspectorShellSelector('filename'))?.contains(next)) return
+                    commitInspectorEdit('filename').catch(() => null)
+                    return
+                }
+
                 if (target instanceof HTMLTextAreaElement && target.matches(getInspectorInputSelector('summary'))) {
                     if (next instanceof Node && target.closest(getInspectorShellSelector('summary'))?.contains(next)) return
                     commitInspectorEdit('summary').catch(() => null)
@@ -2375,10 +2499,16 @@
             document.addEventListener('click', (event) => {
                 const target = event.target
                 if (!(target instanceof HTMLElement)) return
-                for (const field of ['summary', 'tags']) {
+                for (const field of ['filename', 'summary', 'tags']) {
                     if (!isInspectorEditing(field)) continue
                     const insideEditor = target.closest(getInspectorShellSelector(field))
-                    const onDisplay = target.closest(field === 'summary' ? '[data-summary-display]' : '[data-tags-display]')
+                    const onDisplay = target.closest(
+                        field === 'filename'
+                            ? '[data-filename-display]'
+                            : field === 'summary'
+                                ? '[data-summary-display]'
+                                : '[data-tags-display]',
+                    )
                     if (!insideEditor && !onDisplay) {
                         commitInspectorEdit(field, { closeEditor: true }).catch(() => null)
                     }
