@@ -635,6 +635,27 @@
             return tags.map((tag) => `<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F3F5F9] text-[11px] text-g-gray">${esc(tag)}</span>`).join('')
         }
 
+        function renderEditPencilIcon() {
+            return `
+                <span class="inline-flex items-center justify-center h-5 w-5 rounded-full border border-g-border bg-white text-g-gray flex-shrink-0" aria-hidden="true">
+                    <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.25 8.25L5 15l.336-3.164 8.25-8.25ZM4 16h12v1H4v-1Z" />
+                    </svg>
+                </span>
+            `
+        }
+
+        const INSPECTOR_EDIT_POLICY = {
+            summary: {
+                shellSelector: '[data-summary-shell]',
+                inputSelector: '[data-summary-input]',
+            },
+            tags: {
+                shellSelector: '[data-tags-editor]',
+                inputSelector: '[data-tag-input]',
+            },
+        }
+
         function normalizeEditableTags(tags) {
             const seen = new Set()
             const normalized = []
@@ -658,6 +679,89 @@
             state.infoPanel.draftSummary = ''
             state.infoPanel.editingTags = false
             state.infoPanel.draftTags = []
+        }
+
+        function isInspectorEditing(field) {
+            if (field === 'summary') return Boolean(state.infoPanel.editingSummary)
+            if (field === 'tags') return Boolean(state.infoPanel.editingTags)
+            return false
+        }
+
+        function getInspectorShellSelector(field) {
+            return INSPECTOR_EDIT_POLICY[field]?.shellSelector || ''
+        }
+
+        function getInspectorInputSelector(field) {
+            return INSPECTOR_EDIT_POLICY[field]?.inputSelector || ''
+        }
+
+        function focusInspectorField(field) {
+            const selector = getInspectorInputSelector(field)
+            if (!selector) return
+            requestAnimationFrame(() => qs(selector)?.focus())
+        }
+
+        function beginInspectorEdit(field) {
+            const data = state.infoPanel.data
+            if (!data) return
+
+            state.infoPanel.saveError = ''
+            if (field === 'summary') {
+                state.infoPanel.editingSummary = true
+                state.infoPanel.draftSummary = data.summary || ''
+            }
+            if (field === 'tags') {
+                state.infoPanel.editingTags = true
+                state.infoPanel.draftTags = normalizeEditableTags(normalizeTagArray(data.tag_list))
+            }
+            renderInfoPanel()
+            focusInspectorField(field)
+        }
+
+        function cancelInspectorEdit(field) {
+            state.infoPanel.saveError = ''
+            if (field === 'summary') {
+                state.infoPanel.editingSummary = false
+                state.infoPanel.draftSummary = ''
+            }
+            if (field === 'tags') {
+                state.infoPanel.editingTags = false
+                state.infoPanel.draftTags = []
+            }
+            renderInfoPanel()
+        }
+
+        async function commitInspectorEdit(field, options = {}) {
+            if (!state.infoPanel.data) return false
+
+            if (field === 'summary') {
+                if (!state.infoPanel.editingSummary) return false
+                const nextSummary = String(state.infoPanel.draftSummary || '').trim()
+                const currentSummary = String(state.infoPanel.data.summary || '').trim()
+                if (nextSummary === currentSummary) {
+                    if (options.closeEditor !== false) cancelInspectorEdit('summary')
+                    return true
+                }
+
+                const saved = await saveInspectorPatch({ summary: nextSummary }, { field: 'summary' })
+                if (saved && options.closeEditor !== false) cancelInspectorEdit('summary')
+                return saved
+            }
+
+            if (field === 'tags') {
+                const nextTags = normalizeEditableTags(state.infoPanel.draftTags)
+                const currentTags = normalizeEditableTags(normalizeTagArray(state.infoPanel.data.tag_list))
+                if (JSON.stringify(nextTags) === JSON.stringify(currentTags)) {
+                    if (options.closeEditor) cancelInspectorEdit('tags')
+                    return true
+                }
+
+                const saved = await saveInspectorPatch({ tag_list: nextTags }, { field: 'tags' })
+                if (saved && options.closeEditor) cancelInspectorEdit('tags')
+                return saved
+            }
+
+            return false
         }
 
         function getInspectorPatchEndpoint() {
@@ -711,6 +815,11 @@
                             `).join('')
                     : '<span class="text-xs text-g-gray">No tags yet.</span>'}
                     </div>
+                        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-dashed border-g-blue/40 bg-white px-2 py-0.5 text-[11px] text-g-blue cursor-text">
+                            <span class="text-xs">+</span>
+                            <span>Add tag</span>
+                        </button>
+                    </div>
                     <input data-tag-input type="text" placeholder="Add tag and press Enter or Space"
                         class="w-full text-xs border border-g-border rounded-[8px] px-2.5 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
                     <p class="text-[10px] text-g-gray">Enter or space adds a tag. Click outside to finish.</p>
@@ -733,8 +842,11 @@
             const display = value || 'Add a summary'
             const tone = value ? 'text-g-gray' : 'text-g-gray italic'
             return `
-                <button type="button" data-summary-display class="w-full text-left text-xs ${tone} bg-[#FAFAFA] border border-g-border rounded-[10px] p-2 hover:border-g-blue/30 hover:bg-[#F7FAFF] transition-colors">
-                    ${esc(display)}
+                <button type="button" data-summary-display class="w-full text-left bg-white border border-g-border rounded-[10px] p-2 hover:border-g-blue/30 hover:bg-[#F7FAFF] transition-colors">
+                    <span class="flex items-start justify-between gap-2">
+                        <span class="text-xs ${tone}">${esc(display)}</span>
+                        ${renderEditPencilIcon()}
+                    </span>
                 </button>
             `
         }
@@ -804,11 +916,11 @@
                         <p class="text-[11px] text-g-gray">User tags</p>
                         ${state.infoPanel.editingTags
                     ? renderEditableTagEditor(userTags)
-                    : `<button type="button" data-tags-display class="w-full text-left rounded-[10px] border border-transparent p-1 -m-1 hover:border-g-blue/20 hover:bg-[#F7FAFF] transition-colors"><div class="flex flex-wrap gap-1.5">${renderTags(userTags)}</div></button>`}
+                    : `<button type="button" data-tags-display class="w-full text-left rounded-[10px] border border-g-border bg-white p-2 hover:border-g-blue/30 hover:bg-[#F7FAFF] transition-colors"><span class="flex items-start justify-between gap-2"><span class="flex flex-wrap gap-1.5 min-w-0">${userTags.length ? renderTags(userTags) : '<span class="text-xs text-g-gray italic">Add tags</span>'}<span class="inline-flex items-center gap-1 rounded-full border border-dashed border-g-blue/40 bg-[#F7FAFF] px-2 py-0.5 text-[11px] text-g-blue"><span class="text-xs">+</span><span>Add tag</span></span></span>${renderEditPencilIcon()}</span></button>`}
                     </div>
                     <div class="space-y-1">
                         <p class="text-[11px] text-g-gray">AI tags</p>
-                        <div class="flex flex-wrap gap-1.5">${renderTags(aiTags)}</div>
+                        <div class="rounded-[10px] border border-g-border bg-[#FAFAFA] p-2"><div class="flex flex-wrap gap-1.5">${renderTags(aiTags)}</div></div>
                     </div>
                 </section>
 
@@ -879,83 +991,18 @@
             loadInfoPanelForSelection(item).catch(() => null)
         }
 
-        function beginSummaryEdit() {
-            const data = state.infoPanel.data
-            if (!data) return
-            state.infoPanel.editingSummary = true
-            state.infoPanel.draftSummary = data.summary || ''
-            state.infoPanel.saveError = ''
-            renderInfoPanel()
-            requestAnimationFrame(() => qs('[data-summary-input]')?.focus())
-        }
-
-        function cancelSummaryEdit() {
-            state.infoPanel.editingSummary = false
-            state.infoPanel.draftSummary = ''
-            state.infoPanel.saveError = ''
-            renderInfoPanel()
-        }
-
-        async function commitSummaryEdit() {
-            if (!state.infoPanel.editingSummary || !state.infoPanel.data) return
-            const nextSummary = String(state.infoPanel.draftSummary || '').trim()
-            const currentSummary = String(state.infoPanel.data.summary || '').trim()
-            if (nextSummary === currentSummary) {
-                cancelSummaryEdit()
-                return
-            }
-
-            const saved = await saveInspectorPatch({ summary: nextSummary }, { field: 'summary' })
-            if (saved) {
-                state.infoPanel.editingSummary = false
-                state.infoPanel.draftSummary = ''
-            }
-            renderInfoPanel()
-        }
-
-        function beginTagsEdit() {
-            const data = state.infoPanel.data
-            if (!data) return
-            state.infoPanel.editingTags = true
-            state.infoPanel.draftTags = normalizeEditableTags(normalizeTagArray(data.tag_list))
-            state.infoPanel.saveError = ''
-            renderInfoPanel()
-            requestAnimationFrame(() => qs('[data-tag-input]')?.focus())
-        }
-
-        function finishTagsEdit() {
-            state.infoPanel.editingTags = false
-            state.infoPanel.draftTags = []
-            state.infoPanel.saveError = ''
-            renderInfoPanel()
-        }
-
-        async function persistDraftTags(options = {}) {
-            if (!state.infoPanel.data) return false
-            const nextTags = normalizeEditableTags(state.infoPanel.draftTags)
-            const currentTags = normalizeEditableTags(normalizeTagArray(state.infoPanel.data.tag_list))
-            if (JSON.stringify(nextTags) === JSON.stringify(currentTags)) {
-                if (options.closeEditor) finishTagsEdit()
-                return true
-            }
-
-            const saved = await saveInspectorPatch({ tag_list: nextTags }, { field: 'tags' })
-            if (saved && options.closeEditor) finishTagsEdit()
-            return saved
-        }
-
         async function addDraftTag(rawTag) {
             const nextTag = String(rawTag || '').trim().replace(/\s+/g, ' ')
             if (!nextTag) return
             state.infoPanel.draftTags = normalizeEditableTags([...(state.infoPanel.draftTags || []), nextTag])
-            const saved = await persistDraftTags()
+            const saved = await commitInspectorEdit('tags', { closeEditor: false })
             renderInfoPanel()
             if (saved && state.infoPanel.editingTags) requestAnimationFrame(() => qs('[data-tag-input]')?.focus())
         }
 
         async function removeDraftTag(tagToRemove) {
             state.infoPanel.draftTags = normalizeEditableTags((state.infoPanel.draftTags || []).filter((tag) => tag !== tagToRemove))
-            const saved = await persistDraftTags()
+            const saved = await commitInspectorEdit('tags', { closeEditor: false })
             renderInfoPanel()
             if (saved && state.infoPanel.editingTags) requestAnimationFrame(() => qs('[data-tag-input]')?.focus())
         }
@@ -1783,7 +1830,17 @@
                     const name = String(item.display_name || '').toLowerCase()
                     const fileName = String(item.filename || '').toLowerCase()
                     const contentType = String(item.content_type || '').toLowerCase()
-                    return name.includes(needle) || fileName.includes(needle) || contentType.includes(needle)
+                    const userTags = normalizeTagArray(item.tag_list).join(' ').toLowerCase()
+                    const userSummary = String(item.summary || '').toLowerCase()
+                    const aiTags = normalizeTagArray(item.ai_tags).join(' ').toLowerCase()
+                    const aiSummary = String(item.ai_summary || '').toLowerCase()
+                    return name.includes(needle)
+                        || fileName.includes(needle)
+                        || contentType.includes(needle)
+                        || userTags.includes(needle)
+                        || userSummary.includes(needle)
+                        || aiTags.includes(needle)
+                        || aiSummary.includes(needle)
                 })
                 state.crumbs = ['/ Attachments Search', q]
                 renderItems()
@@ -2146,13 +2203,13 @@
 
                 const summaryDisplay = target.closest('[data-summary-display]')
                 if (summaryDisplay instanceof HTMLElement) {
-                    beginSummaryEdit()
+                    beginInspectorEdit('summary')
                     return
                 }
 
                 const tagsDisplay = target.closest('[data-tags-display]')
                 if (tagsDisplay instanceof HTMLElement) {
-                    beginTagsEdit()
+                    beginInspectorEdit('tags')
                     return
                 }
 
@@ -2175,12 +2232,12 @@
                 if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
                     if (event.key === 'Escape') {
                         event.preventDefault()
-                        cancelSummaryEdit()
+                        cancelInspectorEdit('summary')
                         return
                     }
                     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
                         event.preventDefault()
-                        commitSummaryEdit().catch(() => null)
+                        commitInspectorEdit('summary').catch(() => null)
                     }
                     return
                 }
@@ -2188,7 +2245,7 @@
                 if (target instanceof HTMLInputElement && target.matches('[data-tag-input]')) {
                     if (event.key === 'Escape') {
                         event.preventDefault()
-                        finishTagsEdit()
+                        cancelInspectorEdit('tags')
                         return
                     }
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -2204,22 +2261,30 @@
             qs('#info-panel').addEventListener('focusout', (event) => {
                 const target = event.target
                 const next = event.relatedTarget
-                if (target instanceof HTMLTextAreaElement && target.matches('[data-summary-input]')) {
-                    if (next instanceof Node && target.closest('[data-summary-shell]')?.contains(next)) return
-                    commitSummaryEdit().catch(() => null)
+                if (target instanceof HTMLTextAreaElement && target.matches(getInspectorInputSelector('summary'))) {
+                    if (next instanceof Node && target.closest(getInspectorShellSelector('summary'))?.contains(next)) return
+                    commitInspectorEdit('summary').catch(() => null)
                     return
                 }
 
-                if (target instanceof HTMLElement && target.closest('[data-tags-editor]')) {
-                    const editor = target.closest('[data-tags-editor]')
+                if (target instanceof HTMLElement && target.closest(getInspectorShellSelector('tags'))) {
+                    const editor = target.closest(getInspectorShellSelector('tags'))
                     if (next instanceof Node && editor?.contains(next)) return
-                    persistDraftTags({ closeEditor: true }).catch(() => null)
+                    commitInspectorEdit('tags', { closeEditor: true }).catch(() => null)
                 }
             })
 
             document.addEventListener('click', (event) => {
                 const target = event.target
                 if (!(target instanceof HTMLElement)) return
+                for (const field of ['summary', 'tags']) {
+                    if (!isInspectorEditing(field)) continue
+                    const insideEditor = target.closest(getInspectorShellSelector(field))
+                    const onDisplay = target.closest(field === 'summary' ? '[data-summary-display]' : '[data-tags-display]')
+                    if (!insideEditor && !onDisplay) {
+                        commitInspectorEdit(field, { closeEditor: true }).catch(() => null)
+                    }
+                }
                 if (target.closest('[data-menu-wrap]')) return
                 closeAllRowMenus()
             })

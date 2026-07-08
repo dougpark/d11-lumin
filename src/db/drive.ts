@@ -391,6 +391,7 @@ export async function searchDriveItems(db: D1Database, userId: number, q: string
     const result = await db
         .prepare(
             `SELECT di.*, dl.attachment_id, a.attachment_slug, a.filename, a.content_type, a.size,
+                          a.tag_list, a.summary, a.ai_tags, a.ai_summary,
                           COALESCE(ar.note_ref_count, 0) AS note_ref_count,
                           CASE WHEN COALESCE(ar.note_ref_count, 0) > 0 THEN 1 ELSE 0 END AS is_attached_to_note
              FROM drive_items di
@@ -403,11 +404,18 @@ export async function searchDriveItems(db: D1Database, userId: number, q: string
                  ) ar ON ar.attachment_id = dl.attachment_id
              WHERE di.user_id = ?
                AND di.deleted_at IS NULL
-               AND (LOWER(di.display_name) LIKE ? OR LOWER(COALESCE(a.filename, '')) LIKE ?)
+                AND (
+                    LOWER(di.display_name) LIKE ?
+                    OR LOWER(COALESCE(a.filename, '')) LIKE ?
+                    OR LOWER(COALESCE(a.tag_list, '')) LIKE ?
+                    OR LOWER(COALESCE(a.summary, '')) LIKE ?
+                    OR LOWER(COALESCE(a.ai_tags, '')) LIKE ?
+                    OR LOWER(COALESCE(a.ai_summary, '')) LIKE ?
+                )
              ORDER BY di.updated_at DESC
              LIMIT 120`,
         )
-        .bind(userId, like, like)
+        .bind(userId, like, like, like, like, like, like)
         .all<DriveItemWithAttachment>()
 
     return result.results
