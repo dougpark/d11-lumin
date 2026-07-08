@@ -19,11 +19,15 @@ import {
     updateDriveAttachmentInspectorByDriveItemId,
 } from '../db/drive.ts'
 import { appendAttachmentMarkdownToNote } from '../db/notes.ts'
+import {
+    createDriveDownloadToken,
+    getTokenSecret,
+    verifyDriveDownloadToken,
+} from '../utils/attachmentTokens.ts'
 
 const drive = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 const MAX_DRIVE_UPLOAD_BYTES = 100 * 1024 * 1024
-const DOWNLOAD_TOKEN_TTL_SECONDS = 300
 
 function parseJsonArrayField(raw: string | null | undefined): string[] {
     if (typeof raw !== 'string' || !raw.trim()) return []
@@ -87,75 +91,6 @@ function buildNoteAttachmentPermalink(baseUrl: string, attachmentSlug: string): 
     return new URL(`/api/notes/attachments/p/${attachmentSlug}`, baseUrl).toString()
 }
 
-function getTokenSecret(secret: string | undefined | null): string | null {
-    if (typeof secret !== 'string') return null
-    const normalized = secret.trim()
-    return normalized.length > 0 ? normalized : null
-}
-
-function encodeBase64Url(bytes: Uint8Array): string {
-    let binary = ''
-    for (const byte of bytes) binary += String.fromCharCode(byte)
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function decodeBase64Url(value: string): Uint8Array {
-    const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4)
-    const binary = atob(padded)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
-    return bytes
-}
-
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
-    if (a.length !== b.length) return false
-    let diff = 0
-    for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i]
-    return diff === 0
-}
-
-async function signToken(secret: string, payload: string): Promise<string> {
-    const normalizedSecret = getTokenSecret(secret)
-    if (!normalizedSecret) throw new Error('TOKEN_SECRET is not configured')
-
-    const key = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(normalizedSecret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign'],
-    )
-    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload))
-    return encodeBase64Url(new Uint8Array(sig))
-}
-
-async function createDownloadToken(secret: string, userId: number, driveItemId: number): Promise<{ token: string; exp: number }> {
-    const exp = Math.floor(Date.now() / 1000) + DOWNLOAD_TOKEN_TTL_SECONDS
-    const payload = `${userId}.${driveItemId}.${exp}`
-    const signature = await signToken(secret, payload)
-    return { token: `${payload}.${signature}`, exp }
-}
-
-async function verifyDownloadToken(secret: string, token: string): Promise<{ userId: number; driveItemId: number; exp: number } | null> {
-    const parts = token.split('.')
-    if (parts.length !== 4) return null
-    const [userPart, itemPart, expPart, signaturePart] = parts
-
-    const userId = parseInt(userPart, 10)
-    const driveItemId = parseInt(itemPart, 10)
-    const exp = parseInt(expPart, 10)
-    if (!Number.isInteger(userId) || !Number.isInteger(driveItemId) || !Number.isInteger(exp)) return null
-    if (exp < Math.floor(Date.now() / 1000)) return null
-
-    const payload = `${userId}.${driveItemId}.${exp}`
-    const expectedSig = await signToken(secret, payload)
-    const expectedBytes = decodeBase64Url(expectedSig)
-    const actualBytes = decodeBase64Url(signaturePart)
-    if (!timingSafeEqual(expectedBytes, actualBytes)) return null
-
-    return { userId, driveItemId, exp }
-}
-
 function parseParentIdParam(raw: string | null | undefined): number | null {
     if (typeof raw !== 'string') return null
     const trimmed = raw.trim().toLowerCase()
@@ -174,7 +109,7 @@ drive.get('/download', async (c) => {
     const tokenSecret = getTokenSecret(c.env.TOKEN_SECRET)
     if (!tokenSecret) return c.json({ error: 'Attachment signing is not configured' }, 500)
 
-    const parsed = await verifyDownloadToken(tokenSecret, token)
+    const parsed = await verifyDriveDownloadToken(tokenSecret, token)
     if (!parsed) return c.json({ error: 'Unauthorized' }, 401)
 
     const item = await getDriveDownloadRecord(c.env.DB, parsed.userId, parsed.driveItemId)
@@ -427,7 +362,7 @@ drive.get('/items/:id/download', async (c) => {
     const tokenSecret = getTokenSecret(c.env.TOKEN_SECRET)
     if (!tokenSecret) return c.json({ error: 'Attachment signing is not configured' }, 500)
 
-    const signed = await createDownloadToken(tokenSecret, user.id, id)
+    const signed = await createDriveDownloadToken(tokenSecret, user.id, id)
     const downloadUrl = new URL('/api/drive/download', c.req.url)
     downloadUrl.searchParams.set('t', signed.token)
     const inlineUrl = new URL(downloadUrl.toString())

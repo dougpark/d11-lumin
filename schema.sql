@@ -205,6 +205,8 @@ CREATE TABLE IF NOT EXISTS attachments (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachments_attachment_slug ON attachments (attachment_slug);
 CREATE INDEX IF NOT EXISTS idx_attachments_owner_user_id ON attachments (owner_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_attachments_deleted_at ON attachments (deleted_at);
+CREATE INDEX IF NOT EXISTS idx_attachments_ai_processed_at ON attachments (ai_processed_at);
+CREATE INDEX IF NOT EXISTS idx_attachments_queue_pending ON attachments (deleted_at, ai_processed_at, created_at ASC);
 
 CREATE TABLE IF NOT EXISTS attachment_list (
   note_id        INTEGER NOT NULL REFERENCES notes (note_id) ON DELETE CASCADE,

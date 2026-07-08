@@ -17,6 +17,11 @@ import { hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
+import {
+  createAttachmentDownloadToken,
+  getTokenSecret,
+  verifyAttachmentDownloadToken,
+} from './utils/attachmentTokens.ts'
 // @ts-expect-error — text module loaded by Wrangler rule
 import appHtml from './client/app.html'
 // @ts-expect-error — text module loaded by Wrangler rule
@@ -248,22 +253,54 @@ app.post('/api/ai/enrich', authMiddleware, async (c) => {
 })
 
 // ─── AI Daemon API ────────────────────────────────────────────────────────────
+// Signed file download endpoint for AI daemon processing.
+// Token-auth only; does not require API token middleware.
+app.get('/api/ai/files/download', async (c) => {
+  const token = c.req.query('t')?.trim() ?? ''
+  if (!token) return c.json({ error: 'Unauthorized' }, 401)
+  if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments storage is not configured' }, 500)
+
+  const tokenSecret = getTokenSecret(c.env.TOKEN_SECRET)
+  if (!tokenSecret) return c.json({ error: 'Attachment signing is not configured' }, 500)
+
+  const parsed = await verifyAttachmentDownloadToken(tokenSecret, token)
+  if (!parsed) return c.json({ error: 'Unauthorized' }, 401)
+
+  const attachment = await c.env.DB
+    .prepare(`SELECT filename, content_type, size, url FROM attachments WHERE owner_user_id = ? AND attachment_slug = ? AND deleted_at IS NULL LIMIT 1`)
+    .bind(parsed.ownerUserId, parsed.attachmentSlug)
+    .first<{ filename: string; content_type: string; size: number; url: string }>()
+
+  if (!attachment) return c.json({ error: 'File not found' }, 404)
+
+  const object = await c.env.ATTACHMENTS.get(attachment.url)
+  if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
+
+  const safeFilename = (attachment.filename || 'download').replace(/"/g, '')
+  c.header('Content-Type', attachment.content_type || 'application/octet-stream')
+  c.header('Content-Length', String(attachment.size ?? 0))
+  c.header('Content-Disposition', `attachment; filename="${safeFilename}"`)
+  c.header('Cache-Control', 'private, max-age=60')
+  return c.body(object.body)
+})
+
 // Requires a named API token with one or more ai:process:* scopes.
-// Legacy scope 'ai:process' is accepted and grants access to both RSS and bookmarks.
+// Legacy scope 'ai:process' is accepted and grants access to RSS, bookmarks, and files.
 app.use('/api/ai/*', apiTokenMiddleware)
 
-function parseAiAllowed(scopesJson: string): { rss: boolean; bookmarks: boolean } {
+function parseAiAllowed(scopesJson: string): { rss: boolean; bookmarks: boolean; files: boolean } {
   let scopes: string[] = []
   try { scopes = JSON.parse(scopesJson) } catch { /* leave empty */ }
   const legacy = scopes.includes('ai:process')
   return {
     rss: legacy || scopes.includes('ai:process:rss'),
     bookmarks: legacy || scopes.includes('ai:process:bookmarks'),
+    files: legacy || scopes.includes('ai:process:files'),
   }
 }
 
-// GET /api/ai/queue — return a batch of unprocessed items (RSS and/or bookmarks)
-//   ?source=rss|bookmarks|all  (default: all, limited by token scopes)
+// GET /api/ai/queue — return a batch of unprocessed items (RSS, bookmarks, and/or files)
+//   ?source=rss|bookmarks|file|all  (default: all, limited by token scopes)
 //   &limit=1-50                (default: 20)
 //   &offset=0                  (for paging)
 //   &force=true                (include already-processed items)
@@ -272,8 +309,8 @@ app.get('/api/ai/queue', async (c) => {
   if (!apiToken) return c.json({ error: 'Forbidden', hint: 'Named API token with ai:process scope required' }, 403)
 
   const allowed = parseAiAllowed(apiToken.scopes)
-  if (!allowed.rss && !allowed.bookmarks) {
-    return c.json({ error: 'Forbidden', hint: 'Token missing ai:process:rss or ai:process:bookmarks scope' }, 403)
+  if (!allowed.rss && !allowed.bookmarks && !allowed.files) {
+    return c.json({ error: 'Forbidden', hint: 'Token missing ai:process:rss, ai:process:bookmarks, or ai:process:files scope' }, 403)
   }
 
   const limitParam = parseInt(c.req.query('limit') ?? '20', 10)
@@ -283,88 +320,152 @@ app.get('/api/ai/queue', async (c) => {
   const force = c.req.query('force') === 'true'
 
   const requestedSource = c.req.query('source') ?? 'all'
-  if (!['rss', 'bookmarks', 'all'].includes(requestedSource)) {
-    return c.json({ error: "source must be 'rss', 'bookmarks', or 'all'" }, 400)
+  if (!['rss', 'bookmarks', 'file', 'all'].includes(requestedSource)) {
+    return c.json({ error: "source must be 'rss', 'bookmarks', 'file', or 'all'" }, 400)
   }
 
   const includeRss = allowed.rss && (requestedSource === 'rss' || requestedSource === 'all')
   const includeBookmarks = allowed.bookmarks && (requestedSource === 'bookmarks' || requestedSource === 'all')
+  const includeFiles = allowed.files && (requestedSource === 'file' || requestedSource === 'all')
+
+  const tokenSecret = includeFiles ? getTokenSecret(c.env.TOKEN_SECRET) : null
+  if (includeFiles && !tokenSecret) {
+    return c.json({ error: 'Attachment signing is not configured' }, 500)
+  }
 
   const now = new Date().toISOString()
+  const fetchWindow = limit + offset
   const notProcessedRss = force ? '' : 'AND r.ai_processed_at IS NULL'
   const notProcessedBm = force ? '' : 'AND b.ai_processed_at IS NULL'
 
-  const rssSql = `
-    SELECT 'rss' AS source, r.id, r.url, r.title, r.summary AS body, r.tag_list,
-           r.published_at AS created_at, json_object('feed_name', f.name) AS context
-      FROM rss_items r
-      JOIN rss_feeds f ON f.id = r.feed_id
-     WHERE r.expires_at > ? ${notProcessedRss}`
+  const rssResultPromise = includeRss
+    ? c.env.DB.prepare(`
+      SELECT 'rss' AS source, r.id, r.url, r.title, r.summary AS body, r.tag_list,
+             r.published_at AS created_at, json_object('feed_name', f.name) AS context
+        FROM rss_items r
+        JOIN rss_feeds f ON f.id = r.feed_id
+       WHERE r.expires_at > ? ${notProcessedRss}
+       ORDER BY created_at ASC
+       LIMIT ?
+    `).bind(now, fetchWindow).all<{ source: 'rss'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }>()
+    : Promise.resolve({ results: [] as { source: 'rss'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }[] })
 
-  const bmSql = `
-    SELECT 'bookmark' AS source, b.id, b.url, b.title, b.short_description AS body, b.tag_list,
-           b.created_at, json_object('user_id', b.user_id) AS context
-      FROM bookmarks b
-      JOIN users u ON u.id = b.user_id
-     WHERE b.is_archived = 0
-       AND (b.is_public = 1 OR u.ai_allow_private = 1)
-       ${notProcessedBm}`
+  const bookmarksResultPromise = includeBookmarks
+    ? c.env.DB.prepare(`
+      SELECT 'bookmark' AS source, b.id, b.url, b.title, b.short_description AS body, b.tag_list,
+             b.created_at, json_object('user_id', b.user_id) AS context
+        FROM bookmarks b
+        JOIN users u ON u.id = b.user_id
+       WHERE b.is_archived = 0
+         AND (b.is_public = 1 OR u.ai_allow_private = 1)
+         ${notProcessedBm}
+       ORDER BY created_at ASC
+       LIMIT ?
+    `).bind(fetchWindow).all<{ source: 'bookmark'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }>()
+    : Promise.resolve({ results: [] as { source: 'bookmark'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }[] })
 
-  let itemsSql: string
-  let itemsBindings: (string | number)[]
+  const fileNotProcessed = force ? '' : 'AND a.ai_processed_at IS NULL'
+  const filesResultPromise = includeFiles
+    ? c.env.DB.prepare(`
+      SELECT 'file' AS source,
+             a.attachment_slug AS file_id,
+             a.filename AS file_name,
+             a.content_type AS file_type,
+             a.size AS file_size,
+             a.tag_list,
+             a.summary,
+             a.created_at,
+             json_object('owner_user_id', a.owner_user_id, 'attachment_id', a.attachment_id) AS context
+        FROM attachments a
+       WHERE a.deleted_at IS NULL
+         ${fileNotProcessed}
+       ORDER BY a.created_at ASC
+       LIMIT ?
+    `).bind(fetchWindow).all<{ source: 'file'; file_id: string; file_name: string; file_type: string; file_size: number; tag_list: string; summary: string; created_at: string; context: string }>()
+    : Promise.resolve({ results: [] as { source: 'file'; file_id: string; file_name: string; file_type: string; file_size: number; tag_list: string; summary: string; created_at: string; context: string }[] })
 
-  if (includeRss && includeBookmarks) {
-    itemsSql = `${rssSql} UNION ALL ${bmSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`
-    itemsBindings = [now, limit, offset]
-  } else if (includeRss) {
-    itemsSql = `${rssSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`
-    itemsBindings = [now, limit, offset]
-  } else {
-    itemsSql = `${bmSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`
-    itemsBindings = [limit, offset]
-  }
+  const rssCountPromise = includeRss
+    ? c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM rss_items r WHERE r.expires_at > ? ${notProcessedRss}`).bind(now).first<{ cnt: number }>()
+    : Promise.resolve({ cnt: 0 })
 
-  const [itemsResult, rssCountResult, bmCountResult] = await c.env.DB.batch([
-    c.env.DB.prepare(itemsSql).bind(...itemsBindings),
-    includeRss
-      ? c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM rss_items r WHERE r.expires_at > ? ${notProcessedRss}`).bind(now)
-      : c.env.DB.prepare('SELECT 0 AS cnt'),
-    includeBookmarks
-      ? c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM bookmarks b JOIN users u ON u.id = b.user_id WHERE b.is_archived = 0 AND (b.is_public = 1 OR u.ai_allow_private = 1) ${notProcessedBm}`)
-      : c.env.DB.prepare('SELECT 0 AS cnt'),
+  const bmCountPromise = includeBookmarks
+    ? c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM bookmarks b JOIN users u ON u.id = b.user_id WHERE b.is_archived = 0 AND (b.is_public = 1 OR u.ai_allow_private = 1) ${notProcessedBm}`).first<{ cnt: number }>()
+    : Promise.resolve({ cnt: 0 })
+
+  const fileCountPromise = includeFiles
+    ? c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM attachments a WHERE a.deleted_at IS NULL ${fileNotProcessed}`).first<{ cnt: number }>()
+    : Promise.resolve({ cnt: 0 })
+
+  const [rssResult, bookmarksResult, filesResult, rssCountRaw, bmCountRaw, fileCountRaw] = await Promise.all([
+    rssResultPromise,
+    bookmarksResultPromise,
+    filesResultPromise,
+    rssCountPromise,
+    bmCountPromise,
+    fileCountPromise,
   ])
 
-  type RawRow = { source: 'rss' | 'bookmark'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }
-  const items = (itemsResult.results as RawRow[]).map(row => {
+  const baseItems = [...rssResult.results, ...bookmarksResult.results].map(row => {
     let tags: string[] = []
     try { tags = [...new Set((JSON.parse(row.tag_list || '[]') as string[]).map(t => t.split(':')[0].toLowerCase()))] } catch { /* leave empty */ }
     let context: Record<string, unknown> = {}
     try { context = JSON.parse(row.context || '{}') } catch { /* leave empty */ }
-    return { source: row.source, id: row.id, url: row.url, title: row.title, body: row.body, tags, created_at: row.created_at, context }
+    return { source: row.source, id: row.id, url: row.url, title: row.title, body: row.body, tags, created_at: row.created_at, context } as const
   })
 
-  const rssTotal = (rssCountResult.results[0] as { cnt: number } | undefined)?.cnt ?? 0
-  const bmTotal = (bmCountResult.results[0] as { cnt: number } | undefined)?.cnt ?? 0
+  const fileItems = await Promise.all(filesResult.results.map(async row => {
+    let tags: string[] = []
+    try { tags = [...new Set((JSON.parse(row.tag_list || '[]') as string[]).map(t => t.split(':')[0].toLowerCase()))] } catch { /* leave empty */ }
+    let context: Record<string, unknown> = {}
+    try { context = JSON.parse(row.context || '{}') } catch { /* leave empty */ }
+
+    const signed = await createAttachmentDownloadToken(tokenSecret!, context.owner_user_id as number, row.file_id)
+    const fileUrl = new URL('/api/ai/files/download', c.req.url)
+    fileUrl.searchParams.set('t', signed.token)
+
+    return {
+      source: 'file' as const,
+      file_id: row.file_id,
+      file_name: row.file_name,
+      file_type: row.file_type,
+      file_size: row.file_size,
+      file_path: fileUrl.toString(),
+      tags,
+      summary: row.summary,
+      created_at: row.created_at,
+      context,
+    }
+  }))
+
+  const items = [...baseItems, ...fileItems]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .slice(offset, offset + limit)
+
+  const rssTotal = rssCountRaw?.cnt ?? 0
+  const bmTotal = bmCountRaw?.cnt ?? 0
+  const fileTotal = fileCountRaw?.cnt ?? 0
 
   return c.json({
     items,
     count: items.length,
-    total_pending: rssTotal + bmTotal,
-    source_breakdown: { rss: rssTotal, bookmarks: bmTotal },
+    total_pending: rssTotal + bmTotal + fileTotal,
+    source_breakdown: { rss: rssTotal, bookmarks: bmTotal, file: fileTotal },
   })
 })
 
 // PATCH /api/ai/items — write AI tags + summary back for a batch of items
-//   Body: [{ source: "rss"|"bookmark", id, ai_tags?, ai_summary? }, ...]
-//   source is required; routes writes to rss_items or bookmarks accordingly.
-//   Token must hold the matching ai:process:rss / ai:process:bookmarks scope.
+//   Body:
+//   - [{ source: "rss"|"bookmark", id, ai_tags?, ai_summary? }, ...]
+//   - [{ source: "file", file_id, ai_tags?, ai_summary? }, ...]
+//   source is required; routes writes to rss_items, bookmarks, or attachments accordingly.
+//   Token must hold the matching ai:process:rss / ai:process:bookmarks / ai:process:files scope.
 app.patch('/api/ai/items', async (c) => {
   const apiToken = c.var.apiToken
   if (!apiToken) return c.json({ error: 'Forbidden', hint: 'Named API token with ai:process scope required' }, 403)
 
   const allowed = parseAiAllowed(apiToken.scopes)
-  if (!allowed.rss && !allowed.bookmarks) {
-    return c.json({ error: 'Forbidden', hint: 'Token missing ai:process:rss or ai:process:bookmarks scope' }, 403)
+  if (!allowed.rss && !allowed.bookmarks && !allowed.files) {
+    return c.json({ error: 'Forbidden', hint: 'Token missing ai:process:rss, ai:process:bookmarks, or ai:process:files scope' }, 403)
   }
 
   let body: unknown
@@ -372,24 +473,42 @@ app.patch('/api/ai/items', async (c) => {
   if (!Array.isArray(body) || body.length === 0) return c.json({ error: 'Body must be a non-empty array' }, 400)
   if (body.length > 50) return c.json({ error: 'Batch too large — max 50 items' }, 400)
 
-  type AiItem = { source: 'rss' | 'bookmark'; id: number; ai_tags?: string[]; ai_summary?: string }
+  type AiItem = { source: 'rss' | 'bookmark'; id: number; ai_tags?: string[]; ai_summary?: string } | { source: 'file'; file_id: string; ai_tags?: string[]; ai_summary?: string }
   const items: AiItem[] = []
 
   for (const entry of body) {
     if (typeof entry !== 'object' || entry === null) return c.json({ error: 'Each item must be an object' }, 400)
-    const { source, id, ai_tags, ai_summary } = entry as Record<string, unknown>
-    if (source !== 'rss' && source !== 'bookmark') return c.json({ error: "Each item must have source 'rss' or 'bookmark'" }, 400)
+    const { source, id, file_id, ai_tags, ai_summary } = entry as Record<string, unknown>
+    if (source !== 'rss' && source !== 'bookmark' && source !== 'file') return c.json({ error: "Each item must have source 'rss', 'bookmark', or 'file'" }, 400)
     if (source === 'rss' && !allowed.rss) return c.json({ error: 'Token lacks ai:process:rss scope' }, 403)
     if (source === 'bookmark' && !allowed.bookmarks) return c.json({ error: 'Token lacks ai:process:bookmarks scope' }, 403)
-    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return c.json({ error: 'Each item must have a positive integer id' }, 400)
+    if (source === 'file' && !allowed.files) return c.json({ error: 'Token lacks ai:process:files scope' }, 403)
     if (ai_tags !== undefined && !Array.isArray(ai_tags)) return c.json({ error: 'ai_tags must be an array' }, 400)
     if (ai_summary !== undefined && typeof ai_summary !== 'string') return c.json({ error: 'ai_summary must be a string' }, 400)
     if (typeof ai_summary === 'string' && ai_summary.length > 2000) return c.json({ error: 'ai_summary too long (max 2000 chars)' }, 400)
+    if (source === 'file') {
+      if (typeof file_id !== 'string' || !file_id.trim()) return c.json({ error: "File items must include a non-empty string file_id" }, 400)
+      items.push({ source: 'file', file_id: file_id.trim(), ai_tags: ai_tags as string[] | undefined, ai_summary: ai_summary as string | undefined })
+      continue
+    }
+
+    if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) return c.json({ error: 'Each rss/bookmark item must have a positive integer id' }, 400)
     items.push({ source: source as 'rss' | 'bookmark', id, ai_tags: ai_tags as string[] | undefined, ai_summary: ai_summary as string | undefined })
   }
 
   const now = new Date().toISOString()
   const stmts = items.map(item => {
+    if (item.source === 'file') {
+      return c.env.DB.prepare(
+        'UPDATE attachments SET ai_tags = ?, ai_summary = ?, ai_processed_at = ? WHERE attachment_slug = ? AND deleted_at IS NULL'
+      ).bind(
+        item.ai_tags !== undefined ? JSON.stringify(item.ai_tags) : null,
+        item.ai_summary ?? null,
+        now,
+        item.file_id
+      )
+    }
+
     const table = item.source === 'rss' ? 'rss_items' : 'bookmarks'
     return c.env.DB.prepare(
       `UPDATE ${table} SET ai_tags = ?, ai_summary = ?, ai_processed_at = ? WHERE id = ?`
