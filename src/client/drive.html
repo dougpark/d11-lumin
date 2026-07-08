@@ -208,6 +208,45 @@
             border-color: #93c5fd;
             background: #eff6ff;
         }
+
+        .inspector-loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .inspector-loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(66, 133, 244, 0.10) 50%, rgba(255, 255, 255, 0) 100%);
+            transform: translateX(-100%);
+            animation: inspectorShimmer 1.1s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .inspector-skeleton-bar {
+            height: 10px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #eef2f7 0%, #f8fbff 50%, #eef2f7 100%);
+            background-size: 200% 100%;
+            animation: inspectorSkeletonPulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes inspectorShimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        @keyframes inspectorSkeletonPulse {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 200% 50%;
+            }
+        }
     </style>
 </head>
 
@@ -437,7 +476,24 @@
                 draftSummary: '',
                 editingTags: false,
                 draftTags: [],
+                requestId: 0,
             },
+        }
+
+        function createInfoPanelState(overrides = {}) {
+            return {
+                loading: false,
+                error: '',
+                data: null,
+                savingField: '',
+                saveError: '',
+                editingSummary: false,
+                draftSummary: '',
+                editingTags: false,
+                draftTags: [],
+                requestId: state.infoPanel?.requestId || 0,
+                ...overrides,
+            }
         }
 
         function setStatus(message, tone = 'muted') {
@@ -860,11 +916,39 @@
             return `/notes?${params.toString()}`
         }
 
+        function renderInfoPanelLoadingOverlay() {
+            return `
+                <div class="pointer-events-none absolute inset-0 z-10 rounded-[14px] bg-white/42 backdrop-blur-[1px] p-4">
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="inspector-skeleton-bar w-20"></div>
+                            <div class="inspector-skeleton-bar w-4/5"></div>
+                            <div class="inspector-skeleton-bar w-3/5"></div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="inspector-skeleton-bar w-16"></div>
+                            <div class="inspector-skeleton-bar w-full"></div>
+                            <div class="inspector-skeleton-bar w-2/3"></div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="inspector-skeleton-bar w-24"></div>
+                            <div class="inspector-skeleton-bar w-full"></div>
+                            <div class="inspector-skeleton-bar w-5/6"></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        }
+
         function renderInfoPanel() {
             const host = qs('#info-panel')
             if (!host) return
+            host.classList.toggle('opacity-95', Boolean(state.infoPanel.loading && state.infoPanel.data))
+            host.classList.toggle('transition-opacity', true)
+            host.classList.toggle('duration-150', true)
+            host.classList.toggle('inspector-loading', Boolean(state.infoPanel.loading && state.infoPanel.data))
 
-            if (state.infoPanel.loading) {
+            if (state.infoPanel.loading && !state.infoPanel.data) {
                 setInfoPanelPill('Loading', 'active')
                 host.innerHTML = '<p class="text-sm text-g-gray">Loading file metadata...</p>'
                 return
@@ -893,8 +977,13 @@
                 : saveError
                     ? `<p class="text-[11px] text-red-600">${esc(saveError)}</p>`
                     : ''
+            const loadingOverlay = state.infoPanel.loading ? renderInfoPanelLoadingOverlay() : ''
+
+            setInfoPanelPill('File selected', 'active')
 
             host.innerHTML = `
+                <div class="relative">
+                    ${loadingOverlay}
                 <section class="space-y-1">
                     <p class="text-xs uppercase tracking-wide text-g-gray">Basic</p>
                     <p class="text-sm font-semibold text-g-black break-words">${esc(data.drive_display_name || data.filename || 'Untitled')}</p>
@@ -945,12 +1034,13 @@
                     : '<p class="text-xs text-g-gray">This file is not attached to any notes.</p>'
                 }
                 </section>
+                </div>
             `
         }
 
         async function loadInfoPanelForSelection(item) {
             if (!item || item.kind !== 'file') {
-                state.infoPanel = { loading: false, error: '', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
+                state.infoPanel = createInfoPanelState()
                 renderInfoPanel()
                 return
             }
@@ -959,14 +1049,20 @@
             const attachmentId = Number(item.attachment_id)
             const hasDriveItem = Number.isInteger(driveItemId) && driveItemId > 0
             const hasAttachment = Number.isInteger(attachmentId) && attachmentId > 0
+            const requestId = (state.infoPanel.requestId || 0) + 1
 
             if (!hasDriveItem && !hasAttachment) {
-                state.infoPanel = { loading: false, error: 'No file metadata found for this item.', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
+                state.infoPanel = createInfoPanelState({ error: 'No file metadata found for this item.', requestId })
                 renderInfoPanel()
                 return
             }
 
-            state.infoPanel = { loading: true, error: '', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
+            state.infoPanel = createInfoPanelState({
+                loading: true,
+                error: '',
+                data: state.infoPanel.data,
+                requestId,
+            })
             renderInfoPanel()
 
             try {
@@ -974,9 +1070,11 @@
                     ? `/api/drive/items/${driveItemId}/info`
                     : `/api/drive/attachments/${attachmentId}/info`
                 const res = await api(endpoint)
-                state.infoPanel = { loading: false, error: '', data: res?.data || null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
+                if (state.infoPanel.requestId !== requestId) return
+                state.infoPanel = createInfoPanelState({ loading: false, error: '', data: res?.data || null, requestId })
             } catch (err) {
-                state.infoPanel = { loading: false, error: err.message || 'Failed to load file info', data: null, savingField: '', saveError: '', editingSummary: false, draftSummary: '', editingTags: false, draftTags: [] }
+                if (state.infoPanel.requestId !== requestId) return
+                state.infoPanel = createInfoPanelState({ error: err.message || 'Failed to load file info', data: null, requestId })
             }
 
             renderInfoPanel()
@@ -1719,7 +1817,7 @@
             if (!selected) {
                 state.selectedDriveItemId = null
                 state.selectedAttachmentId = null
-                state.infoPanel = { loading: false, error: '', data: null }
+                state.infoPanel = createInfoPanelState()
                 renderInfoPanel()
                 return
             }
@@ -1957,7 +2055,7 @@
                 state.drivePath = [{ id: null, label: 'My Drive' }]
                 state.selectedDriveItemId = null
                 state.selectedAttachmentId = null
-                state.infoPanel = { loading: false, error: '', data: null }
+                state.infoPanel = createInfoPanelState()
                 renderInfoPanel()
                 syncDriveCrumbsFromPath()
                 renderViewFocus()
@@ -1974,7 +2072,7 @@
                 state.crumbs = ['/ Attachments']
                 state.selectedDriveItemId = null
                 state.selectedAttachmentId = null
-                state.infoPanel = { loading: false, error: '', data: null }
+                state.infoPanel = createInfoPanelState()
                 renderInfoPanel()
                 renderViewFocus()
                 await loadItems()
