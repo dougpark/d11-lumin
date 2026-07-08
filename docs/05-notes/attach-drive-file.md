@@ -31,7 +31,7 @@
 
 # Version 2 Enhancements
 - Add an indicator to the Drive file list to show which files are attached to a note.
-- Create an Info panel that shows the Drive file's metadata, including tags and AI tags, when a file is selected in the list.
-- Info panel to include a list of all notes that the Drive file is attached to, with links to those notes.
+- Create an Info panel that shows the Drive file's metadata, including dates, tags, ai summary and AI tags, when a file is selected in the drive list. whatever is available in the attachments table.
+- Info panel to include a list of all notes that the Drive file is attached to, with links to those notes to open in a new tab.
 
 - On the note side, add a Drive file icon to the note's attachment list for any attached Drive files. Clicking the icon should open Drive in a new tab, and display the file's metadata and linked notes.
