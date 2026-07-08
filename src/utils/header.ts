@@ -68,29 +68,6 @@ function desktopDropdown(type: 'full' | 'compact'): string {
             ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}`
 }
 
-function suiteMenuLink(href: string, label: string, iconPath: string, isActive = false, adminOnly = false): string {
-    const baseCls = 'flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg transition-colors'
-    const activeCls = isActive ? 'bg-blue-50 text-g-blue font-semibold' : 'text-g-gray hover:bg-[#F3F4F6]'
-    const adminCls = adminOnly ? ' suite-admin-only opacity-40 cursor-not-allowed pointer-events-none' : ''
-    return `<a href="${href}" data-href="${href}" class="${baseCls} ${activeCls}${adminCls}" ${adminOnly ? 'aria-disabled="true"' : ''}>${svg(iconPath, 'w-4 h-4')}<span>${label}</span></a>`
-}
-
-function suiteDropdown(activePage: 'app' | 'explore' | 'news'): string {
-    return `
-        <div id="suite-menu" class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
-            <p class="px-3 py-1 text-[11px] uppercase tracking-wide text-g-gray">Suite</p>
-            ${suiteMenuLink('/', 'Dashboard', ICON.dashboard, activePage === 'app')}
-            ${suiteMenuLink('/n', 'News', ICON.news, activePage === 'news')}
-            ${suiteMenuLink('/e', 'Explore', ICON.explore, activePage === 'explore')}
-            ${suiteMenuLink('/chat', 'Chat', ICON.chat)}
-            ${suiteMenuLink('/notes', 'Notes', ICON.notes)}
-            ${suiteMenuLink('/settings', 'Settings', ICON.settings)}
-            <div class="my-1 border-t border-g-border"></div>
-            ${suiteMenuLink('/admin', 'Admin', ICON.admin, false, true)}
-            ${suiteMenuLink('/analytics', 'Analytics', ICON.analytics, false, true)}
-        </div>`
-}
-
 // ── Mobile bottom nav ────────────────────────────────────────────────────────
 
 function mobileFooterNav(activePage: 'app' | 'explore' | 'news'): string {
@@ -174,24 +151,9 @@ const SHARED_SCRIPT = `<script>
         var prefixEl = document.getElementById('menu-prefix')
         if (prefixEl) prefixEl.textContent = 'd11.me/l/' + (user.slug_prefix || '') + '/\u2026'
         var isAdmin = user.is_admin === 1
-        setSuiteAdminAccess(isAdmin)
-    }
-
-    function setSuiteAdminAccess(isAdmin) {
-        var adminLinks = document.querySelectorAll('.suite-admin-only')
-        adminLinks.forEach(function(link) {
-            if (!link) return
-            if (isAdmin) {
-                link.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
-                link.removeAttribute('aria-disabled')
-                var target = link.getAttribute('data-href')
-                if (target) link.setAttribute('href', target)
-                return
-            }
-            link.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')
-            link.setAttribute('aria-disabled', 'true')
-            link.setAttribute('href', '#')
-        })
+        if (window.LuminSuiteMenu && typeof window.LuminSuiteMenu.setAdminAccess === 'function') {
+            window.LuminSuiteMenu.setAdminAccess(isAdmin)
+        }
     }
 
     async function _headerInit() {
@@ -219,13 +181,20 @@ const SHARED_SCRIPT = `<script>
         if (m) m.classList.toggle('hidden')
     }
 
-    function toggleSuiteMenu(event) {
-        if (event) event.stopPropagation()
+    function _headerInitSuiteMenu() {
+        if (window.__headerSuiteMenuInitDone) return
+        if (!window.LuminSuiteMenu || typeof window.LuminSuiteMenu.initMenu !== 'function') return
+        var button = document.getElementById('btn-suite-menu')
         var menu = document.getElementById('suite-menu')
-        if (!menu) return
-        var userMenu = document.getElementById('user-menu')
-        if (userMenu) userMenu.classList.add('hidden')
-        menu.classList.toggle('hidden')
+        if (!button || !menu) return
+        var activePage = button.getAttribute('data-active-page') || 'dashboard'
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu',
+            menuId: 'suite-menu',
+            activePage: activePage,
+            mode: 'light',
+        })
+        window.__headerSuiteMenuInitDone = true
     }
 
     // Close dropdowns on outside click
@@ -240,11 +209,6 @@ const SHARED_SCRIPT = `<script>
             !e.target.closest('[onclick="toggleMobileUserMenu()"]') && !mMenu.contains(e.target)) {
             mMenu.classList.add('hidden')
         }
-        var suiteMenu = document.getElementById('suite-menu')
-        if (suiteMenu && !suiteMenu.classList.contains('hidden') &&
-            !e.target.closest('[onclick="toggleSuiteMenu(event)"]') && !suiteMenu.contains(e.target)) {
-            suiteMenu.classList.add('hidden')
-        }
     })
 
     // ── Shared auth actions (overridden by app.html's own definitions) ────────
@@ -257,8 +221,9 @@ const SHARED_SCRIPT = `<script>
         if (m) m.classList.add('hidden')
         var mm = document.getElementById('mobile-user-menu')
         if (mm) mm.classList.add('hidden')
-        var sm = document.getElementById('suite-menu')
-        if (sm) sm.classList.add('hidden')
+        if (window.LuminSuiteMenu && typeof window.LuminSuiteMenu.closeAll === 'function') {
+            window.LuminSuiteMenu.closeAll()
+        }
     }
 
     function doLogout() {
@@ -267,6 +232,7 @@ const SHARED_SCRIPT = `<script>
         location.href = '/'
     }
 
+    _headerInitSuiteMenu()
     _headerInit()
 <\/script>`
 
@@ -287,6 +253,7 @@ export function renderHeader(config: HeaderConfig): string {
 
     const hiddenCls = initiallyHidden ? ' hidden' : ''
     const showUserControl = activePage === 'app'
+    const suiteActivePage = activePage === 'app' ? 'dashboard' : activePage
 
     const addButton = showAdd
         ? `<button onclick="openAddModal()" class="bg-g-blue text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-blue-600 transition-all flex items-center gap-1.5 flex-shrink-0">
@@ -336,10 +303,10 @@ export function renderHeader(config: HeaderConfig): string {
 
             <!-- Suite nav (bento) -->
             <div class="relative flex-shrink-0">
-                <button onclick="toggleSuiteMenu(event)" class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors" aria-label="Open suite navigation" title="Suite navigation">
+                <button id="btn-suite-menu" data-active-page="${suiteActivePage}" class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors" aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
                     ${svg(ICON.grid, 'w-4 h-4')}
                 </button>
-                ${suiteDropdown(activePage)}
+                <div id="suite-menu" class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50"></div>
             </div>
 
             ${showUserControl ? `
@@ -361,5 +328,6 @@ export function renderHeader(config: HeaderConfig): string {
         </div>
     </header>
 ${showMobileFooter ? mobileFooterNav(activePage) : ''}
+<script src="/vendor/suite-menu.js"></script>
 ${SHARED_SCRIPT}`
 }
