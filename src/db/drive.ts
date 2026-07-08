@@ -31,6 +31,8 @@ export type DriveItemWithAttachment = DriveItem & {
     filename: string | null
     content_type: string | null
     size: number | null
+    note_ref_count?: number | null
+    is_attached_to_note?: number | null
     tag_list?: string | null
     ai_tags?: string | null
     summary?: string | null
@@ -39,6 +41,36 @@ export type DriveItemWithAttachment = DriveItem & {
 
 export type DriveAttachmentShelfItem = Attachment & {
     linked_drive_item_id: number | null
+    note_ref_count: number
+}
+
+export type DriveAttachmentNoteRef = {
+    note_id: number
+    channel_id: number
+    channel_name: string | null
+    last_modified_at: string
+    content_preview: string
+}
+
+export type DriveAttachmentInfo = {
+    attachment_id: number
+    attachment_slug: string
+    filename: string
+    content_type: string
+    size: number
+    file_last_modified: string | null
+    file_category: string | null
+    file_etag: string | null
+    created_at: string
+    ai_processed_at: string | null
+    summary: string
+    ai_summary: string
+    tag_list: string
+    ai_tags: string
+    note_ref_count: number
+    drive_item_id: number | null
+    drive_display_name: string | null
+    notes: DriveAttachmentNoteRef[]
 }
 
 export async function getDriveItemById(db: D1Database, userId: number, driveItemId: number): Promise<DriveItem | null> {
@@ -93,9 +125,16 @@ export async function listDriveChildren(db: D1Database, userId: number, parentId
     const stmt = db
         .prepare(
             `SELECT di.*, dl.attachment_id, a.attachment_slug, a.filename, a.content_type, a.size
+                          , COALESCE(ar.note_ref_count, 0) AS note_ref_count
+                          , CASE WHEN COALESCE(ar.note_ref_count, 0) > 0 THEN 1 ELSE 0 END AS is_attached_to_note
              FROM drive_items di
              LEFT JOIN drive_list dl ON dl.drive_item_id = di.drive_item_id
              LEFT JOIN attachments a ON a.attachment_id = dl.attachment_id
+                 LEFT JOIN (
+                     SELECT attachment_id, COUNT(*) AS note_ref_count
+                     FROM attachment_list
+                     GROUP BY attachment_id
+                 ) ar ON ar.attachment_id = dl.attachment_id
              WHERE di.user_id = ?
                AND ${parentClause}
                AND di.deleted_at IS NULL
@@ -112,9 +151,15 @@ export async function listDriveChildren(db: D1Database, userId: number, parentId
 export async function listAttachmentShelf(db: D1Database, userId: number): Promise<DriveAttachmentShelfItem[]> {
     const result = await db
         .prepare(
-            `SELECT a.*, dl.drive_item_id AS linked_drive_item_id
+            `SELECT a.*, dl.drive_item_id AS linked_drive_item_id,
+                                        COALESCE(ar.note_ref_count, 0) AS note_ref_count
              FROM attachments a
              LEFT JOIN drive_list dl ON dl.attachment_id = a.attachment_id
+                         LEFT JOIN (
+                                SELECT attachment_id, COUNT(*) AS note_ref_count
+                                FROM attachment_list
+                                GROUP BY attachment_id
+                         ) ar ON ar.attachment_id = a.attachment_id
              WHERE a.owner_user_id = ?
                AND a.deleted_at IS NULL
              ORDER BY a.created_at DESC`,
@@ -318,10 +363,17 @@ export async function searchDriveItems(db: D1Database, userId: number, q: string
     const like = `%${q.toLowerCase()}%`
     const result = await db
         .prepare(
-            `SELECT di.*, dl.attachment_id, a.attachment_slug, a.filename, a.content_type, a.size
+            `SELECT di.*, dl.attachment_id, a.attachment_slug, a.filename, a.content_type, a.size,
+                          COALESCE(ar.note_ref_count, 0) AS note_ref_count,
+                          CASE WHEN COALESCE(ar.note_ref_count, 0) > 0 THEN 1 ELSE 0 END AS is_attached_to_note
              FROM drive_items di
              LEFT JOIN drive_list dl ON dl.drive_item_id = di.drive_item_id
              LEFT JOIN attachments a ON a.attachment_id = dl.attachment_id
+                 LEFT JOIN (
+                     SELECT attachment_id, COUNT(*) AS note_ref_count
+                     FROM attachment_list
+                     GROUP BY attachment_id
+                 ) ar ON ar.attachment_id = dl.attachment_id
              WHERE di.user_id = ?
                AND di.deleted_at IS NULL
                AND (LOWER(di.display_name) LIKE ? OR LOWER(COALESCE(a.filename, '')) LIKE ?)
@@ -352,6 +404,8 @@ export async function listDriveAttachPickerItems(
                 a.filename,
                 a.content_type,
                 a.size,
+                     COALESCE(ar.note_ref_count, 0) AS note_ref_count,
+                     CASE WHEN COALESCE(ar.note_ref_count, 0) > 0 THEN 1 ELSE 0 END AS is_attached_to_note,
                 a.tag_list,
                 a.ai_tags,
                 a.summary,
@@ -359,6 +413,11 @@ export async function listDriveAttachPickerItems(
              FROM drive_items di
              JOIN drive_list dl ON dl.drive_item_id = di.drive_item_id
              JOIN attachments a ON a.attachment_id = dl.attachment_id
+                 LEFT JOIN (
+                     SELECT attachment_id, COUNT(*) AS note_ref_count
+                     FROM attachment_list
+                     GROUP BY attachment_id
+                 ) ar ON ar.attachment_id = dl.attachment_id
              WHERE di.user_id = ?
                AND di.deleted_at IS NULL
                AND di.kind = 'file'
@@ -401,6 +460,126 @@ export async function getDriveDownloadRecord(
         .first<DriveItemWithAttachment & { url: string }>()
 
     return row ?? null
+}
+
+async function listAttachmentNoteRefs(
+    db: D1Database,
+    userId: number,
+    attachmentId: number,
+): Promise<DriveAttachmentNoteRef[]> {
+    const rows = await db
+        .prepare(
+            `SELECT
+                n.note_id,
+                n.channel_id,
+                nc.name AS channel_name,
+                n.last_modified_at,
+                SUBSTR(TRIM(REPLACE(REPLACE(n.content, CHAR(10), ' '), CHAR(13), ' ')), 1, 180) AS content_preview
+             FROM attachment_list al
+             JOIN notes n ON n.note_id = al.note_id
+             LEFT JOIN note_channels nc ON nc.id = n.channel_id AND nc.user_id = n.user_id
+             WHERE al.attachment_id = ?
+               AND n.user_id = ?
+             ORDER BY n.last_modified_at DESC, n.note_id DESC`,
+        )
+        .bind(attachmentId, userId)
+        .all<DriveAttachmentNoteRef>()
+
+    return rows.results
+}
+
+export async function getDriveAttachmentInfoByDriveItemId(
+    db: D1Database,
+    userId: number,
+    driveItemId: number,
+): Promise<DriveAttachmentInfo | null> {
+    const row = await db
+        .prepare(
+            `SELECT
+                a.attachment_id,
+                a.attachment_slug,
+                a.filename,
+                a.content_type,
+                a.size,
+                a.file_last_modified,
+                a.file_category,
+                a.file_etag,
+                a.created_at,
+                a.ai_processed_at,
+                a.summary,
+                a.ai_summary,
+                a.tag_list,
+                a.ai_tags,
+                COALESCE(ar.note_ref_count, 0) AS note_ref_count,
+                di.drive_item_id,
+                di.display_name AS drive_display_name
+             FROM drive_items di
+             JOIN drive_list dl ON dl.drive_item_id = di.drive_item_id
+             JOIN attachments a ON a.attachment_id = dl.attachment_id
+             LEFT JOIN (
+                SELECT attachment_id, COUNT(*) AS note_ref_count
+                FROM attachment_list
+                GROUP BY attachment_id
+             ) ar ON ar.attachment_id = a.attachment_id
+             WHERE di.drive_item_id = ?
+               AND di.user_id = ?
+               AND di.deleted_at IS NULL
+               AND a.deleted_at IS NULL
+             LIMIT 1`,
+        )
+        .bind(driveItemId, userId)
+        .first<Omit<DriveAttachmentInfo, 'notes'>>()
+
+    if (!row) return null
+    const notes = await listAttachmentNoteRefs(db, userId, row.attachment_id)
+    return { ...row, notes }
+}
+
+export async function getDriveAttachmentInfoByAttachmentId(
+    db: D1Database,
+    userId: number,
+    attachmentId: number,
+): Promise<DriveAttachmentInfo | null> {
+    const row = await db
+        .prepare(
+            `SELECT
+                a.attachment_id,
+                a.attachment_slug,
+                a.filename,
+                a.content_type,
+                a.size,
+                a.file_last_modified,
+                a.file_category,
+                a.file_etag,
+                a.created_at,
+                a.ai_processed_at,
+                a.summary,
+                a.ai_summary,
+                a.tag_list,
+                a.ai_tags,
+                COALESCE(ar.note_ref_count, 0) AS note_ref_count,
+                di.drive_item_id,
+                di.display_name AS drive_display_name
+             FROM attachments a
+             LEFT JOIN drive_list dl ON dl.attachment_id = a.attachment_id
+             LEFT JOIN drive_items di ON di.drive_item_id = dl.drive_item_id AND di.user_id = a.owner_user_id AND di.deleted_at IS NULL
+             LEFT JOIN (
+                SELECT attachment_id, COUNT(*) AS note_ref_count
+                FROM attachment_list
+                GROUP BY attachment_id
+             ) ar ON ar.attachment_id = a.attachment_id
+             WHERE a.attachment_id = ?
+               AND a.owner_user_id = ?
+               AND a.deleted_at IS NULL
+             ORDER BY di.updated_at DESC
+             LIMIT 1`,
+        )
+        .bind(attachmentId, userId)
+        .first<Omit<DriveAttachmentInfo, 'notes'>>()
+
+    if (!row) return null
+    const notes = await listAttachmentNoteRefs(db, userId, row.attachment_id)
+    return { ...row, notes }
 }
 
 export async function countAttachmentReferences(db: D1Database, attachmentId: number): Promise<number> {

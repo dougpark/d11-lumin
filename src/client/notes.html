@@ -1514,6 +1514,7 @@
             driveAttachPickerLoading: false,
             driveAttachPickerSelectedId: null,
             driveAttachPickerRequestId: 0,
+            deepLinkNoteId: null,
         }
 
         const el = {
@@ -3284,15 +3285,35 @@
                     state.noteSearchQuery = fromQ
                     state.noteSearchOpen = true
                 }
+                const fromNote = query.get('note') ? parseInt(query.get('note'), 10) : null
+                if (Number.isInteger(fromNote) && fromNote > 0) {
+                    state.deepLinkNoteId = fromNote
+                }
 
                 await loadNoteChannels()
                 await loadNotes()
+
+                let openedFromDeepLink = false
+                if (state.deepLinkNoteId) {
+                    let linked = state.notes.find((note) => note.note_id === state.deepLinkNoteId)
+                    if (!linked && state.noteListScope !== 'all') {
+                        state.noteListScope = 'all'
+                        await loadNotes()
+                        linked = state.notes.find((note) => note.note_id === state.deepLinkNoteId)
+                    }
+                    if (linked) {
+                        state.currentNoteChannelId = linked.channel_id || state.currentNoteChannelId
+                        openNoteEditor(linked)
+                        openedFromDeepLink = true
+                    }
+                }
+
                 applyResponsiveLayout({ sync: false })
 
-                if (state.noteListScope !== 'channel' || state.currentNoteChannelId) {
+                if (!openedFromDeepLink && (state.noteListScope !== 'channel' || state.currentNoteChannelId)) {
                     goToNotesListPage({ sync: false })
                     scrollNotesListToTop()
-                } else {
+                } else if (!openedFromDeepLink) {
                     goToChannelsPage({ sync: false })
                 }
 

@@ -238,7 +238,7 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+        <div class="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_340px] gap-6 items-start">
             <aside class="bg-white border border-g-border rounded-[16px] p-4 h-fit">
                 <p class="text-xs uppercase tracking-wide text-g-gray mb-3">Drive Views</p>
                 <button id="btn-view-root"
@@ -299,6 +299,17 @@
                     <div id="items-list" class="divide-y divide-g-border"></div>
                 </div>
             </section>
+
+            <aside class="bg-white border border-g-border rounded-[16px] p-4 xl:sticky xl:top-[88px] h-fit">
+                <div class="flex items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-g-black">File Info</h3>
+                    <span id="info-panel-pill" class="text-[11px] px-2 py-1 rounded-full bg-[#F1F3F4] text-g-gray">No
+                        selection</span>
+                </div>
+                <div id="info-panel" class="mt-4 space-y-4">
+                    <p class="text-sm text-g-gray">Select a file to view metadata and attached notes.</p>
+                </div>
+            </aside>
         </div>
     </main>
 
@@ -411,6 +422,13 @@
             moveRequestId: 0,
             searchRequestId: 0,
             attachmentsItems: [],
+            selectedDriveItemId: null,
+            selectedAttachmentId: null,
+            infoPanel: {
+                loading: false,
+                error: '',
+                data: null,
+            },
         }
 
         function setStatus(message, tone = 'muted') {
@@ -561,6 +579,182 @@
                 hour: 'numeric',
                 minute: '2-digit',
             })
+        }
+
+        function formatDateForInfo(ts) {
+            if (!ts) return 'Not available'
+            const d = new Date(ts)
+            if (Number.isNaN(d.getTime())) return 'Not available'
+            return d.toLocaleString([], {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+            })
+        }
+
+        function normalizeTagArray(value) {
+            if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string')
+            if (typeof value !== 'string' || !value.trim()) return []
+            try {
+                const parsed = JSON.parse(value)
+                return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === 'string') : []
+            } catch {
+                return []
+            }
+        }
+
+        function setInfoPanelPill(label, tone = 'muted') {
+            const pill = qs('#info-panel-pill')
+            if (!pill) return
+            pill.textContent = label
+            pill.classList.remove('bg-[#F1F3F4]', 'text-g-gray', 'bg-[#E8F0FE]', 'text-g-blue', 'bg-red-100', 'text-red-700')
+            if (tone === 'active') {
+                pill.classList.add('bg-[#E8F0FE]', 'text-g-blue')
+                return
+            }
+            if (tone === 'error') {
+                pill.classList.add('bg-red-100', 'text-red-700')
+                return
+            }
+            pill.classList.add('bg-[#F1F3F4]', 'text-g-gray')
+        }
+
+        function renderTags(tags) {
+            if (!tags.length) return '<span class="text-xs text-g-gray">None</span>'
+            return tags.map((tag) => `<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F3F5F9] text-[11px] text-g-gray">${esc(tag)}</span>`).join('')
+        }
+
+        function buildNoteDeepLink(note) {
+            const params = new URLSearchParams()
+            if (Number.isInteger(note.channel_id) && note.channel_id > 0) {
+                params.set('channel', String(note.channel_id))
+            }
+            params.set('note', String(note.note_id))
+            return `/notes?${params.toString()}`
+        }
+
+        function renderInfoPanel() {
+            const host = qs('#info-panel')
+            if (!host) return
+
+            if (state.infoPanel.loading) {
+                setInfoPanelPill('Loading', 'active')
+                host.innerHTML = '<p class="text-sm text-g-gray">Loading file metadata...</p>'
+                return
+            }
+
+            if (state.infoPanel.error) {
+                setInfoPanelPill('Error', 'error')
+                host.innerHTML = `<p class="text-sm text-red-600">${esc(state.infoPanel.error)}</p>`
+                return
+            }
+
+            const data = state.infoPanel.data
+            if (!data) {
+                setInfoPanelPill('No selection')
+                host.innerHTML = '<p class="text-sm text-g-gray">Select a file to view metadata and attached notes.</p>'
+                return
+            }
+
+            setInfoPanelPill('File selected', 'active')
+            const userTags = normalizeTagArray(data.tag_list)
+            const aiTags = normalizeTagArray(data.ai_tags)
+            const noteRows = Array.isArray(data.notes) ? data.notes : []
+
+            host.innerHTML = `
+                <section class="space-y-1">
+                    <p class="text-xs uppercase tracking-wide text-g-gray">Basic</p>
+                    <p class="text-sm font-semibold text-g-black break-words">${esc(data.drive_display_name || data.filename || 'Untitled')}</p>
+                    <p class="text-xs text-g-gray break-all">${esc(data.filename || 'Not available')}</p>
+                    <p class="text-xs text-g-gray">${esc(data.content_type || 'Unknown')} • ${formatBytes(data.size)}</p>
+                    <p class="text-xs text-g-gray">Category: ${esc(data.file_category || 'Not available')}</p>
+                </section>
+
+                <section class="space-y-1">
+                    <p class="text-xs uppercase tracking-wide text-g-gray">Dates</p>
+                    <p class="text-xs text-g-gray">Created: ${esc(formatDateForInfo(data.created_at))}</p>
+                    <p class="text-xs text-g-gray">File modified: ${esc(formatDateForInfo(data.file_last_modified))}</p>
+                    <p class="text-xs text-g-gray">AI processed: ${esc(formatDateForInfo(data.ai_processed_at))}</p>
+                </section>
+
+                <section class="space-y-2">
+                    <p class="text-xs uppercase tracking-wide text-g-gray">Tags</p>
+                    <div class="space-y-1">
+                        <p class="text-[11px] text-g-gray">User tags</p>
+                        <div class="flex flex-wrap gap-1.5">${renderTags(userTags)}</div>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[11px] text-g-gray">AI tags</p>
+                        <div class="flex flex-wrap gap-1.5">${renderTags(aiTags)}</div>
+                    </div>
+                </section>
+
+                <section class="space-y-2">
+                    <p class="text-xs uppercase tracking-wide text-g-gray">Summary</p>
+                    <div class="text-xs text-g-gray bg-[#FAFAFA] border border-g-border rounded-[10px] p-2 max-h-32 overflow-auto">${esc(data.summary || 'Not available')}</div>
+                    <p class="text-[11px] uppercase tracking-wide text-g-gray">AI Summary</p>
+                    <div class="text-xs text-g-gray bg-[#FAFAFA] border border-g-border rounded-[10px] p-2 max-h-36 overflow-auto">${esc(data.ai_summary || 'Not available')}</div>
+                </section>
+
+                <section class="space-y-2">
+                    <p class="text-xs uppercase tracking-wide text-g-gray">Attached Notes (${noteRows.length})</p>
+                    ${noteRows.length
+                    ? `<div class="space-y-2">${noteRows.map((note) => `
+                            <a href="${buildNoteDeepLink(note)}" target="_blank" rel="noopener noreferrer" class="block border border-g-border rounded-[10px] p-2 hover:bg-[#F8F9FA]">
+                                <p class="text-xs font-medium text-g-black">Note #${esc(note.note_id)}${note.channel_name ? ` • ${esc(note.channel_name)}` : ''}</p>
+                                <p class="text-[11px] text-g-gray mt-1 line-clamp-3">${esc(note.content_preview || 'Open note')}</p>
+                                <p class="text-[10px] text-g-gray mt-1">Updated ${esc(formatDateForInfo(note.last_modified_at))}</p>
+                            </a>
+                        `).join('')}</div>`
+                    : '<p class="text-xs text-g-gray">This file is not attached to any notes.</p>'
+                }
+                </section>
+            `
+        }
+
+        async function loadInfoPanelForSelection(item) {
+            if (!item || item.kind !== 'file') {
+                state.infoPanel = { loading: false, error: '', data: null }
+                renderInfoPanel()
+                return
+            }
+
+            const driveItemId = Number(item.drive_item_id)
+            const attachmentId = Number(item.attachment_id)
+            const hasDriveItem = Number.isInteger(driveItemId) && driveItemId > 0
+            const hasAttachment = Number.isInteger(attachmentId) && attachmentId > 0
+
+            if (!hasDriveItem && !hasAttachment) {
+                state.infoPanel = { loading: false, error: 'No file metadata found for this item.', data: null }
+                renderInfoPanel()
+                return
+            }
+
+            state.infoPanel = { loading: true, error: '', data: null }
+            renderInfoPanel()
+
+            try {
+                const endpoint = hasDriveItem
+                    ? `/api/drive/items/${driveItemId}/info`
+                    : `/api/drive/attachments/${attachmentId}/info`
+                const res = await api(endpoint)
+                state.infoPanel = { loading: false, error: '', data: res?.data || null }
+            } catch (err) {
+                state.infoPanel = { loading: false, error: err.message || 'Failed to load file info', data: null }
+            }
+
+            renderInfoPanel()
+        }
+
+        function selectItem(item) {
+            const driveId = Number(item?.drive_item_id)
+            const attachmentId = Number(item?.attachment_id)
+            state.selectedDriveItemId = Number.isInteger(driveId) && driveId > 0 ? driveId : null
+            state.selectedAttachmentId = Number.isInteger(attachmentId) && attachmentId > 0 ? attachmentId : null
+            renderItems()
+            loadInfoPanelForSelection(item).catch(() => null)
         }
 
         function getItemLastModified(item) {
@@ -1230,18 +1424,27 @@
                 const icon = isFolder
                     ? '<span class="text-base">📁</span>'
                     : '<span class="text-base">📄</span>'
+                const noteRefCount = Number(item.note_ref_count || 0)
+                const attachmentBadge = isFolder
+                    ? ''
+                    : noteRefCount > 0
+                        ? `<span class="inline-flex items-center rounded-full bg-[#E8F0FE] text-g-blue px-2 py-0.5 text-[10px]">Attached to ${noteRefCount} note${noteRefCount === 1 ? '' : 's'}</span>`
+                        : '<span class="inline-flex items-center rounded-full bg-[#F1F3F4] text-g-gray px-2 py-0.5 text-[10px]">Not in notes</span>'
                 const detail = isFolder
                     ? 'Folder'
                     : `${esc(item.content_type || 'application/octet-stream')} • ${formatBytes(item.size)}`
                 const lastModified = formatLastModified(getItemLastModified(item))
+                const isSelected = (state.selectedDriveItemId !== null && item.drive_item_id === state.selectedDriveItemId)
+                    || (state.selectedAttachmentId !== null && item.attachment_id === state.selectedAttachmentId)
                 return `
-                    <div class="px-4 py-3">
+                    <div class="px-4 py-3 ${isSelected ? 'bg-blue-50/60' : ''}" data-row-select="${item.kind === 'file' ? '1' : '0'}" data-row-drive-id="${item.drive_item_id || ''}" data-row-attachment-id="${item.attachment_id || ''}">
                         <div class="items-grid gap-y-2">
                             <div class="min-w-0 flex items-center gap-3">
                             ${icon}
                             <div class="min-w-0">
                                 <p class="text-sm font-medium text-g-black truncate">${esc(item.display_name)}</p>
                                 <p class="text-xs text-g-gray truncate">${detail}</p>
+                                ${attachmentBadge ? `<div class="mt-1">${attachmentBadge}</div>` : ''}
                             </div>
                             </div>
                             <div class="text-xs text-g-gray text-right">${formatBytes(item.size)}</div>
@@ -1255,6 +1458,24 @@
             host.innerHTML = `${header}${rows}`
         }
 
+        function syncSelectionAfterItemsLoad() {
+            const selected = state.items.find((item) => {
+                if (state.selectedDriveItemId !== null && item.drive_item_id === state.selectedDriveItemId) return true
+                if (state.selectedAttachmentId !== null && item.attachment_id === state.selectedAttachmentId) return true
+                return false
+            })
+
+            if (!selected) {
+                state.selectedDriveItemId = null
+                state.selectedAttachmentId = null
+                state.infoPanel = { loading: false, error: '', data: null }
+                renderInfoPanel()
+                return
+            }
+
+            loadInfoPanelForSelection(selected).catch(() => null)
+        }
+
         async function loadItems() {
             setLoading(true)
             try {
@@ -1266,6 +1487,7 @@
                 }
                 renderItems()
                 renderCrumbs()
+                syncSelectionAfterItemsLoad()
             } catch (err) {
                 setStatus(err.message || 'Failed to load drive items', 'error')
             } finally {
@@ -1362,6 +1584,7 @@
                 state.crumbs = ['/ Attachments Search', q]
                 renderItems()
                 renderCrumbs()
+                syncSelectionAfterItemsLoad()
                 return
             }
 
@@ -1375,6 +1598,7 @@
                 state.crumbs = ['/ Search', q]
                 renderItems()
                 renderCrumbs()
+                syncSelectionAfterItemsLoad()
             } catch (err) {
                 if (requestId !== state.searchRequestId) return
                 setStatus(err.message || 'Search failed', 'error')
@@ -1470,6 +1694,10 @@
                 state.parentId = null
                 state.isSearchMode = false
                 state.drivePath = [{ id: null, label: 'My Drive' }]
+                state.selectedDriveItemId = null
+                state.selectedAttachmentId = null
+                state.infoPanel = { loading: false, error: '', data: null }
+                renderInfoPanel()
                 syncDriveCrumbsFromPath()
                 renderViewFocus()
                 await loadItems()
@@ -1483,6 +1711,10 @@
                 state.parentId = null
                 state.isSearchMode = false
                 state.crumbs = ['/ Attachments']
+                state.selectedDriveItemId = null
+                state.selectedAttachmentId = null
+                state.infoPanel = { loading: false, error: '', data: null }
+                renderInfoPanel()
                 renderViewFocus()
                 await loadItems()
                 if (searchInput?.value?.trim()) {
@@ -1686,6 +1918,21 @@
                     togglePlayItem(parseInt(playId, 10)).catch((err) => {
                         setStatus(err.message || 'Audio playback failed', 'error')
                     })
+                    return
+                }
+
+                const row = target.closest('[data-row-select="1"]')
+                if (row instanceof HTMLElement) {
+                    const driveIdRaw = row.getAttribute('data-row-drive-id')
+                    const attachmentIdRaw = row.getAttribute('data-row-attachment-id')
+                    const driveId = driveIdRaw ? parseInt(driveIdRaw, 10) : null
+                    const attachmentId = attachmentIdRaw ? parseInt(attachmentIdRaw, 10) : null
+                    const item = state.items.find((entry) => {
+                        if (Number.isInteger(driveId) && driveId > 0 && entry.drive_item_id === driveId) return true
+                        if (Number.isInteger(attachmentId) && attachmentId > 0 && entry.attachment_id === attachmentId) return true
+                        return false
+                    })
+                    if (item) selectItem(item)
                 }
             })
 
@@ -1749,6 +1996,7 @@
                 window.LuminSuiteMenu.setAdminAccess(state.user.is_admin === 1)
 
                 bindEvents()
+                renderInfoPanel()
                 await loadItems()
                 setStatus('Drive ready')
             } catch {

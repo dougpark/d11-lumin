@@ -5,6 +5,8 @@ import {
     createAttachmentForUser,
     createDriveFile,
     createDriveFolder,
+    getDriveAttachmentInfoByAttachmentId,
+    getDriveAttachmentInfoByDriveItemId,
     getDriveDownloadRecord,
     getDriveItemById,
     listDriveAttachPickerItems,
@@ -20,6 +22,16 @@ const drive = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 const MAX_DRIVE_UPLOAD_BYTES = 100 * 1024 * 1024
 const DOWNLOAD_TOKEN_TTL_SECONDS = 300
+
+function parseJsonArrayField(raw: string | null | undefined): string[] {
+    if (typeof raw !== 'string' || !raw.trim()) return []
+    try {
+        const parsed = JSON.parse(raw)
+        return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : []
+    } catch {
+        return []
+    }
+}
 
 type UploadFileLike = {
     name: string
@@ -189,6 +201,8 @@ drive.get('/tree', async (c) => {
                 size: item.size,
                 created_at: item.created_at,
                 attachment_slug: item.attachment_slug,
+                note_ref_count: item.note_ref_count,
+                is_attached_to_note: item.note_ref_count > 0 ? 1 : 0,
             })),
             parent_id: 'attachments',
         })
@@ -411,6 +425,40 @@ drive.get('/items/:id/download', async (c) => {
             url: downloadUrl.toString(),
             inline_url: inlineUrl.toString(),
             expires_at: new Date(signed.exp * 1000).toISOString(),
+        },
+    })
+})
+
+drive.get('/items/:id/info', async (c) => {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id') ?? '', 10)
+    if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid item id' }, 400)
+
+    const info = await getDriveAttachmentInfoByDriveItemId(c.env.DB, user.id, id)
+    if (!info) return c.json({ error: 'File not found' }, 404)
+
+    return c.json({
+        data: {
+            ...info,
+            tag_list: parseJsonArrayField(info.tag_list),
+            ai_tags: parseJsonArrayField(info.ai_tags),
+        },
+    })
+})
+
+drive.get('/attachments/:attachmentId/info', async (c) => {
+    const user = c.get('user')
+    const attachmentId = parseInt(c.req.param('attachmentId') ?? '', 10)
+    if (!Number.isInteger(attachmentId) || attachmentId < 1) return c.json({ error: 'Invalid attachment id' }, 400)
+
+    const info = await getDriveAttachmentInfoByAttachmentId(c.env.DB, user.id, attachmentId)
+    if (!info) return c.json({ error: 'Attachment not found' }, 404)
+
+    return c.json({
+        data: {
+            ...info,
+            tag_list: parseJsonArrayField(info.tag_list),
+            ai_tags: parseJsonArrayField(info.ai_tags),
         },
     })
 })
