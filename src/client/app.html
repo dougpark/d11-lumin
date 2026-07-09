@@ -862,6 +862,10 @@
                             <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:bookmarks</span>
                         </label>
                         <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                            <input type="checkbox" id="scope-ai-files" class="accent-g-blue"> AI: File processing
+                            <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:files</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
                             <input type="checkbox" id="scope-fulltext" class="accent-g-blue"> Full-text fetching
                             <span class="text-[10px] text-g-gray font-mono ml-auto">fulltext:process</span>
                         </label>
@@ -1787,6 +1791,7 @@
             if (S.user?.is_admin) {
                 if (qs('#scope-ai-rss')?.checked) scopes.push('ai:process:rss')
                 if (qs('#scope-ai-bm')?.checked) scopes.push('ai:process:bookmarks')
+                if (qs('#scope-ai-files')?.checked) scopes.push('ai:process:files')
                 if (qs('#scope-fulltext')?.checked) scopes.push('fulltext:process')
                 if (qs('#scope-synthesis')?.checked) scopes.push('synthesis:process')
             }

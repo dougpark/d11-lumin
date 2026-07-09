@@ -465,7 +465,7 @@ v1.post('/tokens', async (c) => {
     if (!name) return c.json({ error: 'name is required' }, 400)
     if (name.length > 100) return c.json({ error: 'name must be 100 characters or fewer' }, 400)
 
-    const validScopes = new Set(['posts:read', 'posts:write', 'tags:read', 'tags:write', 'ai:process', 'ai:process:rss', 'ai:process:bookmarks', 'rss:ingest', 'fulltext:process', 'synthesis:process', '*'])
+    const validScopes = new Set(['posts:read', 'posts:write', 'tags:read', 'tags:write', 'ai:process', 'ai:process:rss', 'ai:process:bookmarks', 'ai:process:files', 'rss:ingest', 'fulltext:process', 'synthesis:process', '*'])
     const scopes: string[] = Array.isArray(body.scopes) && body.scopes.length > 0
         ? body.scopes.filter(s => validScopes.has(s))
         : ['posts:read', 'tags:read']
