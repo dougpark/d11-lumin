@@ -29,6 +29,16 @@ deploy:
 logs *args:
     bunx wrangler tail --env production {{ args }}
 
+logs2:
+    bunx wrangler tail --format pretty --sampling-rate 0.25
+
+reset-attachments:
+    bunx wrangler d1 execute d11-db --local --file scripts/dev/reset-attachments-ai-fields.sql
+
+reset-attachments-remote:
+    bunx wrangler d1 execute d11-db --remote --file scripts/dev/reset-attachments-ai-fields.sql
+    
+
 # wrangler whoami
 whoami:
     bunx wrangler whoami

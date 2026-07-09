@@ -253,6 +253,21 @@ app.post('/api/ai/enrich', authMiddleware, async (c) => {
 })
 
 // ─── AI Daemon API ────────────────────────────────────────────────────────────
+// Minimal request tracing for AI daemon endpoints.
+// - Logs all 5xx responses.
+// - Logs all responses when caller sets: x-lumin-debug: 1
+app.use('/api/ai/*', async (c, next) => {
+  const start = Date.now()
+  await next()
+  const durationMs = Date.now() - start
+  const shouldLog = c.res.status >= 500 || c.req.header('x-lumin-debug') === '1'
+  if (!shouldLog) return
+
+  const path = new URL(c.req.url).pathname
+  const source = c.req.query('source') ?? ''
+  console.log(`[ai-api] ${c.req.method} ${path} status=${c.res.status} source=${source} duration_ms=${durationMs}`)
+})
+
 // Signed file download endpoint for AI daemon processing.
 // Token-auth only; does not require API token middleware.
 app.get('/api/ai/files/download', async (c) => {
@@ -461,6 +476,7 @@ app.get('/api/ai/queue', async (c) => {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Queue query failed'
+    console.error(`[ai-api] queue build failed: ${message}`)
     return c.json({ error: 'Failed to build AI queue', hint: message }, 500)
   }
 })
