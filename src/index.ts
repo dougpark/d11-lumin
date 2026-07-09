@@ -326,11 +326,15 @@ app.get('/api/ai/queue', async (c) => {
 
   const includeRss = allowed.rss && (requestedSource === 'rss' || requestedSource === 'all')
   const includeBookmarks = allowed.bookmarks && (requestedSource === 'bookmarks' || requestedSource === 'all')
-  const includeFiles = allowed.files && (requestedSource === 'file' || requestedSource === 'all')
+  let includeFiles = allowed.files && (requestedSource === 'file' || requestedSource === 'all')
 
   const tokenSecret = includeFiles ? getTokenSecret(c.env.TOKEN_SECRET) : null
   if (includeFiles && !tokenSecret) {
-    return c.json({ error: 'Attachment signing is not configured' }, 500)
+    if (requestedSource === 'file') {
+      return c.json({ error: 'Attachment signing is not configured', hint: 'Set TOKEN_SECRET to enable file_path signing' }, 500)
+    }
+    // Degrade gracefully for source=all when file signing is not configured.
+    includeFiles = false
   }
 
   const now = new Date().toISOString()
@@ -345,7 +349,7 @@ app.get('/api/ai/queue', async (c) => {
         FROM rss_items r
         JOIN rss_feeds f ON f.id = r.feed_id
        WHERE r.expires_at > ? ${notProcessedRss}
-       ORDER BY created_at ASC
+       ORDER BY r.published_at ASC
        LIMIT ?
     `).bind(now, fetchWindow).all<{ source: 'rss'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }>()
     : Promise.resolve({ results: [] as { source: 'rss'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }[] })
@@ -359,7 +363,7 @@ app.get('/api/ai/queue', async (c) => {
        WHERE b.is_archived = 0
          AND (b.is_public = 1 OR u.ai_allow_private = 1)
          ${notProcessedBm}
-       ORDER BY created_at ASC
+       ORDER BY b.created_at ASC
        LIMIT ?
     `).bind(fetchWindow).all<{ source: 'bookmark'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }>()
     : Promise.resolve({ results: [] as { source: 'bookmark'; id: number; url: string; title: string | null; body: string | null; tag_list: string; created_at: string; context: string }[] })
@@ -396,61 +400,69 @@ app.get('/api/ai/queue', async (c) => {
     ? c.env.DB.prepare(`SELECT COUNT(*) AS cnt FROM attachments a WHERE a.deleted_at IS NULL ${fileNotProcessed}`).first<{ cnt: number }>()
     : Promise.resolve({ cnt: 0 })
 
-  const [rssResult, bookmarksResult, filesResult, rssCountRaw, bmCountRaw, fileCountRaw] = await Promise.all([
-    rssResultPromise,
-    bookmarksResultPromise,
-    filesResultPromise,
-    rssCountPromise,
-    bmCountPromise,
-    fileCountPromise,
-  ])
+  try {
+    const [rssResult, bookmarksResult, filesResult, rssCountRaw, bmCountRaw, fileCountRaw] = await Promise.all([
+      rssResultPromise,
+      bookmarksResultPromise,
+      filesResultPromise,
+      rssCountPromise,
+      bmCountPromise,
+      fileCountPromise,
+    ])
 
-  const baseItems = [...rssResult.results, ...bookmarksResult.results].map(row => {
-    let tags: string[] = []
-    try { tags = [...new Set((JSON.parse(row.tag_list || '[]') as string[]).map(t => t.split(':')[0].toLowerCase()))] } catch { /* leave empty */ }
-    let context: Record<string, unknown> = {}
-    try { context = JSON.parse(row.context || '{}') } catch { /* leave empty */ }
-    return { source: row.source, id: row.id, url: row.url, title: row.title, body: row.body, tags, created_at: row.created_at, context } as const
-  })
+    const baseItems = [...rssResult.results, ...bookmarksResult.results].map(row => {
+      let tags: string[] = []
+      try { tags = [...new Set((JSON.parse(row.tag_list || '[]') as string[]).map(t => t.split(':')[0].toLowerCase()))] } catch { /* leave empty */ }
+      let context: Record<string, unknown> = {}
+      try { context = JSON.parse(row.context || '{}') } catch { /* leave empty */ }
+      return { source: row.source, id: row.id, url: row.url, title: row.title, body: row.body, tags, created_at: row.created_at, context } as const
+    })
 
-  const fileItems = await Promise.all(filesResult.results.map(async row => {
-    let tags: string[] = []
-    try { tags = [...new Set((JSON.parse(row.tag_list || '[]') as string[]).map(t => t.split(':')[0].toLowerCase()))] } catch { /* leave empty */ }
-    let context: Record<string, unknown> = {}
-    try { context = JSON.parse(row.context || '{}') } catch { /* leave empty */ }
+    const fileItems = await Promise.all(filesResult.results.map(async row => {
+      let tags: string[] = []
+      try { tags = [...new Set((JSON.parse(row.tag_list || '[]') as string[]).map(t => t.split(':')[0].toLowerCase()))] } catch { /* leave empty */ }
+      let context: Record<string, unknown> = {}
+      try { context = JSON.parse(row.context || '{}') } catch { /* leave empty */ }
 
-    const signed = await createAttachmentDownloadToken(tokenSecret!, context.owner_user_id as number, row.file_id)
-    const fileUrl = new URL('/api/ai/files/download', c.req.url)
-    fileUrl.searchParams.set('t', signed.token)
+      const ownerUserId = typeof context.owner_user_id === 'number' ? context.owner_user_id : Number(context.owner_user_id)
+      if (!Number.isInteger(ownerUserId) || ownerUserId < 1) throw new Error('Invalid attachment owner in file queue row')
 
-    return {
-      source: 'file' as const,
-      file_id: row.file_id,
-      file_name: row.file_name,
-      file_type: row.file_type,
-      file_size: row.file_size,
-      file_path: fileUrl.toString(),
-      tags,
-      summary: row.summary,
-      created_at: row.created_at,
-      context,
-    }
-  }))
+      const signed = await createAttachmentDownloadToken(tokenSecret!, ownerUserId, row.file_id)
+      const fileUrl = new URL('/api/ai/files/download', c.req.url)
+      fileUrl.searchParams.set('t', signed.token)
 
-  const items = [...baseItems, ...fileItems]
-    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    .slice(offset, offset + limit)
+      return {
+        source: 'file' as const,
+        file_id: row.file_id,
+        file_name: row.file_name,
+        file_type: row.file_type,
+        file_size: row.file_size,
+        file_path: fileUrl.toString(),
+        tags,
+        summary: row.summary,
+        created_at: row.created_at,
+        context,
+      }
+    }))
 
-  const rssTotal = rssCountRaw?.cnt ?? 0
-  const bmTotal = bmCountRaw?.cnt ?? 0
-  const fileTotal = fileCountRaw?.cnt ?? 0
+    const items = [...baseItems, ...fileItems]
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+      .slice(offset, offset + limit)
 
-  return c.json({
-    items,
-    count: items.length,
-    total_pending: rssTotal + bmTotal + fileTotal,
-    source_breakdown: { rss: rssTotal, bookmarks: bmTotal, file: fileTotal },
-  })
+    const rssTotal = rssCountRaw?.cnt ?? 0
+    const bmTotal = bmCountRaw?.cnt ?? 0
+    const fileTotal = fileCountRaw?.cnt ?? 0
+
+    return c.json({
+      items,
+      count: items.length,
+      total_pending: rssTotal + bmTotal + fileTotal,
+      source_breakdown: { rss: rssTotal, bookmarks: bmTotal, file: fileTotal },
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Queue query failed'
+    return c.json({ error: 'Failed to build AI queue', hint: message }, 500)
+  }
 })
 
 // PATCH /api/ai/items — write AI tags + summary back for a batch of items
@@ -497,31 +509,44 @@ app.patch('/api/ai/items', async (c) => {
   }
 
   const now = new Date().toISOString()
-  const stmts = items.map(item => {
+  let updated = 0
+  const unmatched: Array<{ source: 'rss' | 'bookmark' | 'file'; id?: number; file_id?: string }> = []
+
+  for (const item of items) {
     if (item.source === 'file') {
-      return c.env.DB.prepare(
+      const result = await c.env.DB.prepare(
         'UPDATE attachments SET ai_tags = ?, ai_summary = ?, ai_processed_at = ? WHERE attachment_slug = ? AND deleted_at IS NULL'
       ).bind(
         item.ai_tags !== undefined ? JSON.stringify(item.ai_tags) : null,
         item.ai_summary ?? null,
         now,
         item.file_id
-      )
+      ).run()
+
+      if ((result.meta?.changes ?? 0) > 0) updated += 1
+      else unmatched.push({ source: 'file', file_id: item.file_id })
+      continue
     }
 
     const table = item.source === 'rss' ? 'rss_items' : 'bookmarks'
-    return c.env.DB.prepare(
+    const result = await c.env.DB.prepare(
       `UPDATE ${table} SET ai_tags = ?, ai_summary = ?, ai_processed_at = ? WHERE id = ?`
     ).bind(
       item.ai_tags !== undefined ? JSON.stringify(item.ai_tags) : null,
       item.ai_summary ?? null,
       now,
       item.id
-    )
-  })
+    ).run()
 
-  await c.env.DB.batch(stmts)
-  return c.json({ updated: items.length })
+    if ((result.meta?.changes ?? 0) > 0) updated += 1
+    else unmatched.push({ source: item.source, id: item.id })
+  }
+
+  return c.json({
+    updated,
+    requested: items.length,
+    unmatched,
+  })
 })
 
 // ─── Full-Text Fetch API ─────────────────────────────────────────────────────
