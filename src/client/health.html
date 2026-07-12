@@ -255,15 +255,8 @@
                 </article>
             </section>
 
-            <aside class="space-y-3 lg:space-y-6">
-                <button id="btn-analysis-toggle" type="button"
-                    class="lg:hidden w-full text-sm font-medium border border-g-border rounded-[12px] px-4 py-3 bg-white hover:bg-[#F7F9FC] transition-colors text-left flex items-center justify-between"
-                    aria-expanded="false" aria-controls="analysis-panel-content">
-                    <span id="analysis-toggle-label">Show Analysis</span>
-                    <span id="analysis-toggle-icon" class="text-g-gray">▾</span>
-                </button>
-
-                <div id="analysis-panel-content" class="hidden lg:block space-y-6">
+            <aside class="space-y-6">
+                <div id="analysis-panel-content" class="space-y-6">
                     <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
                         <div class="flex items-center justify-between gap-2 mb-4">
                             <div>
@@ -356,7 +349,6 @@
             charts: {},
             selectedSince: '',
             selectedBefore: '',
-            analysisExpandedMobile: false,
             timeAmPm: 'AM',
             selectedTimePill: 'now',
             selectedAnalysisRangeMonths: null,
@@ -926,36 +918,6 @@
             URL.revokeObjectURL(url)
         }
 
-        function isDesktopViewport() {
-            return window.matchMedia('(min-width: 1024px)').matches
-        }
-
-        function setAnalysisPanelExpanded(expanded) {
-            const panel = qs('#analysis-panel-content')
-            const label = qs('#analysis-toggle-label')
-            const icon = qs('#analysis-toggle-icon')
-            const btn = qs('#btn-analysis-toggle')
-            if (!panel || !label || !icon || !btn) return
-
-            if (isDesktopViewport()) {
-                panel.classList.remove('hidden')
-                btn.setAttribute('aria-expanded', 'true')
-                return
-            }
-
-            state.analysisExpandedMobile = expanded
-            panel.classList.toggle('hidden', !expanded)
-            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false')
-            label.textContent = expanded ? 'Hide Analysis' : 'Show Analysis'
-            icon.textContent = expanded ? '▴' : '▾'
-
-            if (expanded) {
-                setTimeout(() => {
-                    Object.values(state.charts).forEach((chart) => chart.resize())
-                }, 0)
-            }
-        }
-
         function bindEvents() {
             qs('#btn-new-entry').addEventListener('click', (event) => {
                 event.preventDefault()
@@ -1059,18 +1021,6 @@
             })
 
             qs('#btn-export-csv').addEventListener('click', () => exportCsv())
-
-            qs('#btn-analysis-toggle').addEventListener('click', () => {
-                setAnalysisPanelExpanded(!state.analysisExpandedMobile)
-            })
-
-            window.addEventListener('resize', () => {
-                if (isDesktopViewport()) {
-                    setAnalysisPanelExpanded(true)
-                    return
-                }
-                setAnalysisPanelExpanded(state.analysisExpandedMobile)
-            })
         }
 
         async function boot() {
@@ -1099,8 +1049,6 @@
                 bindEvents()
                 await loadEntries(true)
                 await refreshAnalysis()
-
-                setAnalysisPanelExpanded(false)
 
                 applyEntryToForm(null)
 
