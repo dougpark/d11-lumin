@@ -85,6 +85,23 @@
             color: #4285F4;
             background: rgba(66, 133, 244, 0.08);
         }
+
+        .analysis-range-pill {
+            border: 1px solid #E3E3E3;
+            border-radius: 999px;
+            padding: 0.32rem 0.72rem;
+            font-size: 0.72rem;
+            line-height: 1;
+            color: #474747;
+            background: #FFFFFF;
+            transition: all .16s ease;
+        }
+
+        .analysis-range-pill.active {
+            border-color: #4285F4;
+            color: #4285F4;
+            background: rgba(66, 133, 244, 0.08);
+        }
     </style>
 </head>
 
@@ -258,6 +275,13 @@
                                 CSV</button>
                         </div>
 
+                        <div id="analysis-range-pills" class="flex flex-wrap gap-2 mb-4">
+                            <button type="button" class="analysis-range-pill" data-analysis-range="1">1mo</button>
+                            <button type="button" class="analysis-range-pill" data-analysis-range="3">3mo</button>
+                            <button type="button" class="analysis-range-pill" data-analysis-range="6">6mo</button>
+                            <button type="button" class="analysis-range-pill" data-analysis-range="12">12mo</button>
+                        </div>
+
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <label>
                                 <span class="text-xs text-g-gray">Since</span>
@@ -335,6 +359,7 @@
             analysisExpandedMobile: false,
             timeAmPm: 'AM',
             selectedTimePill: 'now',
+            selectedAnalysisRangeMonths: null,
         }
 
         const saveIndicator = qs('#save-indicator')
@@ -376,6 +401,31 @@
 
         function formatDateInput(date) {
             return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+        }
+
+        function setActiveAnalysisRangePill(months) {
+            state.selectedAnalysisRangeMonths = months
+            document.querySelectorAll('[data-analysis-range]').forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) return
+                const pillMonths = Number.parseInt(button.dataset.analysisRange || '', 10)
+                button.classList.toggle('active', Number.isInteger(months) && pillMonths === months)
+            })
+        }
+
+        function applyAnalysisRangePreset(months) {
+            const beforeDate = new Date()
+            const sinceDate = new Date(beforeDate)
+            sinceDate.setMonth(sinceDate.getMonth() - months)
+
+            const since = formatDateInput(sinceDate)
+            const before = formatDateInput(beforeDate)
+
+            qs('#analysis-since').value = since
+            qs('#analysis-before').value = before
+            state.selectedSince = since
+            state.selectedBefore = before
+            setActiveAnalysisRangePill(months)
+            refreshAnalysis()
         }
 
         function formatTimeForInput(hour12, minute) {
@@ -985,6 +1035,7 @@
             qs('#btn-apply-range').addEventListener('click', () => {
                 state.selectedSince = qs('#analysis-since').value
                 state.selectedBefore = qs('#analysis-before').value
+                setActiveAnalysisRangePill(null)
                 refreshAnalysis()
             })
 
@@ -993,7 +1044,18 @@
                 state.selectedBefore = ''
                 qs('#analysis-since').value = ''
                 qs('#analysis-before').value = ''
+                setActiveAnalysisRangePill(null)
                 refreshAnalysis()
+            })
+
+            qs('#analysis-range-pills').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                const button = target.closest('[data-analysis-range]')
+                if (!(button instanceof HTMLButtonElement)) return
+                const months = Number.parseInt(button.dataset.analysisRange || '', 10)
+                if (!Number.isInteger(months) || months < 1) return
+                applyAnalysisRangePreset(months)
             })
 
             qs('#btn-export-csv').addEventListener('click', () => exportCsv())
@@ -1040,8 +1102,7 @@
 
                 setAnalysisPanelExpanded(false)
 
-                if (state.entries.length > 0) applyEntryToForm(state.entries[0])
-                else applyEntryToForm(null)
+                applyEntryToForm(null)
 
                 qs('#loading').classList.add('hidden')
                 qs('#content').classList.remove('hidden')
