@@ -151,6 +151,20 @@ export type ChatVote = {
     created_at: string
 }
 
+export type HealthEntry = {
+    id: number
+    user_id: number
+    weight: number | null
+    glucose_level: number | null
+    blood_pressure: string | null
+    heart_rate: number | null
+    note: string | null
+    timestamp: string
+    created_at: string
+    updated_at: string
+    deleted_at: string | null
+}
+
 // ─── Input shapes (omit DB-managed fields) ────────────────────────────────────
 
 export type CreateBookmarkInput = {
@@ -194,4 +208,31 @@ export type ListBookmarksOptions = {
     unread?: boolean      // only bookmarks never clicked (hit_count = 0)
     page?: number         // 1-based
     per_page?: number     // default 25
+}
+
+export type CreateHealthEntryInput = {
+    user_id: number
+    weight?: number | null
+    glucose_level?: number | null
+    blood_pressure?: string | null
+    heart_rate?: number | null
+    note?: string | null
+    timestamp?: string
+}
+
+export type UpdateHealthEntryInput = Partial<{
+    weight: number | null
+    glucose_level: number | null
+    blood_pressure: string | null
+    heart_rate: number | null
+    note: string | null
+    timestamp: string
+}>
+
+export type ListHealthEntriesOptions = {
+    user_id: number
+    page?: number
+    per_page?: number
+    since?: string
+    before?: string
 }

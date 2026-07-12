@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health - Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/vendor/suite-menu.js"></script>
+    <style>
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .save-indicator {
+            transition: color .2s ease;
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+            <a href="/" class="flex-shrink-0">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+            </a>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">Health Tracker</h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Loading user...</p>
+            </div>
+            <div class="relative flex-shrink-0">
+                <button id="btn-suite-menu"
+                    class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors"
+                    aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </button>
+                <div id="suite-menu"
+                    class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="loading" class="flex items-center justify-center py-28 gap-3 text-g-gray text-sm">
+        <div class="spinner"></div>
+        <span>Loading health tracker...</span>
+    </div>
+
+    <div id="error-state" class="hidden text-center py-28 px-6">
+        <p class="font-semibold text-g-black mb-1">Could not load health tracker</p>
+        <p class="text-sm text-g-gray" id="error-msg">Please check your login and try again.</p>
+        <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">Back to Dashboard</a>
+    </div>
+
+    <main id="content" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
+        <div class="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
+            <section class="space-y-6">
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="text-sm font-semibold text-g-black">Quick Entry</h2>
+                            <p class="text-xs text-g-gray mt-0.5">Capture weight, glucose, blood pressure, heart rate,
+                                and notes.</p>
+                        </div>
+                        <div class="text-right">
+                            <p id="save-indicator" class="save-indicator text-xs text-g-gray">Idle</p>
+                            <button id="btn-new-entry" class="text-xs text-g-blue hover:underline mt-1">New
+                                entry</button>
+                        </div>
+                    </div>
+
+                    <form id="entry-form" class="space-y-4" autocomplete="off">
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="block">
+                                <span class="text-xs text-g-gray">Weight</span>
+                                <input id="weight-input" type="number" step="0.01" min="0"
+                                    class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                    placeholder="kg or lbs">
+                            </label>
+                            <label class="block">
+                                <span class="text-xs text-g-gray">Glucose</span>
+                                <input id="glucose-input" type="number" step="0.01" min="0"
+                                    class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                    placeholder="mg/dL">
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="block col-span-1">
+                                <span class="text-xs text-g-gray">Systolic</span>
+                                <input id="systolic-input" type="number" step="1" min="0"
+                                    class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                    placeholder="120">
+                            </label>
+                            <label class="block col-span-1">
+                                <span class="text-xs text-g-gray">Diastolic</span>
+                                <input id="diastolic-input" type="number" step="1" min="0"
+                                    class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                    placeholder="80">
+                            </label>
+                            <label class="block col-span-1">
+                                <span class="text-xs text-g-gray">Heart Rate</span>
+                                <input id="heart-rate-input" type="number" step="1" min="0"
+                                    class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                    placeholder="72">
+                            </label>
+                        </div>
+
+                        <label class="block">
+                            <span class="text-xs text-g-gray">Timestamp</span>
+                            <input id="timestamp-input" type="text"
+                                class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                placeholder="Auto now (or pick date/time)">
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs text-g-gray">Note</span>
+                            <textarea id="note-input" rows="4"
+                                class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                placeholder="How are you feeling?"></textarea>
+                        </label>
+                    </form>
+                </article>
+
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="text-sm font-semibold text-g-black">Recent Entries</h2>
+                            <p class="text-xs text-g-gray mt-0.5">Showing latest records first.</p>
+                        </div>
+                        <p id="entries-total" class="text-xs text-g-gray">0 entries</p>
+                    </div>
+
+                    <div id="entries-empty"
+                        class="hidden text-sm text-g-gray border border-dashed border-g-border rounded-[12px] p-6 text-center">
+                        No entries yet. Start typing in quick entry to create your first record.
+                    </div>
+
+                    <div id="entries-list" class="space-y-3"></div>
+
+                    <div class="pt-4">
+                        <button id="btn-load-more"
+                            class="hidden w-full text-sm font-medium border border-g-border rounded-[10px] px-4 py-2 hover:bg-[#F7F9FC] transition-colors">
+                            Load More
+                        </button>
+                    </div>
+                </article>
+            </section>
+
+            <aside class="space-y-6">
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
+                    <div class="flex items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 class="text-sm font-semibold text-g-black">Analysis</h2>
+                            <p class="text-xs text-g-gray mt-0.5">Filter date range and inspect trends.</p>
+                        </div>
+                        <button id="btn-export-csv"
+                            class="text-xs font-medium text-g-blue border border-g-blue/30 rounded-[10px] px-3 py-1.5 hover:bg-blue-50 transition-colors">Export
+                            CSV</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <label>
+                            <span class="text-xs text-g-gray">Since</span>
+                            <input id="analysis-since" type="date"
+                                class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                        </label>
+                        <label>
+                            <span class="text-xs text-g-gray">Before</span>
+                            <input id="analysis-before" type="date"
+                                class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                        </label>
+                    </div>
+
+                    <div class="flex gap-2 mb-5">
+                        <button id="btn-apply-range"
+                            class="flex-1 text-sm font-medium bg-g-blue text-white rounded-[10px] px-4 py-2 hover:bg-blue-600 transition-colors">Apply</button>
+                        <button id="btn-reset-range"
+                            class="flex-1 text-sm font-medium border border-g-border rounded-[10px] px-4 py-2 hover:bg-[#F7F9FC] transition-colors">Reset</button>
+                    </div>
+
+                    <div id="analysis-summary" class="grid grid-cols-2 gap-3"></div>
+                </article>
+
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6 space-y-4">
+                    <section>
+                        <h3 class="text-xs font-semibold text-g-black mb-2">Weight</h3>
+                        <canvas id="chart-weight" height="120"></canvas>
+                    </section>
+                    <section>
+                        <h3 class="text-xs font-semibold text-g-black mb-2">Glucose</h3>
+                        <canvas id="chart-glucose" height="120"></canvas>
+                    </section>
+                    <section>
+                        <h3 class="text-xs font-semibold text-g-black mb-2">Heart Rate</h3>
+                        <canvas id="chart-heart" height="120"></canvas>
+                    </section>
+                    <section>
+                        <h3 class="text-xs font-semibold text-g-black mb-2">Blood Pressure</h3>
+                        <canvas id="chart-bp" height="130"></canvas>
+                    </section>
+                </article>
+            </aside>
+        </div>
+    </main>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+        function escHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        }
+
+        const state = {
+            authToken: '',
+            user: null,
+            activeEntryId: null,
+            entries: [],
+            page: 1,
+            totalPages: 1,
+            loadingEntries: false,
+            saving: false,
+            pendingSave: false,
+            noteTimer: null,
+            charts: {},
+            selectedSince: '',
+            selectedBefore: '',
+        }
+
+        const saveIndicator = qs('#save-indicator')
+
+        function setSaveIndicator(mode, text) {
+            saveIndicator.textContent = text
+            saveIndicator.classList.remove('text-g-gray', 'text-g-blue', 'text-green-700', 'text-red-500')
+            if (mode === 'saving') saveIndicator.classList.add('text-g-blue')
+            else if (mode === 'saved') saveIndicator.classList.add('text-green-700')
+            else if (mode === 'error') saveIndicator.classList.add('text-red-500')
+            else saveIndicator.classList.add('text-g-gray')
+        }
+
+        function setHeaderUserName(user) {
+            const el = qs('#header-user-name')
+            if (!el || !user) return
+            el.textContent = user.full_name || user.slug_prefix || 'User'
+        }
+
+        function api(method, path, body) {
+            const headers = { 'Authorization': 'Bearer ' + state.authToken }
+            if (body !== undefined) headers['Content-Type'] = 'application/json'
+            return fetch(path, {
+                method,
+                headers,
+                body: body !== undefined ? JSON.stringify(body) : undefined,
+            })
+        }
+
+        function parseNum(value, integer) {
+            if (value === '' || value === null || value === undefined) return null
+            const parsed = integer ? Number.parseInt(value, 10) : Number.parseFloat(value)
+            return Number.isFinite(parsed) ? parsed : null
+        }
+
+        function toIsoFromDateTimeInput(raw) {
+            if (!raw || !raw.trim()) return null
+            const d = new Date(raw)
+            if (Number.isNaN(d.getTime())) return null
+            return d.toISOString()
+        }
+
+        function hasAnyMeaningfulValue(payload) {
+            return payload.weight !== null
+                || payload.glucose_level !== null
+                || payload.heart_rate !== null
+                || payload.systolic !== null
+                || payload.diastolic !== null
+                || Boolean(payload.note)
+                || Boolean(payload.timestamp)
+        }
+
+        function getFormPayload() {
+            const weight = parseNum(qs('#weight-input').value, false)
+            const glucose = parseNum(qs('#glucose-input').value, false)
+            const systolic = parseNum(qs('#systolic-input').value, true)
+            const diastolic = parseNum(qs('#diastolic-input').value, true)
+            const heartRate = parseNum(qs('#heart-rate-input').value, true)
+            const noteRaw = qs('#note-input').value.trim()
+            const tsIso = toIsoFromDateTimeInput(qs('#timestamp-input').value)
+
+            return {
+                weight,
+                glucose_level: glucose,
+                systolic,
+                diastolic,
+                heart_rate: heartRate,
+                note: noteRaw || null,
+                timestamp: tsIso,
+            }
+        }
+
+        function applyEntryToForm(entry) {
+            state.activeEntryId = entry ? entry.id : null
+            qs('#weight-input').value = entry && entry.weight !== null ? String(entry.weight) : ''
+            qs('#glucose-input').value = entry && entry.glucose_level !== null ? String(entry.glucose_level) : ''
+            const bp = typeof entry?.blood_pressure === 'string' ? entry.blood_pressure.split('/') : []
+            qs('#systolic-input').value = bp[0] || ''
+            qs('#diastolic-input').value = bp[1] || ''
+            qs('#heart-rate-input').value = entry && entry.heart_rate !== null ? String(entry.heart_rate) : ''
+            qs('#note-input').value = entry?.note || ''
+            qs('#timestamp-input').value = entry?.timestamp ? formatForPicker(entry.timestamp) : ''
+        }
+
+        function formatForPicker(value) {
+            const d = new Date(value)
+            if (Number.isNaN(d.getTime())) return ''
+            const pad = n => String(n).padStart(2, '0')
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+        }
+
+        async function saveCurrentEntry() {
+            const payload = getFormPayload()
+            if (!state.activeEntryId && !hasAnyMeaningfulValue(payload)) {
+                setSaveIndicator('idle', 'Idle')
+                return
+            }
+
+            if (state.saving) {
+                state.pendingSave = true
+                return
+            }
+
+            state.saving = true
+            setSaveIndicator('saving', 'Saving...')
+
+            try {
+                let response
+                if (state.activeEntryId) {
+                    response = await api('PATCH', `/api/health/entries/${state.activeEntryId}`, payload)
+                } else {
+                    response = await api('POST', '/api/health/entries', payload)
+                }
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}))
+                    throw new Error(err.error || `HTTP ${response.status}`)
+                }
+
+                const body = await response.json()
+                const saved = body.data
+                if (!saved) throw new Error('Missing saved entry data')
+
+                state.activeEntryId = saved.id
+                upsertEntry(saved)
+                setSaveIndicator('saved', 'Saved')
+            } catch (err) {
+                setSaveIndicator('error', (err instanceof Error ? err.message : 'Save failed'))
+            } finally {
+                state.saving = false
+                if (state.pendingSave) {
+                    state.pendingSave = false
+                    saveCurrentEntry()
+                }
+            }
+        }
+
+        function scheduleSave(debounceMs) {
+            if (state.noteTimer) {
+                clearTimeout(state.noteTimer)
+                state.noteTimer = null
+            }
+            if (debounceMs > 0) {
+                state.noteTimer = setTimeout(() => {
+                    state.noteTimer = null
+                    saveCurrentEntry()
+                }, debounceMs)
+                return
+            }
+            saveCurrentEntry()
+        }
+
+        function upsertEntry(entry) {
+            const idx = state.entries.findIndex(item => item.id === entry.id)
+            if (idx >= 0) state.entries[idx] = entry
+            else state.entries.unshift(entry)
+            state.entries.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (b.id - a.id))
+            renderEntries()
+            refreshAnalysis()
+        }
+
+        function renderEntries() {
+            const list = qs('#entries-list')
+            const empty = qs('#entries-empty')
+            const totalLabel = qs('#entries-total')
+            const loadMoreBtn = qs('#btn-load-more')
+
+            totalLabel.textContent = `${state.entries.length} loaded`
+            empty.classList.toggle('hidden', state.entries.length > 0)
+            loadMoreBtn.classList.toggle('hidden', state.page >= state.totalPages)
+
+            list.innerHTML = state.entries.map(entry => {
+                const isActive = state.activeEntryId === entry.id
+                return `
+                    <article class="border ${isActive ? 'border-g-blue bg-blue-50/40' : 'border-g-border bg-white'} rounded-[12px] p-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-xs text-g-gray">${new Date(entry.timestamp).toLocaleString()}</p>
+                                <div class="mt-1 flex flex-wrap gap-2 text-xs">
+                                    ${entry.weight !== null ? `<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">W: ${escHtml(entry.weight)}</span>` : ''}
+                                    ${entry.glucose_level !== null ? `<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">G: ${escHtml(entry.glucose_level)}</span>` : ''}
+                                    ${entry.blood_pressure ? `<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">BP: ${escHtml(entry.blood_pressure)}</span>` : ''}
+                                    ${entry.heart_rate !== null ? `<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">HR: ${escHtml(entry.heart_rate)}</span>` : ''}
+                                </div>
+                                ${entry.note ? `<p class="text-sm text-g-black mt-2 whitespace-pre-wrap">${escHtml(entry.note)}</p>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button data-edit-id="${entry.id}" class="text-xs text-g-blue hover:underline">Edit</button>
+                                <button data-delete-id="${entry.id}" class="text-xs text-red-500 hover:underline">Delete</button>
+                            </div>
+                        </div>
+                    </article>
+                `
+            }).join('')
+        }
+
+        async function loadEntries(reset) {
+            if (state.loadingEntries) return
+            state.loadingEntries = true
+
+            if (reset) {
+                state.page = 1
+                state.entries = []
+                renderEntries()
+            }
+
+            try {
+                const res = await api('GET', `/api/health/entries?page=${state.page}&per_page=20`)
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                const body = await res.json()
+                const incoming = Array.isArray(body.data) ? body.data : []
+                state.totalPages = body.meta?.total_pages || 1
+                state.entries = reset ? incoming : state.entries.concat(incoming)
+                renderEntries()
+            } catch (err) {
+                setSaveIndicator('error', err instanceof Error ? err.message : 'Could not load entries')
+            } finally {
+                state.loadingEntries = false
+            }
+        }
+
+        function formatLabel(iso) {
+            const d = new Date(iso)
+            if (Number.isNaN(d.getTime())) return iso
+            return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        }
+
+        function upsertChart(key, canvasId, config) {
+            if (state.charts[key]) {
+                state.charts[key].data = config.data
+                state.charts[key].options = config.options
+                state.charts[key].update()
+                return
+            }
+            const ctx = qs('#' + canvasId)
+            state.charts[key] = new Chart(ctx, config)
+        }
+
+        function buildLineConfig(labels, values, color, label) {
+            return {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: color + '22',
+                        pointRadius: 2,
+                        pointHoverRadius: 4,
+                        tension: 0.25,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 5, color: '#6B7280' }, grid: { color: '#F0F2F5' } },
+                        y: { ticks: { color: '#6B7280' }, grid: { color: '#F0F2F5' }, beginAtZero: false },
+                    }
+                }
+            }
+        }
+
+        function renderAnalysisSummary(summary) {
+            const container = qs('#analysis-summary')
+            const items = [
+                { label: 'Entries', value: summary.total_entries ?? 0 },
+                { label: 'Avg Weight', value: summary.avg_weight ?? '-' },
+                { label: 'Avg Glucose', value: summary.avg_glucose_level ?? '-' },
+                { label: 'Avg Heart', value: summary.avg_heart_rate ?? '-' },
+                { label: 'Avg BP Sys', value: summary.avg_bp_systolic ?? '-' },
+                { label: 'Avg BP Dia', value: summary.avg_bp_diastolic ?? '-' },
+            ]
+            container.innerHTML = items.map(item => `
+                <div class="rounded-[12px] border border-g-border bg-[#FAFBFF] px-3 py-3">
+                    <p class="text-[11px] text-g-gray">${escHtml(item.label)}</p>
+                    <p class="text-sm font-semibold text-g-black mt-0.5">${escHtml(item.value)}</p>
+                </div>
+            `).join('')
+        }
+
+        function toRangeQuery() {
+            const params = new URLSearchParams()
+            if (state.selectedSince) {
+                const iso = new Date(`${state.selectedSince}T00:00:00`).toISOString()
+                params.set('since', iso)
+            }
+            if (state.selectedBefore) {
+                const iso = new Date(`${state.selectedBefore}T23:59:59`).toISOString()
+                params.set('before', iso)
+            }
+            const q = params.toString()
+            return q ? `?${q}` : ''
+        }
+
+        async function refreshAnalysis() {
+            try {
+                const res = await api('GET', `/api/health/analysis${toRangeQuery()}`)
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                const data = await res.json()
+
+                renderAnalysisSummary(data.summary || {})
+
+                const weightLabels = (data.series?.weight || []).map(p => formatLabel(p.timestamp))
+                const glucoseLabels = (data.series?.glucose_level || []).map(p => formatLabel(p.timestamp))
+                const heartLabels = (data.series?.heart_rate || []).map(p => formatLabel(p.timestamp))
+                const bpLabels = (data.series?.blood_pressure || []).map(p => formatLabel(p.timestamp))
+
+                upsertChart('weight', 'chart-weight', buildLineConfig(weightLabels, (data.series?.weight || []).map(p => p.value), '#4285F4', 'Weight'))
+                upsertChart('glucose', 'chart-glucose', buildLineConfig(glucoseLabels, (data.series?.glucose_level || []).map(p => p.value), '#EA4335', 'Glucose'))
+                upsertChart('heart', 'chart-heart', buildLineConfig(heartLabels, (data.series?.heart_rate || []).map(p => p.value), '#34A853', 'Heart Rate'))
+
+                const bpConfig = {
+                    type: 'line',
+                    data: {
+                        labels: bpLabels,
+                        datasets: [
+                            {
+                                label: 'Systolic',
+                                data: (data.series?.blood_pressure || []).map(p => p.systolic),
+                                borderColor: '#FBBC04',
+                                backgroundColor: '#FBBC0422',
+                                pointRadius: 2,
+                                tension: 0.25,
+                                fill: false,
+                            },
+                            {
+                                label: 'Diastolic',
+                                data: (data.series?.blood_pressure || []).map(p => p.diastolic),
+                                borderColor: '#4285F4',
+                                backgroundColor: '#4285F422',
+                                pointRadius: 2,
+                                tension: 0.25,
+                                fill: false,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10 } } },
+                        scales: {
+                            x: { ticks: { maxTicksLimit: 5, color: '#6B7280' }, grid: { color: '#F0F2F5' } },
+                            y: { ticks: { color: '#6B7280' }, grid: { color: '#F0F2F5' }, beginAtZero: false },
+                        }
+                    }
+                }
+                upsertChart('bp', 'chart-bp', bpConfig)
+            } catch {
+                // Keep current charts if refresh fails.
+            }
+        }
+
+        async function deleteEntry(id) {
+            if (!window.confirm('Delete this health entry?')) return
+            const res = await api('DELETE', `/api/health/entries/${id}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                window.alert(err.error || 'Could not delete entry')
+                return
+            }
+
+            state.entries = state.entries.filter(entry => entry.id !== id)
+            if (state.activeEntryId === id) {
+                applyEntryToForm(null)
+                setSaveIndicator('idle', 'Idle')
+            }
+            renderEntries()
+            refreshAnalysis()
+        }
+
+        async function exportCsv() {
+            const res = await api('GET', `/api/health/export.csv${toRangeQuery()}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                window.alert(err.error || 'Could not export CSV')
+                return
+            }
+
+            const blob = await res.blob()
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            const date = new Date().toISOString().slice(0, 10)
+            link.href = url
+            link.download = `lumin-health-${date}.csv`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(url)
+        }
+
+        function bindEvents() {
+            qs('#btn-new-entry').addEventListener('click', (event) => {
+                event.preventDefault()
+                applyEntryToForm(null)
+                setSaveIndicator('idle', 'Idle')
+            })
+
+                ;['#weight-input', '#glucose-input', '#systolic-input', '#diastolic-input', '#heart-rate-input', '#timestamp-input'].forEach((sel) => {
+                    const input = qs(sel)
+                    input.addEventListener('change', () => scheduleSave(0))
+                    input.addEventListener('blur', () => scheduleSave(0))
+                })
+
+            qs('#note-input').addEventListener('input', () => {
+                setSaveIndicator('saving', 'Typing...')
+                scheduleSave(1500)
+            })
+
+            qs('#entries-list').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+
+                const editId = target.getAttribute('data-edit-id')
+                if (editId) {
+                    const entry = state.entries.find(item => item.id === Number.parseInt(editId, 10))
+                    if (entry) {
+                        applyEntryToForm(entry)
+                        setSaveIndicator('idle', 'Editing selected entry')
+                    }
+                    return
+                }
+
+                const deleteId = target.getAttribute('data-delete-id')
+                if (deleteId) {
+                    deleteEntry(Number.parseInt(deleteId, 10))
+                }
+            })
+
+            qs('#btn-load-more').addEventListener('click', async () => {
+                if (state.page >= state.totalPages) return
+                state.page += 1
+                await loadEntries(false)
+            })
+
+            qs('#btn-apply-range').addEventListener('click', () => {
+                state.selectedSince = qs('#analysis-since').value
+                state.selectedBefore = qs('#analysis-before').value
+                refreshAnalysis()
+            })
+
+            qs('#btn-reset-range').addEventListener('click', () => {
+                state.selectedSince = ''
+                state.selectedBefore = ''
+                qs('#analysis-since').value = ''
+                qs('#analysis-before').value = ''
+                refreshAnalysis()
+            })
+
+            qs('#btn-export-csv').addEventListener('click', () => exportCsv())
+        }
+
+        async function boot() {
+            state.authToken = localStorage.getItem('d11_token') || ''
+            if (!state.authToken) {
+                location.href = '/'
+                return
+            }
+
+            try {
+                const meRes = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': 'Bearer ' + state.authToken }
+                })
+                if (!meRes.ok) {
+                    location.href = '/'
+                    return
+                }
+
+                state.user = await meRes.json()
+                setHeaderUserName(state.user)
+                window.LuminSuiteMenu.setAdminAccess(state.user.is_admin === 1)
+
+                flatpickr('#timestamp-input', {
+                    enableTime: true,
+                    dateFormat: 'Y-m-d H:i',
+                    minuteIncrement: 1,
+                    allowInput: true,
+                })
+
+                bindEvents()
+                await loadEntries(true)
+                await refreshAnalysis()
+
+                if (state.entries.length > 0) applyEntryToForm(state.entries[0])
+
+                qs('#loading').classList.add('hidden')
+                qs('#content').classList.remove('hidden')
+                setSaveIndicator('idle', 'Idle')
+            } catch (err) {
+                qs('#loading').classList.add('hidden')
+                qs('#error-state').classList.remove('hidden')
+                qs('#error-msg').textContent = err instanceof Error ? err.message : 'Unknown error'
+            }
+        }
+
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu',
+            menuId: 'suite-menu',
+            activePage: 'health',
+            mode: 'light',
+        })
+
+        boot()
+    </script>
+</body>
+
+</html>

@@ -11,6 +11,7 @@ import v1Routes from './routes/v1.ts'
 import chatRoutes from './routes/chat.ts'
 import notesRoutes from './routes/notes.ts'
 import driveRoutes from './routes/drive.ts'
+import healthRoutes from './routes/health.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { hashToken } from './utils/auth.ts'
@@ -50,6 +51,8 @@ import chatHtml from './client/chat.html'
 import notesHtml from './client/notes.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import driveHtml from './client/drive.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import healthHtml from './client/health.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -177,11 +180,13 @@ app.get('/l/:slug', async (c) => {
 app.use('/api/bookmarks/*', authMiddleware)
 app.use('/api/chat/*', authMiddleware)
 app.use('/api/notes/*', authMiddleware)
+app.use('/api/health/*', authMiddleware)
 
 app.route('/api/bookmarks', bookmarkRoutes)
 app.route('/api/chat', chatRoutes)
 app.route('/api/notes', notesRoutes)
 app.route('/api/drive', driveRoutes)
+app.route('/api/health', healthRoutes)
 
 // Convenience top-level aliases
 app.get('/api/tags', authMiddleware, async (c) => {
@@ -1617,6 +1622,7 @@ app.get('/settings', (c) => c.html(settingsHtml as string))
 app.get('/chat', (c) => c.html(chatHtml as string))
 app.get('/notes', (c) => c.html(notesHtml as string))
 app.get('/drive', (c) => c.html(driveHtml as string))
+app.get('/health', (c) => c.html(healthHtml as string))
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not Found' }, 404))

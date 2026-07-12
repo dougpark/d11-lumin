@@ -1,7 +1,7 @@
 # health.md
 
 ## Overview
-- create a new page called health.html that is mobile first
+- create a new page called health that is mobile first
 - to capture health-related information effectively
 - user specific for logged in user
 - initial design include: weight, glucose level, blood pressure, heart rate and a note
