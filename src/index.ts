@@ -530,11 +530,13 @@ app.patch('/api/ai/items', async (c) => {
 
   for (const item of items) {
     if (item.source === 'file') {
+      const nextAiTags = item.ai_tags !== undefined ? JSON.stringify(item.ai_tags) : '[]'
+      const nextAiSummary = item.ai_summary ?? ''
       const result = await c.env.DB.prepare(
         'UPDATE attachments SET ai_tags = ?, ai_summary = ?, ai_processed_at = ? WHERE attachment_slug = ? AND deleted_at IS NULL'
       ).bind(
-        item.ai_tags !== undefined ? JSON.stringify(item.ai_tags) : null,
-        item.ai_summary ?? null,
+        nextAiTags,
+        nextAiSummary,
         now,
         item.file_id
       ).run()

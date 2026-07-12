@@ -34,10 +34,11 @@ logs2:
 
 reset-attachments:
     bunx wrangler d1 execute d11-db --local --file scripts/dev/reset-attachments-ai-fields.sql
-
+    @date
+    
 reset-attachments-remote:
     bunx wrangler d1 execute d11-db --remote --file scripts/dev/reset-attachments-ai-fields.sql
-    
+    @date
 
 # wrangler whoami
 whoami:
