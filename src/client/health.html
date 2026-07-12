@@ -23,11 +23,15 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/vendor/suite-menu.js"></script>
     <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         .spinner {
             border: 2px solid #E3E3E3;
             border-top-color: #4285F4;
@@ -63,6 +67,23 @@
             width: 100% !important;
             height: 100% !important;
             display: block;
+        }
+
+        .time-pill {
+            border: 1px solid #E3E3E3;
+            border-radius: 999px;
+            padding: 0.32rem 0.72rem;
+            font-size: 0.72rem;
+            line-height: 1;
+            color: #474747;
+            background: #FFFFFF;
+            transition: all .16s ease;
+        }
+
+        .time-pill.active {
+            border-color: #4285F4;
+            color: #4285F4;
+            background: rgba(66, 133, 244, 0.08);
         }
     </style>
 </head>
@@ -160,9 +181,27 @@
 
                         <label class="block">
                             <span class="text-xs text-g-gray">Timestamp</span>
-                            <input id="timestamp-input" type="text"
-                                class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
-                                placeholder="Auto now (or pick date/time)">
+                            <div class="mt-1 grid grid-cols-[minmax(0,1fr)_6.5rem_auto] gap-2">
+                                <input id="timestamp-date-input" type="date"
+                                    class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                                <input id="timestamp-time-input" type="text" inputmode="numeric" maxlength="5"
+                                    placeholder="09:00"
+                                    class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                                <div
+                                    class="inline-flex items-center rounded-[10px] border border-g-border overflow-hidden">
+                                    <button id="btn-ampm-am" type="button"
+                                        class="px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50">AM</button>
+                                    <button id="btn-ampm-pm" type="button"
+                                        class="px-3 py-2 text-xs font-semibold text-g-gray bg-white border-l border-g-border">PM</button>
+                                </div>
+                            </div>
+                            <div id="time-pill-row" class="mt-2 flex flex-wrap gap-2">
+                                <button type="button" class="time-pill" data-time-pill="now">Now</button>
+                                <button type="button" class="time-pill" data-time-pill="7am">7:00 AM</button>
+                                <button type="button" class="time-pill" data-time-pill="9am">9:00 AM</button>
+                                <button type="button" class="time-pill" data-time-pill="12pm">12:00 PM</button>
+                                <button type="button" class="time-pill" data-time-pill="6pm">6:00 PM</button>
+                            </div>
                         </label>
 
                         <label class="block">
@@ -293,8 +332,9 @@
             charts: {},
             selectedSince: '',
             selectedBefore: '',
-            timestampPicker: null,
             analysisExpandedMobile: false,
+            timeAmPm: 'AM',
+            selectedTimePill: 'now',
         }
 
         const saveIndicator = qs('#save-indicator')
@@ -330,11 +370,147 @@
             return Number.isFinite(parsed) ? parsed : null
         }
 
-        function toIsoFromDateTimeInput(raw) {
+        function pad2(n) {
+            return String(n).padStart(2, '0')
+        }
+
+        function formatDateInput(date) {
+            return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+        }
+
+        function formatTimeForInput(hour12, minute) {
+            return `${pad2(hour12)}:${pad2(minute)}`
+        }
+
+        function to12HourParts(date) {
+            const hour24 = date.getHours()
+            const minute = date.getMinutes()
+            const ampm = hour24 >= 12 ? 'PM' : 'AM'
+            let hour12 = hour24 % 12
+            if (hour12 === 0) hour12 = 12
+            return { hour12, minute, ampm }
+        }
+
+        function parseTimeInput(raw) {
             if (!raw || !raw.trim()) return null
-            const d = new Date(raw)
+            const cleaned = raw.trim().replace(/[^0-9:]/g, '')
+            if (!cleaned) return null
+
+            let hour = NaN
+            let minute = NaN
+
+            if (cleaned.includes(':')) {
+                const parts = cleaned.split(':')
+                if (parts.length !== 2) return null
+                hour = Number.parseInt(parts[0], 10)
+                minute = Number.parseInt(parts[1], 10)
+            } else {
+                const digits = cleaned
+                if (digits.length <= 2) {
+                    hour = Number.parseInt(digits, 10)
+                    minute = 0
+                } else if (digits.length === 3) {
+                    hour = Number.parseInt(digits.slice(0, 1), 10)
+                    minute = Number.parseInt(digits.slice(1), 10)
+                } else if (digits.length === 4) {
+                    hour = Number.parseInt(digits.slice(0, 2), 10)
+                    minute = Number.parseInt(digits.slice(2), 10)
+                } else {
+                    return null
+                }
+            }
+
+            if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null
+            if (hour < 1 || hour > 12) return null
+            if (minute < 0 || minute > 59) return null
+            return { hour12: hour, minute }
+        }
+
+        function composeIsoFromControls() {
+            const dateRaw = qs('#timestamp-date-input').value
+            if (!dateRaw || !dateRaw.trim()) return null
+            const parsed = parseTimeInput(qs('#timestamp-time-input').value)
+            if (!parsed) return null
+
+            let hour24 = parsed.hour12 % 12
+            if (state.timeAmPm === 'PM') hour24 += 12
+            const d = new Date(`${dateRaw}T${pad2(hour24)}:${pad2(parsed.minute)}:00`)
             if (Number.isNaN(d.getTime())) return null
             return d.toISOString()
+        }
+
+        function setAmPm(value) {
+            state.timeAmPm = value === 'PM' ? 'PM' : 'AM'
+            const amBtn = qs('#btn-ampm-am')
+            const pmBtn = qs('#btn-ampm-pm')
+            const amActive = state.timeAmPm === 'AM'
+
+            amBtn.className = amActive
+                ? 'px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50'
+                : 'px-3 py-2 text-xs font-semibold text-g-gray bg-white'
+            pmBtn.className = amActive
+                ? 'px-3 py-2 text-xs font-semibold text-g-gray bg-white border-l border-g-border'
+                : 'px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50 border-l border-g-border'
+        }
+
+        function setActiveTimePill(key) {
+            state.selectedTimePill = key
+            document.querySelectorAll('[data-time-pill]').forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) return
+                button.classList.toggle('active', button.dataset.timePill === key)
+            })
+        }
+
+        function updatePillFromCurrentTime() {
+            const parsed = parseTimeInput(qs('#timestamp-time-input').value)
+            if (!parsed) {
+                setActiveTimePill('custom')
+                return
+            }
+
+            const minute = parsed.minute
+            const hour = parsed.hour12
+            const ampm = state.timeAmPm
+            if (hour === 7 && minute === 0 && ampm === 'AM') return setActiveTimePill('7am')
+            if (hour === 9 && minute === 0 && ampm === 'AM') return setActiveTimePill('9am')
+            if (hour === 12 && minute === 0 && ampm === 'PM') return setActiveTimePill('12pm')
+            if (hour === 6 && minute === 0 && ampm === 'PM') return setActiveTimePill('6pm')
+            setActiveTimePill('custom')
+        }
+
+        function normalizeTimeInputField() {
+            const parsed = parseTimeInput(qs('#timestamp-time-input').value)
+            if (!parsed) return false
+            qs('#timestamp-time-input').value = formatTimeForInput(parsed.hour12, parsed.minute)
+            return true
+        }
+
+        function applyTimePill(pillKey) {
+            const dateInput = qs('#timestamp-date-input')
+            if (!dateInput.value) dateInput.value = formatDateInput(new Date())
+
+            if (pillKey === 'now') {
+                const now = new Date()
+                const parts = to12HourParts(now)
+                dateInput.value = formatDateInput(now)
+                qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
+                setAmPm(parts.ampm)
+                setActiveTimePill('now')
+                return
+            }
+
+            const map = {
+                '7am': { hour12: 7, minute: 0, ampm: 'AM' },
+                '9am': { hour12: 9, minute: 0, ampm: 'AM' },
+                '12pm': { hour12: 12, minute: 0, ampm: 'PM' },
+                '6pm': { hour12: 6, minute: 0, ampm: 'PM' },
+            }
+            const preset = map[pillKey]
+            if (!preset) return
+
+            qs('#timestamp-time-input').value = formatTimeForInput(preset.hour12, preset.minute)
+            setAmPm(preset.ampm)
+            setActiveTimePill(pillKey)
         }
 
         function hasAnyMeaningfulValue(payload) {
@@ -353,17 +529,20 @@
             const diastolic = parseNum(qs('#diastolic-input').value, true)
             const heartRate = parseNum(qs('#heart-rate-input').value, true)
             const noteRaw = qs('#note-input').value.trim()
-            const tsIso = toIsoFromDateTimeInput(qs('#timestamp-input').value)
+            const tsIso = composeIsoFromControls()
 
-            return {
+            const payload = {
                 weight,
                 glucose_level: glucose,
                 systolic,
                 diastolic,
                 heart_rate: heartRate,
                 note: noteRaw || null,
-                timestamp: tsIso,
             }
+
+            if (tsIso) payload.timestamp = tsIso
+
+            return payload
         }
 
         function applyEntryToForm(entry) {
@@ -375,23 +554,23 @@
             qs('#diastolic-input').value = bp[1] || ''
             qs('#heart-rate-input').value = entry && entry.heart_rate !== null ? String(entry.heart_rate) : ''
             qs('#note-input').value = entry?.note || ''
+
+            const setDateTimeControls = (value) => {
+                const d = new Date(value)
+                if (Number.isNaN(d.getTime())) return
+                const parts = to12HourParts(d)
+                qs('#timestamp-date-input').value = formatDateInput(d)
+                qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
+                setAmPm(parts.ampm)
+            }
+
             if (entry?.timestamp) {
-                const ts = formatForPicker(entry.timestamp)
-                if (state.timestampPicker) state.timestampPicker.setDate(ts, false, 'Y-m-d H:i')
-                else qs('#timestamp-input').value = ts
+                setDateTimeControls(entry.timestamp)
+                updatePillFromCurrentTime()
                 return
             }
 
-            const now = new Date()
-            if (state.timestampPicker) state.timestampPicker.setDate(now, false)
-            else qs('#timestamp-input').value = formatForPicker(now.toISOString())
-        }
-
-        function formatForPicker(value) {
-            const d = new Date(value)
-            if (Number.isNaN(d.getTime())) return ''
-            const pad = n => String(n).padStart(2, '0')
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+            applyTimePill('now')
         }
 
         async function saveCurrentEntry() {
@@ -734,11 +913,43 @@
                 setSaveIndicator('idle', 'Idle')
             })
 
-                ;['#weight-input', '#glucose-input', '#systolic-input', '#diastolic-input', '#heart-rate-input', '#timestamp-input'].forEach((sel) => {
+                ;['#weight-input', '#glucose-input', '#systolic-input', '#diastolic-input', '#heart-rate-input', '#timestamp-date-input', '#timestamp-time-input'].forEach((sel) => {
                     const input = qs(sel)
+                    if (!input) return
                     input.addEventListener('change', () => scheduleSave(0))
-                    input.addEventListener('blur', () => scheduleSave(0))
+                    input.addEventListener('blur', () => {
+                        if (sel === '#timestamp-time-input' && !normalizeTimeInputField()) {
+                            setSaveIndicator('error', 'Time must be HH:MM')
+                            return
+                        }
+                        if (sel === '#timestamp-time-input') updatePillFromCurrentTime()
+                        if (sel === '#timestamp-date-input') updatePillFromCurrentTime()
+                        scheduleSave(0)
+                    })
                 })
+
+            qs('#btn-ampm-am').addEventListener('click', () => {
+                setAmPm('AM')
+                updatePillFromCurrentTime()
+                scheduleSave(0)
+            })
+
+            qs('#btn-ampm-pm').addEventListener('click', () => {
+                setAmPm('PM')
+                updatePillFromCurrentTime()
+                scheduleSave(0)
+            })
+
+            qs('#time-pill-row').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                const button = target.closest('[data-time-pill]')
+                if (!(button instanceof HTMLButtonElement)) return
+                const pill = button.dataset.timePill
+                if (!pill) return
+                applyTimePill(pill)
+                scheduleSave(0)
+            })
 
             qs('#note-input').addEventListener('input', () => {
                 setSaveIndicator('saving', 'Typing...')
@@ -820,12 +1031,8 @@
                 setHeaderUserName(state.user)
                 window.LuminSuiteMenu.setAdminAccess(state.user.is_admin === 1)
 
-                state.timestampPicker = flatpickr('#timestamp-input', {
-                    enableTime: true,
-                    dateFormat: 'Y-m-d H:i',
-                    minuteIncrement: 1,
-                    allowInput: true,
-                })
+                setAmPm('AM')
+                setActiveTimePill('now')
 
                 bindEvents()
                 await loadEntries(true)
