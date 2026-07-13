@@ -1603,7 +1603,7 @@ app.delete('/api/admin/tokens/:id', authMiddleware, async (c) => {
 })
 
 // ─── Front-end HTML (single SPA served for all UI routes) ────────────────────
-const appHeader = renderHeader({ activePage: 'app', pageTitle: 'Dashboard', searchPlaceholder: 'Search… or “since april 2023”', navTopTitle: 'Clear filters', showAdd: true, dropdownItems: 'full', showMobileFooter: false })
+const appHeader = renderHeader({ activePage: 'app', pageTitle: 'Bookmarks', searchPlaceholder: 'Search… or “since april 2023”', navTopTitle: 'Clear filters', showAdd: true, dropdownItems: 'full', showMobileFooter: false })
 const exploreNavSlot = `<div class="hidden sm:flex items-center rounded-full border border-g-border bg-[#F8F9FA] p-0.5 gap-0.5 flex-shrink-0"><button id="btn-mine" onclick="setMode('personal')" class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors">Mine</button><button id="btn-all" onclick="setMode('community')" class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors">All</button></div>`
 const exploreHeader = renderHeader({ activePage: 'explore', pageTitle: 'Explore', searchPlaceholder: 'Filter tags', navTopTitle: 'Top tags', showAdd: false, dropdownItems: 'compact', showMobileFooter: true, navSlot: exploreNavSlot })
 const newsHeader = renderHeader({ activePage: 'news', pageTitle: 'News', searchPlaceholder: 'Filter topics', navTopTitle: 'All topics', showAdd: false, dropdownItems: 'compact', showMobileFooter: true })

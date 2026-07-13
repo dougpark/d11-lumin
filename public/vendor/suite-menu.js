@@ -3,7 +3,7 @@
     var outsideClickBound = false
 
     var ITEMS = [
-        { key: 'dashboard', href: '/', label: 'Dashboard' },
+        { key: 'dashboard', href: '/', label: 'Bookmarks' },
         { key: 'news', href: '/n', label: 'News' },
         { key: 'explore', href: '/e', label: 'Explore' },
         { key: 'chat', href: '/chat', label: 'Chat' },
