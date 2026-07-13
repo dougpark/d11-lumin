@@ -263,7 +263,7 @@ export function renderHeader(config: HeaderConfig): string {
     return `<!-- %%HEADER%% — rendered by renderHeader() -->
     <header id="shared-header" class="sticky top-0 z-50${hiddenCls} bg-white/90 backdrop-blur-md border-b border-g-border">
         <div class="max-w-7xl mx-auto px-6 h-16 flex items-center gap-3">
-            <a href="/" class="flex-shrink-0">
+            <a href="/start" class="flex-shrink-0">
                 <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
 

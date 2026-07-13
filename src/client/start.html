@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start - Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Lumin" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] },
+                    boxShadow: { soft: '0 6px 20px rgba(0,0,0,0.08)' }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/vendor/suite-menu.js"></script>
+    <style>
+        .tile {
+            transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+        }
+
+        .tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(66, 133, 244, 0.16);
+            border-color: #4285F4 !important;
+        }
+
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin .7s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+    <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-g-border">
+        <div class="max-w-7xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between gap-3">
+            <a href="/start" class="flex-shrink-0">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+            </a>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <a href="/n" class="text-sm text-g-gray hover:text-g-blue transition-colors">News</a>
+                <a href="/?auth=login&next=%2Fstart"
+                    class="text-sm text-g-gray hover:text-g-blue transition-colors">Login</a>
+                <a href="/?auth=register&next=%2Fstart"
+                    class="text-sm bg-g-blue text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors">Register</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-5 sm:px-6 py-8 sm:py-10">
+        <section class="mb-7 sm:mb-8">
+            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-g-black">Start</h1>
+            <p id="subtitle" class="mt-2 text-sm sm:text-base text-g-gray">Loading your shortcuts...</p>
+        </section>
+
+        <div id="loading" class="py-12 text-center">
+            <span class="spinner" aria-hidden="true"></span>
+        </div>
+
+        <section id="grid-wrap" class="hidden">
+            <div id="icon-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            </div>
+        </section>
+
+        <section id="restricted-help" class="hidden mt-8 bg-white border border-g-border rounded-[20px] p-5 sm:p-6">
+            <h2 class="text-base font-semibold text-g-black">More Features After Login</h2>
+            <p class="mt-1 text-sm text-g-gray">Sign in or register to open Dashboard, Explore, Chat, Notes, Drive, and
+                more.</p>
+            <div id="locked-actions" class="mt-4 flex flex-wrap gap-2"></div>
+            <div class="mt-5 flex flex-wrap gap-2">
+                <a href="/?auth=login&next=%2Fstart"
+                    class="bg-g-blue text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-blue-600 transition-colors">Login</a>
+                <a href="/?auth=register&next=%2Fstart"
+                    class="border border-g-border text-g-black text-sm font-medium px-4 py-2 rounded-full hover:border-g-blue hover:text-g-blue transition-colors">Register</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="auth-prompt" class="hidden fixed inset-0 z-50 bg-black/30 px-4">
+        <div class="min-h-screen flex items-center justify-center">
+            <div class="w-full max-w-sm bg-white border border-g-border rounded-[20px] p-5 shadow-soft">
+                <h3 class="text-base font-semibold text-g-black">Login Required</h3>
+                <p class="mt-2 text-sm text-g-gray">That feature needs an account. Login or register to continue.</p>
+                <div class="mt-5 flex gap-2">
+                    <a href="/?auth=login&next=%2Fstart"
+                        class="flex-1 bg-g-blue text-white text-center text-sm font-medium px-4 py-2 rounded-full hover:bg-blue-600 transition-colors">Login</a>
+                    <a href="/?auth=register&next=%2Fstart"
+                        class="flex-1 border border-g-border text-g-black text-center text-sm font-medium px-4 py-2 rounded-full hover:border-g-blue hover:text-g-blue transition-colors">Register</a>
+                </div>
+                <button id="close-prompt" class="mt-3 w-full text-sm text-g-gray hover:text-g-black">Not now</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ICONS = {
+            dashboard: { bg: 'bg-blue-50', fg: 'text-blue-600', path: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+            news: { bg: 'bg-emerald-50', fg: 'text-emerald-600', path: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 12h6m-6-4h.01' },
+            explore: { bg: 'bg-violet-50', fg: 'text-violet-600', path: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
+            chat: { bg: 'bg-cyan-50', fg: 'text-cyan-600', path: 'M8 10h8M8 14h5m8 7l-4-4H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2z' },
+            notes: { bg: 'bg-amber-50', fg: 'text-amber-700', path: 'M9 2h6a2 2 0 012 2v16l-5-3-5 3V4a2 2 0 012-2z' },
+            health: { bg: 'bg-rose-50', fg: 'text-rose-600', path: 'M12 21s-7-4.35-9.33-8.1A5.5 5.5 0 0112 4.5a5.5 5.5 0 019.33 8.4C19 16.65 12 21 12 21z' },
+            drive: { bg: 'bg-lime-50', fg: 'text-lime-700', path: 'M4 7h16M4 7l2 12h12l2-12M10 11v4m4-4v4' },
+            settings: { bg: 'bg-slate-100', fg: 'text-slate-700', path: 'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 4a7.94 7.94 0 00-.34-2l2.02-1.57-2-3.46-2.46.99a8.16 8.16 0 00-1.74-1L16 1h-4l-.42 2.96a8.16 8.16 0 00-1.74 1l-2.46-.99-2 3.46L7.4 10a8.2 8.2 0 000 4l-2.02 1.57 2 3.46 2.46-.99a8.16 8.16 0 001.74 1L12 23h4l.42-2.96a8.16 8.16 0 001.74-1l2.46.99 2-3.46L20.6 14c.23-.65.34-1.32.34-2z' },
+            admin: { bg: 'bg-fuchsia-50', fg: 'text-fuchsia-700', path: 'M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm8.94 3a7.94 7.94 0 00-.34-2l2.02-1.57-2-3.46-2.46.99a8.16 8.16 0 00-1.74-1L16 1h-4l-.42 2.96a8.16 8.16 0 00-1.74 1l-2.46-.99-2 3.46L7.4 9a8.2 8.2 0 000 4l-2.02 1.57 2 3.46 2.46-.99a8.16 8.16 0 001.74 1L12 21h4l.42-2.96a8.16 8.16 0 001.74-1l2.46.99 2-3.46L20.6 13c.23-.65.34-1.32.34-2z' },
+            analytics: { bg: 'bg-indigo-50', fg: 'text-indigo-700', path: 'M5 3v18M19 21H5M9 17V9m4 8V5m4 12v-6' },
+            default: { bg: 'bg-gray-100', fg: 'text-gray-700', path: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' }
+        }
+
+        function qs(sel) { return document.querySelector(sel) }
+        function show(id) { qs('#' + id)?.classList.remove('hidden') }
+        function hide(id) { qs('#' + id)?.classList.add('hidden') }
+
+        function iconSvg(key) {
+            const cfg = ICONS[key] || ICONS.default
+            return `
+                <div class="${cfg.bg} ${cfg.fg} w-12 h-12 rounded-[14px] flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="${cfg.path}"/>
+                    </svg>
+                </div>
+            `
+        }
+
+        function getSuiteItems() {
+            const api = window.LuminSuiteMenu || {}
+            const base = typeof api.getItems === 'function' ? api.getItems() : []
+            const admin = typeof api.getAdminItems === 'function' ? api.getAdminItems() : []
+
+            if (base.length) return { base, admin }
+
+            return {
+                base: [
+                    { key: 'dashboard', href: '/', label: 'Dashboard' },
+                    { key: 'news', href: '/n', label: 'News' },
+                    { key: 'explore', href: '/e', label: 'Explore' },
+                    { key: 'chat', href: '/chat', label: 'Chat' },
+                    { key: 'notes', href: '/notes', label: 'Notes' },
+                    { key: 'health', href: '/health', label: 'Health' },
+                    { key: 'drive', href: '/drive', label: 'Drive' },
+                    { key: 'settings', href: '/settings', label: 'Settings' },
+                ],
+                admin: [
+                    { key: 'admin', href: '/admin', label: 'Admin' },
+                    { key: 'analytics', href: '/analytics', label: 'Analytics' },
+                ]
+            }
+        }
+
+        function renderTiles(items) {
+            const grid = qs('#icon-grid')
+            grid.innerHTML = items.map((item) => {
+                return `
+                    <a href="${item.href}" class="tile block bg-white border border-g-border rounded-[18px] p-4 sm:p-5 min-h-[136px] sm:min-h-[150px]">
+                        ${iconSvg(item.key)}
+                        <p class="text-sm sm:text-base font-semibold text-g-black">${item.label}</p>
+                        <p class="text-xs text-g-gray mt-1">Open ${item.label}</p>
+                    </a>
+                `
+            }).join('')
+        }
+
+        function renderLockedActions(items) {
+            const host = qs('#locked-actions')
+            host.innerHTML = items.map((item) => {
+                return `<button data-key="${item.key}" class="locked-action text-xs sm:text-sm px-3 py-1.5 rounded-full border border-g-border text-g-gray hover:text-g-black hover:border-g-blue transition-colors">${item.label}</button>`
+            }).join('')
+
+            host.querySelectorAll('.locked-action').forEach((btn) => {
+                btn.addEventListener('click', function () {
+                    show('auth-prompt')
+                })
+            })
+        }
+
+        async function fetchCurrentUser() {
+            const token = localStorage.getItem('d11_token') || ''
+            if (!token) return null
+
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                })
+                if (!res.ok) return null
+                return await res.json()
+            } catch {
+                return null
+            }
+        }
+
+        async function boot() {
+            const { base, admin } = getSuiteItems()
+            const user = await fetchCurrentUser()
+            const subtitle = qs('#subtitle')
+
+            if (!user) {
+                const visible = base.filter((x) => x.key === 'news')
+                renderTiles(visible)
+                renderLockedActions(base.filter((x) => x.key !== 'news'))
+                subtitle.textContent = 'Signed out. News is available now; login to unlock the full suite.'
+                show('restricted-help')
+            } else {
+                const isAdmin = user.is_admin === 1
+                const visible = isAdmin ? base.concat(admin) : base
+                renderTiles(visible)
+                subtitle.textContent = isAdmin
+                    ? 'Admin account detected. Full suite shortcuts loaded.'
+                    : 'Welcome back. Your suite shortcuts are ready.'
+            }
+
+            hide('loading')
+            show('grid-wrap')
+        }
+
+        qs('#close-prompt')?.addEventListener('click', function () {
+            hide('auth-prompt')
+        })
+
+        qs('#auth-prompt')?.addEventListener('click', function (e) {
+            if (e.target === this) hide('auth-prompt')
+        })
+
+        boot()
+    </script>
+</body>
+
+</html>

@@ -129,5 +129,7 @@
         initMenu: initMenu,
         setAdminAccess: setAdminAccess,
         closeAll: closeAll,
+        getItems: function () { return ITEMS.slice() },
+        getAdminItems: function () { return ADMIN_ITEMS.slice() },
     }
 })()

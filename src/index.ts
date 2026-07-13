@@ -53,6 +53,8 @@ import notesHtml from './client/notes.html'
 import driveHtml from './client/drive.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import healthHtml from './client/health.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import startHtml from './client/start.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -1605,7 +1607,12 @@ const appHeader = renderHeader({ activePage: 'app', pageTitle: 'Dashboard', sear
 const exploreNavSlot = `<div class="hidden sm:flex items-center rounded-full border border-g-border bg-[#F8F9FA] p-0.5 gap-0.5 flex-shrink-0"><button id="btn-mine" onclick="setMode('personal')" class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors">Mine</button><button id="btn-all" onclick="setMode('community')" class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors">All</button></div>`
 const exploreHeader = renderHeader({ activePage: 'explore', pageTitle: 'Explore', searchPlaceholder: 'Filter tags', navTopTitle: 'Top tags', showAdd: false, dropdownItems: 'compact', showMobileFooter: true, navSlot: exploreNavSlot })
 const newsHeader = renderHeader({ activePage: 'news', pageTitle: 'News', searchPlaceholder: 'Filter topics', navTopTitle: 'All topics', showAdd: false, dropdownItems: 'compact', showMobileFooter: true })
-app.get('/', (c) => c.html((appHtml as string).replace('%%HEADER%%', appHeader)))
+app.get('/', (c) => {
+  const hasAuthCookie = !!getCookie(c, 'd11_auth')
+  const hasQuery = Object.keys(c.req.query()).length > 0
+  if (!hasAuthCookie && !hasQuery) return c.html(startHtml as string)
+  return c.html((appHtml as string).replace('%%HEADER%%', appHeader))
+})
 app.get('/add', (c) => c.html((appHtml as string).replace('%%HEADER%%', appHeader)))
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
 app.get('/e', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
@@ -1623,6 +1630,8 @@ app.get('/chat', (c) => c.html(chatHtml as string))
 app.get('/notes', (c) => c.html(notesHtml as string))
 app.get('/drive', (c) => c.html(driveHtml as string))
 app.get('/health', (c) => c.html(healthHtml as string))
+app.get('/start', (c) => c.html(startHtml as string))
+app.get('/s', (c) => c.html(startHtml as string))
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not Found' }, 404))

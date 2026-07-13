@@ -164,7 +164,7 @@
         <!-- NAV -->
         <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-g-border">
             <div class="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
-                <a href="/" class="flex-shrink-0">
+                <a href="/start" class="flex-shrink-0">
                     <img src="/lumin_logo.png" alt="Lumin" class="h-8 w-auto">
                 </a>
                 <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-g-gray">
@@ -1106,7 +1106,7 @@
         <!-- Top bar -->
         <header class="bg-white border-b border-g-border px-4 h-14 flex items-center gap-3 flex-shrink-0 relative z-30">
             <span class="text-xl font-bold flex-1 select-none flex items-center gap-2">
-                <a href="/" class="flex-shrink-0">
+                <a href="/start" class="flex-shrink-0">
                     <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
                 </a>
                 <button id="mobile-nav-back" onclick="history.back()" title="Back"
@@ -1554,6 +1554,7 @@
             bookmarkletMode: false,
             popupMode: false,
             overlaySource: null,
+            postLoginNext: null,
         }
 
         // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -1587,9 +1588,17 @@
             const sourceParam = params.get('source')
             S.overlaySource = sourceParam || null
             S.popupMode = params.get('popup') === '1'
+            const authParam = params.get('auth')
+            const nextParam = params.get('next')
+            if (nextParam && nextParam.startsWith('/')) S.postLoginNext = nextParam
 
             if (!S.token) {
-                goTo(preUrl ? 'login' : 'landing')
+                if (authParam === 'login' || authParam === 'register' || preUrl) {
+                    goTo('login')
+                    switchTab(authParam === 'register' ? 'register' : 'login')
+                } else {
+                    goTo('landing')
+                }
                 if (preUrl) { S._preUrl = preUrl; S._preTitle = preTitle; S._preDesc = preDesc; S._preText = preText }
                 return
             }
@@ -1991,7 +2000,7 @@
             // Navigate while the password form is still in the DOM — this is what
             // triggers Safari (and Chrome) to offer to save the credential.
             // boot() will find the token in localStorage and skip straight to dashboard.
-            location.replace('/')
+            location.replace(S.postLoginNext || '/')
         }
 
         async function doRegister() {
