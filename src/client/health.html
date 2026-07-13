@@ -681,11 +681,19 @@
             saveCurrentEntry()
         }
 
+        function normalizeEntries(entries) {
+            const byId = new Map()
+            for (const entry of entries) {
+                if (!entry || typeof entry.id !== 'number') continue
+                byId.set(entry.id, entry)
+            }
+            return Array.from(byId.values())
+                .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (b.id - a.id))
+        }
+
         function upsertEntry(entry) {
-            const idx = state.entries.findIndex(item => item.id === entry.id)
-            if (idx >= 0) state.entries[idx] = entry
-            else state.entries.unshift(entry)
-            state.entries.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (b.id - a.id))
+            const merged = [...state.entries, entry]
+            state.entries = normalizeEntries(merged)
             renderEntries()
             refreshAnalysis()
         }
@@ -741,7 +749,8 @@
                 const body = await res.json()
                 const incoming = Array.isArray(body.data) ? body.data : []
                 state.totalPages = body.meta?.total_pages || 1
-                state.entries = reset ? incoming : state.entries.concat(incoming)
+                const merged = reset ? incoming : state.entries.concat(incoming)
+                state.entries = normalizeEntries(merged)
                 renderEntries()
             } catch (err) {
                 setSaveIndicator('error', err instanceof Error ? err.message : 'Could not load entries')
