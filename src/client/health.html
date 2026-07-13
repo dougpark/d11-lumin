@@ -339,6 +339,7 @@
             authToken: '',
             user: null,
             activeEntryId: null,
+            formContextVersion: 0,
             entries: [],
             page: 1,
             totalPages: 1,
@@ -588,6 +589,7 @@
         }
 
         function applyEntryToForm(entry) {
+            state.formContextVersion += 1
             state.activeEntryId = entry ? entry.id : null
             qs('#weight-input').value = entry && entry.weight !== null ? String(entry.weight) : ''
             qs('#glucose-input').value = entry && entry.glucose_level !== null ? String(entry.glucose_level) : ''
@@ -629,6 +631,7 @@
 
             state.saving = true
             setSaveIndicator('saving', 'Saving...')
+            const saveContextVersion = state.formContextVersion
 
             try {
                 let response
@@ -647,8 +650,10 @@
                 const saved = body.data
                 if (!saved) throw new Error('Missing saved entry data')
 
-                state.activeEntryId = saved.id
                 upsertEntry(saved)
+                if (saveContextVersion === state.formContextVersion) {
+                    state.activeEntryId = saved.id
+                }
                 setSaveIndicator('saved', 'Saved')
             } catch (err) {
                 setSaveIndicator('error', (err instanceof Error ? err.message : 'Save failed'))
@@ -977,6 +982,7 @@
                     const entry = state.entries.find(item => item.id === Number.parseInt(editId, 10))
                     if (entry) {
                         applyEntryToForm(entry)
+                        renderEntries()
                         setSaveIndicator('idle', 'Editing selected entry')
                     }
                     return
