@@ -63,12 +63,24 @@
             <a href="/start" class="flex-shrink-0">
                 <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">Start</h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Signed out</p>
+            </div>
             <div class="flex items-center gap-2 sm:gap-3">
-                <a href="/n" class="text-sm text-g-gray hover:text-g-blue transition-colors">News</a>
-                <a href="/?auth=login&next=%2Fstart"
-                    class="text-sm text-g-gray hover:text-g-blue transition-colors">Login</a>
-                <a href="/?auth=register&next=%2Fstart"
-                    class="text-sm bg-g-blue text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors">Register</a>
+                <div id="guest-auth-links" class="flex items-center gap-2 sm:gap-3">
+                    <a href="/?auth=login&next=%2Fstart"
+                        class="text-sm text-g-gray hover:text-g-blue transition-colors">Login</a>
+                    <a href="/?auth=register&next=%2Fstart"
+                        class="text-sm bg-g-blue text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors">Register</a>
+                </div>
+                <div id="header-user" class="hidden flex items-center gap-2">
+                    <div id="user-avatar"
+                        class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-g-blue font-bold text-xs">
+                        ?</div>
+                    <span id="user-handle"
+                        class="hidden sm:block text-xs font-semibold text-g-gray max-w-[96px] truncate"></span>
+                </div>
             </div>
         </div>
     </header>
@@ -136,6 +148,32 @@
         function qs(sel) { return document.querySelector(sel) }
         function show(id) { qs('#' + id)?.classList.remove('hidden') }
         function hide(id) { qs('#' + id)?.classList.add('hidden') }
+
+        function setHeaderGuest() {
+            const nameEl = qs('#header-user-name')
+            if (nameEl) nameEl.textContent = 'Signed out'
+            show('guest-auth-links')
+            hide('header-user')
+        }
+
+        function setHeaderUser(user) {
+            if (!user) return
+            const displayName = user.full_name || user.slug_prefix || 'User'
+            const initials = displayName.slice(0, 2).toUpperCase()
+            const handle = user.slug_prefix ? '@' + user.slug_prefix : displayName
+
+            const nameEl = qs('#header-user-name')
+            if (nameEl) nameEl.textContent = displayName
+
+            const avatarEl = qs('#user-avatar')
+            if (avatarEl) avatarEl.textContent = initials
+
+            const handleEl = qs('#user-handle')
+            if (handleEl) handleEl.textContent = handle
+
+            hide('guest-auth-links')
+            show('header-user')
+        }
 
         function iconSvg(key) {
             const cfg = ICONS[key] || ICONS.default
@@ -220,12 +258,14 @@
             const subtitle = qs('#subtitle')
 
             if (!user) {
+                setHeaderGuest()
                 const visible = base.filter((x) => x.key === 'news')
                 renderTiles(visible)
                 renderLockedActions(base.filter((x) => x.key !== 'news'))
                 subtitle.textContent = 'Signed out. News is available now; login to unlock the full suite.'
                 show('restricted-help')
             } else {
+                setHeaderUser(user)
                 const isAdmin = user.is_admin === 1
                 const visible = isAdmin ? base.concat(admin) : base
                 renderTiles(visible)
