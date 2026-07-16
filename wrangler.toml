@@ -18,6 +18,11 @@ binding = "ATTACHMENTS"
 bucket_name = "d11-note-attachments"
 preview_bucket_name = "d11-note-attachments-dev"
 
+[[r2_buckets]]
+binding = "FOOD_ENTRIES"
+bucket_name = "d11-food-entries"
+preview_bucket_name = "d11-food-entries-dev"
+
 # ─── Workers AI binding ─────────────────────────────────────────────────────
 [ai]
 binding = "AI"

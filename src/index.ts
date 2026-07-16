@@ -12,6 +12,7 @@ import chatRoutes from './routes/chat.ts'
 import notesRoutes from './routes/notes.ts'
 import driveRoutes from './routes/drive.ts'
 import healthRoutes from './routes/health.ts'
+import foodRoutes from './routes/food.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { hashToken } from './utils/auth.ts'
@@ -54,12 +55,15 @@ import driveHtml from './client/drive.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import healthHtml from './client/health.html'
 // @ts-expect-error — text module loaded by Wrangler rule
+import foodHtml from './client/food.html'
+// @ts-expect-error — text module loaded by Wrangler rule
 import startHtml from './client/start.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
   DB: D1Database
   ATTACHMENTS: R2Bucket
+  FOOD_ENTRIES: R2Bucket
   TOKEN_SECRET: string
   ENVIRONMENT: string
   AI: Ai
@@ -183,12 +187,14 @@ app.use('/api/bookmarks/*', authMiddleware)
 app.use('/api/chat/*', authMiddleware)
 app.use('/api/notes/*', authMiddleware)
 app.use('/api/health/*', authMiddleware)
+app.use('/api/food/*', authMiddleware)
 
 app.route('/api/bookmarks', bookmarkRoutes)
 app.route('/api/chat', chatRoutes)
 app.route('/api/notes', notesRoutes)
 app.route('/api/drive', driveRoutes)
 app.route('/api/health', healthRoutes)
+app.route('/api/food', foodRoutes)
 
 // Convenience top-level aliases
 app.get('/api/tags', authMiddleware, async (c) => {
@@ -1630,6 +1636,7 @@ app.get('/chat', (c) => c.html(chatHtml as string))
 app.get('/notes', (c) => c.html(notesHtml as string))
 app.get('/drive', (c) => c.html(driveHtml as string))
 app.get('/health', (c) => c.html(healthHtml as string))
+app.get('/food', (c) => c.html(foodHtml as string))
 app.get('/start', (c) => c.html(startHtml as string))
 app.get('/s', (c) => c.html(startHtml as string))
 

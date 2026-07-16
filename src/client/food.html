@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Tracker - Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/vendor/suite-menu.js"></script>
+    <style>
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .save-indicator {
+            transition: color .2s ease;
+        }
+
+        .option-pill {
+            border: 1px solid #E3E3E3;
+            border-radius: 999px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.75rem;
+            line-height: 1;
+            color: #474747;
+            background: #FFFFFF;
+            transition: all .16s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .option-pill.active {
+            border-color: #4285F4;
+            color: #4285F4;
+            background: rgba(66, 133, 244, 0.08);
+        }
+
+        .dropzone {
+            border: 1px dashed #AAB5C7;
+            border-radius: 12px;
+            background: #FBFCFF;
+            transition: all .2s ease;
+        }
+
+        .dropzone.drag-over {
+            border-color: #4285F4;
+            background: #EFF6FF;
+        }
+
+        .thumb {
+            width: 64px;
+            height: 64px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 1px solid #E3E3E3;
+            background: #F8F9FB;
+        }
+
+        .preview-image {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 1px solid #E3E3E3;
+            background: #F8F9FB;
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+            <a href="/start" class="flex-shrink-0">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+            </a>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">Food Tracker</h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Loading user...</p>
+                <a href="/health" class="text-xs text-g-blue hover:underline">Back to Health Tracker</a>
+            </div>
+            <div class="relative flex-shrink-0">
+                <button id="btn-suite-menu"
+                    class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors"
+                    aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </button>
+                <div id="suite-menu"
+                    class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="loading" class="flex items-center justify-center py-28 gap-3 text-g-gray text-sm">
+        <div class="spinner"></div>
+        <span>Loading food tracker...</span>
+    </div>
+
+    <div id="error-state" class="hidden text-center py-28 px-6">
+        <p class="font-semibold text-g-black mb-1">Could not load food tracker</p>
+        <p class="text-sm text-g-gray" id="error-msg">Please check your login and try again.</p>
+        <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">Back to Dashboard</a>
+    </div>
+
+    <main id="content" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
+        <div class="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+            <section class="space-y-6">
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="text-sm font-semibold text-g-black">Quick Entry</h2>
+                            <p class="text-xs text-g-gray mt-0.5">Photo-first logging with one-tap feel, energy, and
+                                location.</p>
+                        </div>
+                        <div class="text-right">
+                            <p id="save-indicator" class="save-indicator text-xs text-g-gray">Idle</p>
+                            <button id="btn-new-entry" class="text-xs text-g-blue hover:underline mt-1">New
+                                entry</button>
+                        </div>
+                    </div>
+
+                    <div id="camera-permission-note"
+                        class="hidden mb-4 border border-g-border rounded-[12px] bg-[#FAFBFF] p-3 text-xs text-g-gray">
+                        Camera upload uses your browser permission and sends only your selected photo to your private
+                        food storage bucket.
+                        <button id="btn-camera-note-ok" class="ml-2 text-g-blue hover:underline">Got it</button>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button id="btn-take-photo"
+                            class="text-xs font-medium bg-g-blue text-white rounded-[10px] px-3 py-2 hover:bg-blue-600 transition-colors">
+                            Take Photo
+                        </button>
+                        <button id="btn-upload-library"
+                            class="text-xs font-medium border border-g-border rounded-[10px] px-3 py-2 hover:bg-[#F7F9FC] transition-colors">
+                            Upload From Library
+                        </button>
+                    </div>
+
+                    <input id="camera-input" type="file" accept="image/*" capture="environment" class="hidden">
+                    <input id="library-input" type="file" accept="image/*" class="hidden">
+
+                    <div id="dropzone" class="dropzone p-4 mb-4">
+                        <p class="text-xs text-g-gray">Drop, paste, or upload a meal photo (max 8MB).</p>
+                        <p id="upload-status" class="text-xs text-g-gray mt-1">No photo uploaded yet.</p>
+                    </div>
+
+                    <div id="preview-wrap" class="hidden mb-4">
+                        <img id="preview-image" class="preview-image" alt="Food preview">
+                    </div>
+
+                    <form id="entry-form" class="space-y-4" autocomplete="off">
+                        <label class="block">
+                            <span class="text-xs text-g-gray">Timestamp</span>
+                            <div class="mt-1 grid grid-cols-[minmax(0,1fr)_6.5rem_auto] gap-2">
+                                <input id="timestamp-date-input" type="date"
+                                    class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                                <input id="timestamp-time-input" type="text" inputmode="numeric" maxlength="5"
+                                    placeholder="09:00"
+                                    class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                                <div
+                                    class="inline-flex items-center rounded-[10px] border border-g-border overflow-hidden">
+                                    <button id="btn-ampm-am" type="button"
+                                        class="px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50">AM</button>
+                                    <button id="btn-ampm-pm" type="button"
+                                        class="px-3 py-2 text-xs font-semibold text-g-gray bg-white border-l border-g-border">PM</button>
+                                </div>
+                            </div>
+                        </label>
+
+                        <div class="flex flex-wrap gap-2" id="time-pill-row">
+                            <button type="button" class="option-pill" data-time-pill="now">Now</button>
+                            <button type="button" class="option-pill" data-time-pill="breakfast">Breakfast</button>
+                            <button type="button" class="option-pill" data-time-pill="lunch">Lunch</button>
+                            <button type="button" class="option-pill" data-time-pill="dinner">Dinner</button>
+                            <button type="button" class="option-pill" data-time-pill="late-night">Late Night</button>
+                        </div>
+
+                        <div class="rounded-[10px] border border-g-border bg-[#FAFBFF] px-3 py-2 text-xs text-g-gray">
+                            Time-of-day: <span id="time-of-day-label"
+                                class="font-semibold text-g-black">breakfast</span>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-g-gray mb-1">Feel</p>
+                            <div class="flex flex-wrap gap-2" id="feel-row">
+                                <button type="button" class="option-pill" data-feel="happy">HM Happy</button>
+                                <button type="button" class="option-pill" data-feel="sad">SD Sad</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-g-gray mb-1">Energy</p>
+                            <div class="flex flex-wrap gap-2" id="energy-row">
+                                <button type="button" class="option-pill" data-energy="energized">EZ Energized</button>
+                                <button type="button" class="option-pill" data-energy="sluggish">SL Sluggish</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-g-gray mb-1">Location</p>
+                            <div class="flex flex-wrap gap-2" id="location-row">
+                                <button type="button" class="option-pill" data-location="home">HM Home</button>
+                                <button type="button" class="option-pill" data-location="away">AW Away</button>
+                            </div>
+                            <p id="location-exif-hint" class="text-[11px] text-g-gray mt-1"></p>
+                        </div>
+
+                        <label class="block">
+                            <span class="text-xs text-g-gray">Note</span>
+                            <textarea id="note-input" rows="3"
+                                class="mt-1 w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                placeholder="Optional meal notes"></textarea>
+                        </label>
+                    </form>
+                </article>
+            </section>
+
+            <aside class="space-y-6">
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="text-sm font-semibold text-g-black">Recent Entries</h2>
+                            <p class="text-xs text-g-gray mt-0.5">Showing latest records first.</p>
+                        </div>
+                        <p id="entries-total" class="text-xs text-g-gray">0 entries</p>
+                    </div>
+
+                    <div id="entries-empty"
+                        class="hidden text-sm text-g-gray border border-dashed border-g-border rounded-[12px] p-6 text-center">
+                        No food entries yet. Upload a photo or start a manual entry.
+                    </div>
+
+                    <div id="entries-list" class="space-y-3"></div>
+
+                    <div class="pt-4">
+                        <button id="btn-load-more"
+                            class="hidden w-full text-sm font-medium border border-g-border rounded-[10px] px-4 py-2 hover:bg-[#F7F9FC] transition-colors">
+                            Load More
+                        </button>
+                    </div>
+                </article>
+            </aside>
+        </div>
+    </main>
+
+    <div id="image-modal" class="hidden fixed inset-0 z-50 bg-black/70 p-4 sm:p-8">
+        <button id="modal-close"
+            class="absolute top-4 right-4 text-white border border-white/50 rounded-full w-9 h-9 hover:bg-white/10">X</button>
+        <div class="w-full h-full flex items-center justify-center">
+            <img id="modal-image" alt="Food image" class="max-w-full max-h-full rounded-[12px] border border-white/20">
+        </div>
+    </div>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+
+        function escHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+        }
+
+        function pad2(n) { return String(n).padStart(2, '0') }
+        function formatDateInput(date) { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}` }
+
+        const state = {
+            authToken: '',
+            user: null,
+            activeEntryId: null,
+            formContextVersion: 0,
+            entries: [],
+            page: 1,
+            totalPages: 1,
+            loadingEntries: false,
+            saving: false,
+            pendingSave: false,
+            noteTimer: null,
+            timeAmPm: 'AM',
+            selectedTimePill: 'now',
+            hasSeenCameraNote: localStorage.getItem('food_camera_note_seen') === '1',
+            feel: null,
+            energy: null,
+            location: 'home',
+            locationExif: null,
+            imageUploaded: false,
+        }
+
+        const saveIndicator = qs('#save-indicator')
+
+        function setSaveIndicator(mode, text) {
+            saveIndicator.textContent = text
+            saveIndicator.classList.remove('text-g-gray', 'text-g-blue', 'text-green-700', 'text-red-500')
+            if (mode === 'saving') saveIndicator.classList.add('text-g-blue')
+            else if (mode === 'saved') saveIndicator.classList.add('text-green-700')
+            else if (mode === 'error') saveIndicator.classList.add('text-red-500')
+            else saveIndicator.classList.add('text-g-gray')
+        }
+
+        function setHeaderUserName(user) {
+            const el = qs('#header-user-name')
+            if (!el || !user) return
+            el.textContent = user.full_name || user.slug_prefix || 'User'
+        }
+
+        function api(method, path, body) {
+            const headers = { 'Authorization': 'Bearer ' + state.authToken }
+            if (body !== undefined) headers['Content-Type'] = 'application/json'
+            return fetch(path, {
+                method,
+                headers,
+                body: body !== undefined ? JSON.stringify(body) : undefined,
+            })
+        }
+
+        function parseTimeInput(raw) {
+            if (!raw || !raw.trim()) return null
+            const cleaned = raw.trim().replace(/[^0-9:]/g, '')
+            if (!cleaned) return null
+
+            let hour = NaN
+            let minute = NaN
+
+            if (cleaned.includes(':')) {
+                const parts = cleaned.split(':')
+                if (parts.length !== 2) return null
+                hour = Number.parseInt(parts[0], 10)
+                minute = Number.parseInt(parts[1], 10)
+            } else {
+                if (cleaned.length <= 2) {
+                    hour = Number.parseInt(cleaned, 10)
+                    minute = 0
+                } else if (cleaned.length === 3) {
+                    hour = Number.parseInt(cleaned.slice(0, 1), 10)
+                    minute = Number.parseInt(cleaned.slice(1), 10)
+                } else if (cleaned.length === 4) {
+                    hour = Number.parseInt(cleaned.slice(0, 2), 10)
+                    minute = Number.parseInt(cleaned.slice(2), 10)
+                } else {
+                    return null
+                }
+            }
+
+            if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null
+            if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null
+            return { hour12: hour, minute }
+        }
+
+        function formatTimeForInput(hour12, minute) {
+            return `${pad2(hour12)}:${pad2(minute)}`
+        }
+
+        function to12HourParts(date) {
+            const hour24 = date.getHours()
+            const minute = date.getMinutes()
+            const ampm = hour24 >= 12 ? 'PM' : 'AM'
+            let hour12 = hour24 % 12
+            if (hour12 === 0) hour12 = 12
+            return { hour12, minute, ampm }
+        }
+
+        function composeIsoFromControls() {
+            const dateRaw = qs('#timestamp-date-input').value
+            if (!dateRaw || !dateRaw.trim()) return null
+            const parsed = parseTimeInput(qs('#timestamp-time-input').value)
+            if (!parsed) return null
+
+            let hour24 = parsed.hour12 % 12
+            if (state.timeAmPm === 'PM') hour24 += 12
+            const d = new Date(`${dateRaw}T${pad2(hour24)}:${pad2(parsed.minute)}:00`)
+            if (Number.isNaN(d.getTime())) return null
+            return d.toISOString()
+        }
+
+        function getTimeOfDayLabel(iso) {
+            const date = new Date(iso)
+            const minutes = (date.getUTCHours() * 60) + date.getUTCMinutes()
+            if (minutes <= ((11 * 60) + 0)) return 'breakfast'
+            if (minutes <= ((15 * 60) + 0)) return 'lunch'
+            if (minutes <= ((20 * 60) + 0)) return 'dinner'
+            return 'late-night'
+        }
+
+        function refreshTimeOfDayLabel() {
+            const iso = composeIsoFromControls() || new Date().toISOString()
+            qs('#time-of-day-label').textContent = getTimeOfDayLabel(iso)
+        }
+
+        function setAmPm(value) {
+            state.timeAmPm = value === 'PM' ? 'PM' : 'AM'
+            const amBtn = qs('#btn-ampm-am')
+            const pmBtn = qs('#btn-ampm-pm')
+            const amActive = state.timeAmPm === 'AM'
+
+            amBtn.className = amActive
+                ? 'px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50'
+                : 'px-3 py-2 text-xs font-semibold text-g-gray bg-white'
+            pmBtn.className = amActive
+                ? 'px-3 py-2 text-xs font-semibold text-g-gray bg-white border-l border-g-border'
+                : 'px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50 border-l border-g-border'
+        }
+
+        function setActiveTimePill(key) {
+            state.selectedTimePill = key
+            document.querySelectorAll('[data-time-pill]').forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) return
+                button.classList.toggle('active', button.dataset.timePill === key)
+            })
+        }
+
+        function updatePillFromCurrentTime() {
+            const bucket = getTimeOfDayLabel(composeIsoFromControls() || new Date().toISOString())
+            setActiveTimePill(bucket)
+            refreshTimeOfDayLabel()
+        }
+
+        function applyTimePill(pillKey) {
+            const now = new Date()
+            if (!qs('#timestamp-date-input').value) qs('#timestamp-date-input').value = formatDateInput(now)
+
+            if (pillKey === 'now') {
+                const parts = to12HourParts(now)
+                qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
+                setAmPm(parts.ampm)
+                setActiveTimePill('now')
+                refreshTimeOfDayLabel()
+                return
+            }
+
+            const map = {
+                breakfast: { hour12: 9, minute: 0, ampm: 'AM' },
+                lunch: { hour12: 1, minute: 0, ampm: 'PM' },
+                dinner: { hour12: 7, minute: 0, ampm: 'PM' },
+                'late-night': { hour12: 10, minute: 0, ampm: 'PM' },
+            }
+            const preset = map[pillKey]
+            if (!preset) return
+
+            qs('#timestamp-time-input').value = formatTimeForInput(preset.hour12, preset.minute)
+            setAmPm(preset.ampm)
+            setActiveTimePill(pillKey)
+            refreshTimeOfDayLabel()
+        }
+
+        function setOptionRow(rowSelector, datasetKey, value) {
+            document.querySelectorAll(`${rowSelector} [data-${datasetKey}]`).forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) return
+                const current = button.dataset[datasetKey]
+                button.classList.toggle('active', current === value)
+            })
+        }
+
+        function normalizeEntries(entries) {
+            const byId = new Map()
+            for (const entry of entries) {
+                if (!entry || typeof entry.id !== 'number') continue
+                byId.set(entry.id, entry)
+            }
+            return Array.from(byId.values()).sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (b.id - a.id))
+        }
+
+        function setPreviewFromEntry(entry) {
+            const wrap = qs('#preview-wrap')
+            const img = qs('#preview-image')
+            if (!entry || !entry.image_url) {
+                wrap.classList.add('hidden')
+                img.removeAttribute('src')
+                state.imageUploaded = false
+                return
+            }
+            img.src = `/api/food/entries/${entry.id}/image`
+            wrap.classList.remove('hidden')
+            state.imageUploaded = true
+        }
+
+        function applyEntryToForm(entry) {
+            state.formContextVersion += 1
+            state.activeEntryId = entry ? entry.id : null
+            state.feel = entry?.feel ?? null
+            state.energy = entry?.energy ?? null
+            state.location = entry?.location ?? 'home'
+            state.locationExif = entry?.location_exif ?? null
+
+            qs('#note-input').value = entry?.note || ''
+
+            if (entry?.timestamp) {
+                const d = new Date(entry.timestamp)
+                if (!Number.isNaN(d.getTime())) {
+                    const parts = to12HourParts(d)
+                    qs('#timestamp-date-input').value = formatDateInput(d)
+                    qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
+                    setAmPm(parts.ampm)
+                }
+            } else {
+                applyTimePill('now')
+                qs('#timestamp-date-input').value = formatDateInput(new Date())
+            }
+
+            setOptionRow('#feel-row', 'feel', state.feel)
+            setOptionRow('#energy-row', 'energy', state.energy)
+            setOptionRow('#location-row', 'location', state.location)
+            qs('#location-exif-hint').textContent = state.locationExif ? `EXIF location: ${state.locationExif}` : ''
+            updatePillFromCurrentTime()
+            setPreviewFromEntry(entry)
+        }
+
+        function getFormPayload() {
+            const noteRaw = qs('#note-input').value.trim()
+            const payload = {
+                feel: state.feel,
+                energy: state.energy,
+                location: state.location,
+                location_exif: state.locationExif,
+                note: noteRaw || null,
+            }
+
+            const tsIso = composeIsoFromControls()
+            if (tsIso) payload.timestamp = tsIso
+
+            return payload
+        }
+
+        function hasMeaningfulValue(payload) {
+            return Boolean(payload.feel || payload.energy || payload.note || state.imageUploaded || payload.location_exif)
+        }
+
+        async function saveCurrentEntry() {
+            const payload = getFormPayload()
+            if (!state.activeEntryId && !hasMeaningfulValue(payload)) {
+                setSaveIndicator('idle', 'Idle')
+                return
+            }
+
+            if (state.saving) {
+                state.pendingSave = true
+                return
+            }
+
+            state.saving = true
+            setSaveIndicator('saving', 'Saving...')
+            const saveContextVersion = state.formContextVersion
+
+            try {
+                let response
+                if (state.activeEntryId) {
+                    response = await api('PATCH', `/api/food/entries/${state.activeEntryId}`, payload)
+                } else {
+                    response = await api('POST', '/api/food/entries', payload)
+                }
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}))
+                    throw new Error(err.error || `HTTP ${response.status}`)
+                }
+
+                const body = await response.json()
+                const saved = body.data
+                if (!saved) throw new Error('Missing saved entry data')
+
+                upsertEntry(saved)
+                if (saveContextVersion === state.formContextVersion) {
+                    state.activeEntryId = saved.id
+                    setPreviewFromEntry(saved)
+                }
+                setSaveIndicator('saved', 'Saved')
+            } catch (err) {
+                setSaveIndicator('error', (err instanceof Error ? err.message : 'Save failed'))
+            } finally {
+                state.saving = false
+                if (state.pendingSave) {
+                    state.pendingSave = false
+                    saveCurrentEntry()
+                }
+            }
+        }
+
+        function scheduleSave(debounceMs) {
+            if (state.noteTimer) {
+                clearTimeout(state.noteTimer)
+                state.noteTimer = null
+            }
+
+            if (debounceMs > 0) {
+                state.noteTimer = setTimeout(() => {
+                    state.noteTimer = null
+                    saveCurrentEntry()
+                }, debounceMs)
+                return
+            }
+
+            saveCurrentEntry()
+        }
+
+        async function uploadPhoto(file) {
+            if (!file) return
+            if (file.size > (8 * 1024 * 1024)) {
+                setSaveIndicator('error', 'File exceeds 8MB')
+                return
+            }
+
+            setSaveIndicator('saving', 'Uploading photo...')
+            qs('#upload-status').textContent = `Uploading ${file.name}...`
+
+            try {
+                const exif = await readExifData(file)
+                if (exif.locationLabel) {
+                    state.locationExif = exif.locationLabel
+                    qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
+                }
+                if (exif.derivedLocation) {
+                    state.location = exif.derivedLocation
+                    setOptionRow('#location-row', 'location', state.location)
+                }
+
+                if (exif.capturedAtIso) {
+                    const date = new Date(exif.capturedAtIso)
+                    if (!Number.isNaN(date.getTime())) {
+                        const parts = to12HourParts(date)
+                        qs('#timestamp-date-input').value = formatDateInput(date)
+                        qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
+                        setAmPm(parts.ampm)
+                        updatePillFromCurrentTime()
+                    }
+                }
+
+                const form = new FormData()
+                form.append('file', file)
+                if (state.activeEntryId) form.append('entry_id', String(state.activeEntryId))
+                if (state.feel) form.append('feel', state.feel)
+                if (state.energy) form.append('energy', state.energy)
+                if (state.location) form.append('location', state.location)
+                if (state.locationExif) form.append('location_exif', state.locationExif)
+                const note = qs('#note-input').value.trim()
+                if (note) form.append('note', note)
+                const timestamp = composeIsoFromControls()
+                if (timestamp) form.append('timestamp', timestamp)
+
+                const res = await fetch('/api/food/entries/photo', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + state.authToken },
+                    body: form,
+                })
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}))
+                    throw new Error(err.error || `HTTP ${res.status}`)
+                }
+
+                const body = await res.json()
+                const saved = body.data
+                if (!saved) throw new Error('Upload did not return entry')
+
+                state.imageUploaded = true
+                upsertEntry(saved)
+                applyEntryToForm(saved)
+                setSaveIndicator('saved', 'Photo uploaded')
+                qs('#upload-status').textContent = `Uploaded ${file.name}`
+            } catch (err) {
+                setSaveIndicator('error', err instanceof Error ? err.message : 'Upload failed')
+                qs('#upload-status').textContent = 'Upload failed. Try again.'
+            }
+        }
+
+        function upsertEntry(entry) {
+            const merged = [...state.entries, entry]
+            state.entries = normalizeEntries(merged)
+            renderEntries()
+        }
+
+        function renderEntryIcons(entry) {
+            const parts = []
+            if (entry.feel) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.feel === 'happy' ? 'HM' : 'SD'}</span>`)
+            if (entry.energy) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.energy === 'energized' ? 'EZ' : 'SL'}</span>`)
+            if (entry.location) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.location === 'home' ? 'HM' : 'AW'}</span>`)
+            if (entry.time_of_day) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${escHtml(entry.time_of_day)}</span>`)
+            return parts.join('')
+        }
+
+        function renderEntries() {
+            const list = qs('#entries-list')
+            const empty = qs('#entries-empty')
+            const totalLabel = qs('#entries-total')
+            const loadMoreBtn = qs('#btn-load-more')
+
+            totalLabel.textContent = `${state.entries.length} loaded`
+            empty.classList.toggle('hidden', state.entries.length > 0)
+            loadMoreBtn.classList.toggle('hidden', state.page >= state.totalPages)
+
+            list.innerHTML = state.entries.map((entry) => {
+                const isActive = state.activeEntryId === entry.id
+                const img = entry.image_url
+                    ? `<img data-thumb-id="${entry.id}" src="/api/food/entries/${entry.id}/image" alt="Meal" class="thumb cursor-pointer">`
+                    : `<div class="thumb flex items-center justify-center text-[10px] text-g-gray">No image</div>`
+
+                return `
+                    <article class="border ${isActive ? 'border-g-blue bg-blue-50/40' : 'border-g-border bg-white'} rounded-[12px] p-3">
+                        <div class="flex items-start gap-3">
+                            <div>${img}</div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-xs text-g-gray">${new Date(entry.timestamp).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                <div class="mt-1 flex flex-wrap gap-2 text-xs">${renderEntryIcons(entry)}</div>
+                                ${entry.note ? `<p class="text-sm text-g-black mt-2 whitespace-pre-wrap">${escHtml(entry.note)}</p>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button data-edit-id="${entry.id}" class="text-xs text-g-blue hover:underline">Edit</button>
+                                <button data-delete-id="${entry.id}" class="text-xs text-red-500 hover:underline">Delete</button>
+                            </div>
+                        </div>
+                    </article>
+                `
+            }).join('')
+        }
+
+        async function loadEntries(reset) {
+            if (state.loadingEntries) return
+            state.loadingEntries = true
+
+            if (reset) {
+                state.page = 1
+                state.entries = []
+                renderEntries()
+            }
+
+            try {
+                const res = await api('GET', `/api/food/entries?page=${state.page}&per_page=20`)
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                const body = await res.json()
+                const incoming = Array.isArray(body.data) ? body.data : []
+                state.totalPages = body.meta?.total_pages || 1
+                const merged = reset ? incoming : state.entries.concat(incoming)
+                state.entries = normalizeEntries(merged)
+                renderEntries()
+            } catch (err) {
+                setSaveIndicator('error', err instanceof Error ? err.message : 'Could not load entries')
+            } finally {
+                state.loadingEntries = false
+            }
+        }
+
+        async function deleteEntry(id) {
+            if (!window.confirm('Delete this food entry?')) return
+            const res = await api('DELETE', `/api/food/entries/${id}`)
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                window.alert(err.error || 'Could not delete entry')
+                return
+            }
+
+            state.entries = state.entries.filter((entry) => entry.id !== id)
+            if (state.activeEntryId === id) {
+                applyEntryToForm(null)
+                setSaveIndicator('idle', 'Idle')
+            }
+            renderEntries()
+        }
+
+        function openImageModal(entryId) {
+            const image = qs('#modal-image')
+            image.src = `/api/food/entries/${entryId}/image`
+            qs('#image-modal').classList.remove('hidden')
+        }
+
+        function closeImageModal() {
+            qs('#image-modal').classList.add('hidden')
+            qs('#modal-image').removeAttribute('src')
+        }
+
+        function normalizeTimeInputField() {
+            const parsed = parseTimeInput(qs('#timestamp-time-input').value)
+            if (!parsed) return false
+            qs('#timestamp-time-input').value = formatTimeForInput(parsed.hour12, parsed.minute)
+            return true
+        }
+
+        function bindUploadGestures() {
+            const dropzone = qs('#dropzone')
+
+            dropzone.addEventListener('dragenter', (event) => {
+                event.preventDefault()
+                dropzone.classList.add('drag-over')
+            })
+            dropzone.addEventListener('dragover', (event) => {
+                event.preventDefault()
+                dropzone.classList.add('drag-over')
+            })
+            dropzone.addEventListener('dragleave', (event) => {
+                event.preventDefault()
+                dropzone.classList.remove('drag-over')
+            })
+            dropzone.addEventListener('drop', (event) => {
+                event.preventDefault()
+                dropzone.classList.remove('drag-over')
+                const file = event.dataTransfer?.files?.[0]
+                if (file) uploadPhoto(file)
+            })
+
+            document.addEventListener('paste', (event) => {
+                const items = event.clipboardData?.items || []
+                for (const item of items) {
+                    if (item.type && item.type.startsWith('image/')) {
+                        const file = item.getAsFile()
+                        if (file) {
+                            uploadPhoto(file)
+                            break
+                        }
+                    }
+                }
+            })
+        }
+
+        function bindEvents() {
+            qs('#btn-new-entry').addEventListener('click', (event) => {
+                event.preventDefault()
+                applyEntryToForm(null)
+                setSaveIndicator('idle', 'Idle')
+            })
+
+            qs('#btn-upload-library').addEventListener('click', () => qs('#library-input').click())
+
+            qs('#btn-take-photo').addEventListener('click', () => {
+                if (!state.hasSeenCameraNote) {
+                    qs('#camera-permission-note').classList.remove('hidden')
+                }
+                qs('#camera-input').click()
+            })
+
+            qs('#btn-camera-note-ok').addEventListener('click', () => {
+                state.hasSeenCameraNote = true
+                localStorage.setItem('food_camera_note_seen', '1')
+                qs('#camera-permission-note').classList.add('hidden')
+            })
+
+            qs('#camera-input').addEventListener('change', (event) => {
+                const file = event.target.files?.[0]
+                if (file) uploadPhoto(file)
+                event.target.value = ''
+            })
+
+            qs('#library-input').addEventListener('change', (event) => {
+                const file = event.target.files?.[0]
+                if (file) uploadPhoto(file)
+                event.target.value = ''
+            })
+
+            bindUploadGestures()
+
+                ;['#timestamp-date-input', '#timestamp-time-input'].forEach((sel) => {
+                    const input = qs(sel)
+                    if (!input) return
+                    input.addEventListener('change', () => {
+                        updatePillFromCurrentTime()
+                        scheduleSave(0)
+                    })
+                    input.addEventListener('blur', () => {
+                        if (sel === '#timestamp-time-input' && !normalizeTimeInputField()) {
+                            setSaveIndicator('error', 'Time must be HH:MM')
+                            return
+                        }
+                        updatePillFromCurrentTime()
+                        scheduleSave(0)
+                    })
+                })
+
+            qs('#btn-ampm-am').addEventListener('click', () => {
+                setAmPm('AM')
+                updatePillFromCurrentTime()
+                scheduleSave(0)
+            })
+
+            qs('#btn-ampm-pm').addEventListener('click', () => {
+                setAmPm('PM')
+                updatePillFromCurrentTime()
+                scheduleSave(0)
+            })
+
+            qs('#time-pill-row').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+                const button = target.closest('[data-time-pill]')
+                if (!(button instanceof HTMLButtonElement)) return
+                const pill = button.dataset.timePill
+                if (!pill) return
+                applyTimePill(pill)
+                scheduleSave(0)
+            })
+
+            qs('#feel-row').addEventListener('click', (event) => {
+                const button = event.target.closest('[data-feel]')
+                if (!(button instanceof HTMLButtonElement)) return
+                const value = button.dataset.feel || null
+                state.feel = state.feel === value ? null : value
+                setOptionRow('#feel-row', 'feel', state.feel)
+                scheduleSave(0)
+            })
+
+            qs('#energy-row').addEventListener('click', (event) => {
+                const button = event.target.closest('[data-energy]')
+                if (!(button instanceof HTMLButtonElement)) return
+                const value = button.dataset.energy || null
+                state.energy = state.energy === value ? null : value
+                setOptionRow('#energy-row', 'energy', state.energy)
+                scheduleSave(0)
+            })
+
+            qs('#location-row').addEventListener('click', (event) => {
+                const button = event.target.closest('[data-location]')
+                if (!(button instanceof HTMLButtonElement)) return
+                const value = button.dataset.location || 'home'
+                state.location = value
+                setOptionRow('#location-row', 'location', state.location)
+                scheduleSave(0)
+            })
+
+            qs('#note-input').addEventListener('input', () => {
+                setSaveIndicator('saving', 'Typing...')
+                scheduleSave(1500)
+            })
+
+            qs('#entries-list').addEventListener('click', (event) => {
+                const target = event.target
+                if (!(target instanceof HTMLElement)) return
+
+                const editId = target.getAttribute('data-edit-id')
+                if (editId) {
+                    const entry = state.entries.find((item) => item.id === Number.parseInt(editId, 10))
+                    if (entry) {
+                        applyEntryToForm(entry)
+                        renderEntries()
+                        setSaveIndicator('idle', 'Editing selected entry')
+                    }
+                    return
+                }
+
+                const deleteId = target.getAttribute('data-delete-id')
+                if (deleteId) {
+                    deleteEntry(Number.parseInt(deleteId, 10))
+                    return
+                }
+
+                const thumbId = target.getAttribute('data-thumb-id')
+                if (thumbId) openImageModal(Number.parseInt(thumbId, 10))
+            })
+
+            qs('#btn-load-more').addEventListener('click', async () => {
+                if (state.page >= state.totalPages) return
+                state.page += 1
+                await loadEntries(false)
+            })
+
+            qs('#modal-close').addEventListener('click', closeImageModal)
+            qs('#image-modal').addEventListener('click', (event) => {
+                if (event.target === qs('#image-modal')) closeImageModal()
+            })
+        }
+
+        function haversineMiles(lat1, lng1, lat2, lng2) {
+            const toRad = (value) => value * Math.PI / 180
+            const dLat = toRad(lat2 - lat1)
+            const dLng = toRad(lng2 - lng1)
+            const a = (Math.sin(dLat / 2) ** 2)
+                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * (Math.sin(dLng / 2) ** 2)
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            return 3958.8 * c
+        }
+
+        function looksLikeInvalidGps(lat, lng) {
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return true
+            if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return true
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return true
+            return false
+        }
+
+        function parseExifDateToIso(raw) {
+            if (!raw || typeof raw !== 'string') return null
+            const normalized = raw.trim().replace(/\u0000/g, '')
+            const match = normalized.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
+            if (!match) return null
+            const [_, y, mo, d, h, mi, s] = match
+            const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}Z`
+            const date = new Date(iso)
+            if (Number.isNaN(date.getTime())) return null
+            return date.toISOString()
+        }
+
+        function readAscii(view, start, len) {
+            let out = ''
+            for (let i = 0; i < len; i += 1) out += String.fromCharCode(view.getUint8(start + i))
+            return out
+        }
+
+        function readExifData(file) {
+            return file.arrayBuffer().then((buffer) => {
+                const view = new DataView(buffer)
+                if (view.getUint16(0) !== 0xFFD8) return { locationLabel: null, derivedLocation: 'home', capturedAtIso: null }
+
+                let offset = 2
+                let gpsLat = null
+                let gpsLng = null
+                let dateTimeOriginal = null
+
+                while (offset < view.byteLength) {
+                    const marker = view.getUint16(offset)
+                    offset += 2
+                    if (marker === 0xFFDA || marker === 0xFFD9) break
+                    const size = view.getUint16(offset)
+                    offset += 2
+                    if (marker !== 0xFFE1) {
+                        offset += size - 2
+                        continue
+                    }
+
+                    const exifHeader = readAscii(view, offset, 6)
+                    if (exifHeader !== 'Exif\u0000\u0000') {
+                        offset += size - 2
+                        continue
+                    }
+
+                    const tiff = offset + 6
+                    const little = view.getUint16(tiff) === 0x4949
+                    const getU16 = (pos) => view.getUint16(pos, little)
+                    const getU32 = (pos) => view.getUint32(pos, little)
+                    const ifd0Offset = getU32(tiff + 4)
+
+                    const readRational = (base, pointer) => {
+                        const num = getU32(base + pointer)
+                        const den = getU32(base + pointer + 4)
+                        if (!den) return 0
+                        return num / den
+                    }
+
+                    const readString = (base, pointer, count) => {
+                        const start = base + pointer
+                        let out = ''
+                        for (let i = 0; i < count; i += 1) {
+                            const code = view.getUint8(start + i)
+                            if (code === 0) break
+                            out += String.fromCharCode(code)
+                        }
+                        return out
+                    }
+
+                    const parseIfd = (ifdOffset) => {
+                        const count = getU16(tiff + ifdOffset)
+                        let gpsPointer = null
+                        let exifPointer = null
+
+                        for (let i = 0; i < count; i += 1) {
+                            const entry = tiff + ifdOffset + 2 + (i * 12)
+                            const tag = getU16(entry)
+                            const value = getU32(entry + 8)
+
+                            if (tag === 0x8825) gpsPointer = value
+                            if (tag === 0x8769) exifPointer = value
+                        }
+
+                        if (gpsPointer) {
+                            const gpsCount = getU16(tiff + gpsPointer)
+                            let latRef = 'N'
+                            let lngRef = 'E'
+                            let lat = null
+                            let lng = null
+
+                            for (let g = 0; g < gpsCount; g += 1) {
+                                const entry = tiff + gpsPointer + 2 + (g * 12)
+                                const tag = getU16(entry)
+                                const count = getU32(entry + 4)
+                                const value = getU32(entry + 8)
+
+                                if (tag === 1) latRef = String.fromCharCode(view.getUint8(entry + 8))
+                                if (tag === 2) {
+                                    const deg = readRational(tiff, value)
+                                    const min = readRational(tiff, value + 8)
+                                    const sec = readRational(tiff, value + 16)
+                                    lat = deg + (min / 60) + (sec / 3600)
+                                }
+                                if (tag === 3) lngRef = String.fromCharCode(view.getUint8(entry + 8))
+                                if (tag === 4) {
+                                    const deg = readRational(tiff, value)
+                                    const min = readRational(tiff, value + 8)
+                                    const sec = readRational(tiff, value + 16)
+                                    lng = deg + (min / 60) + (sec / 3600)
+                                }
+                                if (tag === 29 && !dateTimeOriginal) {
+                                    dateTimeOriginal = readString(tiff, value, count)
+                                }
+                            }
+
+                            if (lat !== null && lng !== null) {
+                                gpsLat = latRef === 'S' ? -lat : lat
+                                gpsLng = lngRef === 'W' ? -lng : lng
+                            }
+                        }
+
+                        if (exifPointer) {
+                            const exifCount = getU16(tiff + exifPointer)
+                            for (let e = 0; e < exifCount; e += 1) {
+                                const entry = tiff + exifPointer + 2 + (e * 12)
+                                const tag = getU16(entry)
+                                const count = getU32(entry + 4)
+                                const value = getU32(entry + 8)
+                                if (tag === 0x9003 && !dateTimeOriginal) {
+                                    dateTimeOriginal = readString(tiff, value, count)
+                                }
+                            }
+                        }
+                    }
+
+                    parseIfd(ifd0Offset)
+                    break
+                }
+
+                const capturedAtIso = parseExifDateToIso(dateTimeOriginal)
+                const validGps = !looksLikeInvalidGps(gpsLat, gpsLng)
+                const locationLabel = validGps ? `${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}` : null
+
+                let derivedLocation = 'home'
+                if (validGps) {
+                    const distance = haversineMiles(gpsLat, gpsLng, 32.7189961, -97.3563706)
+                    derivedLocation = distance <= 20 ? 'home' : 'away'
+                }
+
+                return { locationLabel, derivedLocation, capturedAtIso }
+            }).catch(() => ({ locationLabel: null, derivedLocation: 'home', capturedAtIso: null }))
+        }
+
+        async function boot() {
+            state.authToken = localStorage.getItem('d11_token') || ''
+            if (!state.authToken) {
+                location.href = '/'
+                return
+            }
+
+            try {
+                const meRes = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': 'Bearer ' + state.authToken }
+                })
+                if (!meRes.ok) {
+                    location.href = '/'
+                    return
+                }
+
+                state.user = await meRes.json()
+                setHeaderUserName(state.user)
+                window.LuminSuiteMenu.setAdminAccess(state.user.is_admin === 1)
+
+                if (!state.hasSeenCameraNote) {
+                    qs('#camera-permission-note').classList.remove('hidden')
+                }
+
+                setAmPm('AM')
+                applyTimePill('now')
+                bindEvents()
+                await loadEntries(true)
+                applyEntryToForm(null)
+
+                qs('#loading').classList.add('hidden')
+                qs('#content').classList.remove('hidden')
+                setSaveIndicator('idle', 'Idle')
+            } catch (err) {
+                qs('#loading').classList.add('hidden')
+                qs('#error-state').classList.remove('hidden')
+                qs('#error-msg').textContent = err instanceof Error ? err.message : 'Unknown error'
+            }
+        }
+
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu',
+            menuId: 'suite-menu',
+            activePage: 'food',
+            mode: 'light',
+        })
+
+        boot()
+    </script>
+</body>
+
+</html>

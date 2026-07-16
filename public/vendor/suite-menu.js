@@ -9,6 +9,7 @@
         { key: 'chat', href: '/chat', label: 'Chat' },
         { key: 'notes', href: '/notes', label: 'Notes' },
         { key: 'health', href: '/health', label: 'Health' },
+        { key: 'food', href: '/food', label: 'Food Tracker' },
         { key: 'drive', href: '/drive', label: 'Drive' },
         { key: 'settings', href: '/settings', label: 'Settings' },
     ]

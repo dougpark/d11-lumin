@@ -165,6 +165,24 @@ export type HealthEntry = {
     deleted_at: string | null
 }
 
+export type FoodEntry = {
+    id: number
+    user_id: number
+    feel: 'happy' | 'sad' | null
+    energy: 'energized' | 'sluggish' | null
+    location: 'home' | 'away' | null
+    location_exif: string | null
+    time_of_day: 'breakfast' | 'lunch' | 'dinner' | 'late-night' | null
+    ai_generated_tags: string | null
+    ai_summary: string | null
+    note: string | null
+    image_url: string | null
+    timestamp: string
+    created_at: string
+    updated_at: string
+    deleted_at: string | null
+}
+
 // ─── Input shapes (omit DB-managed fields) ────────────────────────────────────
 
 export type CreateBookmarkInput = {
@@ -235,4 +253,31 @@ export type ListHealthEntriesOptions = {
     per_page?: number
     since?: string
     before?: string
+}
+
+export type CreateFoodEntryInput = {
+    user_id: number
+    feel?: 'happy' | 'sad' | null
+    energy?: 'energized' | 'sluggish' | null
+    location?: 'home' | 'away' | null
+    location_exif?: string | null
+    note?: string | null
+    image_url?: string | null
+    timestamp?: string
+}
+
+export type UpdateFoodEntryInput = Partial<{
+    feel: 'happy' | 'sad' | null
+    energy: 'energized' | 'sluggish' | null
+    location: 'home' | 'away' | null
+    location_exif: string | null
+    note: string | null
+    image_url: string | null
+    timestamp: string
+}>
+
+export type ListFoodEntriesOptions = {
+    user_id: number
+    page?: number
+    per_page?: number
 }
