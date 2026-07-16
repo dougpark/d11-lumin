@@ -93,10 +93,30 @@
             border: 1px solid #E3E3E3;
             background: #F8F9FB;
         }
+
+        .pull-refresh-indicator {
+            position: fixed;
+            top: 8px;
+            left: 50%;
+            transform: translate(-50%, -140%);
+            transition: transform .18s ease, opacity .18s ease;
+            opacity: 0;
+            z-index: 70;
+        }
+
+        .pull-refresh-indicator.visible {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
     </style>
 </head>
 
-<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen overscroll-y-contain">
+    <div id="pull-refresh-indicator"
+        class="pull-refresh-indicator rounded-full border border-g-border bg-white/95 backdrop-blur px-3 py-1.5 text-[11px] text-g-gray">
+        Pull to refresh
+    </div>
+
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
             <a href="/start" class="flex-shrink-0">
@@ -166,7 +186,11 @@
                             </button>
                             <button id="btn-upload-library"
                                 class="text-xs font-medium border border-g-border rounded-[10px] px-3 py-2 hover:bg-[#F7F9FC] transition-colors">
-                                Upload From Library
+                                Upload
+                            </button>
+                            <button id="btn-paste-image"
+                                class="sm:hidden text-xs font-medium border border-g-border rounded-[10px] px-3 py-2 hover:bg-[#F7F9FC] transition-colors">
+                                Paste Image
                             </button>
                         </div>
 
@@ -325,6 +349,14 @@
             location: 'home',
             locationExif: null,
             imageUploaded: false,
+            pullRefresh: {
+                startY: 0,
+                currentY: 0,
+                dragging: false,
+                threshold: 72,
+                refreshing: false,
+                enabled: false,
+            },
         }
 
         const saveIndicator = qs('#save-indicator')
@@ -727,6 +759,42 @@
             }
         }
 
+        async function pasteImageFromClipboard() {
+            if (isPhotoLockedForCurrentEntry()) {
+                setSaveIndicator('error', 'This entry already has a photo')
+                return
+            }
+
+            if (!window.isSecureContext || !navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+                setSaveIndicator('error', 'Clipboard paste not supported')
+                qs('#upload-status').textContent = 'Clipboard image paste is not available on this browser. Use Upload From Library.'
+                return
+            }
+
+            try {
+                const items = await navigator.clipboard.read()
+                for (const item of items) {
+                    const imageType = item.types.find((type) => type.startsWith('image/'))
+                    if (!imageType) continue
+
+                    const blob = await item.getType(imageType)
+                    const extension = imageType.split('/')[1] || 'png'
+                    const file = new File([blob], `clipboard-${Date.now()}.${extension}`, {
+                        type: imageType,
+                        lastModified: Date.now(),
+                    })
+                    await uploadPhoto(file)
+                    return
+                }
+
+                setSaveIndicator('error', 'No image found in clipboard')
+                qs('#upload-status').textContent = 'Clipboard does not contain an image. Copy an image first.'
+            } catch {
+                setSaveIndicator('error', 'Clipboard access denied')
+                qs('#upload-status').textContent = 'Clipboard access denied. Use Upload From Library if prompted by your browser.'
+            }
+        }
+
         function upsertEntry(entry) {
             const merged = [...state.entries, entry]
             state.entries = normalizeEntries(merged)
@@ -831,6 +899,98 @@
             qs('#modal-image').removeAttribute('src')
         }
 
+        function setPullIndicator(text, visible) {
+            const indicator = qs('#pull-refresh-indicator')
+            if (!indicator) return
+            indicator.textContent = text
+            indicator.classList.toggle('visible', Boolean(visible))
+        }
+
+        async function refreshFeedFromPull() {
+            if (state.pullRefresh.refreshing) return
+            state.pullRefresh.refreshing = true
+            setPullIndicator('Refreshing...', true)
+
+            try {
+                const currentActiveId = state.activeEntryId
+                await loadEntries(true)
+
+                if (currentActiveId) {
+                    const currentEntry = state.entries.find((entry) => entry.id === currentActiveId)
+                    if (currentEntry) {
+                        applyEntryToForm(currentEntry)
+                        renderEntries()
+                    }
+                }
+            } finally {
+                state.pullRefresh.refreshing = false
+                setTimeout(() => setPullIndicator('Pull to refresh', false), 180)
+            }
+        }
+
+        function bindPullToRefresh() {
+            if (state.pullRefresh.enabled) return
+            state.pullRefresh.enabled = true
+
+            document.addEventListener('touchstart', (event) => {
+                if (event.touches.length !== 1) return
+                if (state.pullRefresh.refreshing) return
+                if (window.scrollY > 0) return
+                if (!qs('#image-modal').classList.contains('hidden')) return
+
+                const t = event.touches[0]
+                state.pullRefresh.startY = t.clientY
+                state.pullRefresh.currentY = t.clientY
+                state.pullRefresh.dragging = true
+            }, { passive: true })
+
+            document.addEventListener('touchmove', (event) => {
+                if (!state.pullRefresh.dragging) return
+                if (state.pullRefresh.refreshing) return
+
+                const t = event.touches[0]
+                state.pullRefresh.currentY = t.clientY
+                const delta = state.pullRefresh.currentY - state.pullRefresh.startY
+
+                if (delta <= 8) {
+                    setPullIndicator('Pull to refresh', false)
+                    return
+                }
+
+                if (window.scrollY > 0) {
+                    state.pullRefresh.dragging = false
+                    setPullIndicator('Pull to refresh', false)
+                    return
+                }
+
+                if (delta >= state.pullRefresh.threshold) {
+                    setPullIndicator('Release to refresh', true)
+                } else {
+                    setPullIndicator('Pull to refresh', true)
+                }
+            }, { passive: true })
+
+            document.addEventListener('touchend', async () => {
+                if (!state.pullRefresh.dragging) return
+                state.pullRefresh.dragging = false
+
+                const delta = state.pullRefresh.currentY - state.pullRefresh.startY
+                if (delta >= state.pullRefresh.threshold && window.scrollY === 0) {
+                    await refreshFeedFromPull()
+                    return
+                }
+
+                setPullIndicator('Pull to refresh', false)
+            })
+
+            document.addEventListener('touchcancel', () => {
+                state.pullRefresh.dragging = false
+                if (!state.pullRefresh.refreshing) {
+                    setPullIndicator('Pull to refresh', false)
+                }
+            })
+        }
+
         function normalizeTimeInputField() {
             const parsed = parseTimeInput(qs('#timestamp-time-input').value)
             if (!parsed) return false
@@ -886,6 +1046,11 @@
             })
 
             qs('#btn-upload-library').addEventListener('click', () => qs('#library-input').click())
+
+            qs('#btn-paste-image').addEventListener('click', (event) => {
+                event.preventDefault()
+                pasteImageFromClipboard()
+            })
 
             qs('#btn-take-photo').addEventListener('click', () => {
                 if (!state.hasSeenCameraNote) {
@@ -1224,6 +1389,7 @@
                 setAmPm('AM')
                 applyTimePill('now')
                 bindEvents()
+                bindPullToRefresh()
                 await loadEntries(true)
                 applyEntryToForm(null)
 
