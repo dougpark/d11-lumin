@@ -83,6 +83,25 @@ function isIsoTimestamp(value: string): boolean {
     return !Number.isNaN(date.getTime())
 }
 
+function parseLocalOffsetMinutes(value: unknown): { value?: number; error?: string } {
+    if (value === undefined || value === null || value === '') return { value: undefined }
+
+    let parsed: number
+    if (typeof value === 'number' && Number.isInteger(value)) {
+        parsed = value
+    } else if (typeof value === 'string' && value.trim()) {
+        parsed = Number.parseInt(value.trim(), 10)
+    } else {
+        return { error: 'local_offset_minutes must be an integer' }
+    }
+
+    if (!Number.isInteger(parsed) || parsed < -840 || parsed > 840) {
+        return { error: 'local_offset_minutes must be between -840 and 840' }
+    }
+
+    return { value: parsed }
+}
+
 food.get('/entries', async (c) => {
     const user = c.get('user')
     const q = c.req.query()
@@ -130,10 +149,12 @@ food.post('/entries', async (c) => {
     const note = typeof body.note === 'string' ? body.note.trim() : null
     const locationExif = sanitizeExifText(body.location_exif)
     const timestamp = typeof body.timestamp === 'string' ? body.timestamp.trim() : undefined
+    const localOffset = parseLocalOffsetMinutes(body.local_offset_minutes)
 
     if (timestamp && !isIsoTimestamp(timestamp)) {
         return c.json({ error: 'timestamp must be a valid date/time string' }, 400)
     }
+    if (localOffset.error) return c.json({ error: localOffset.error }, 400)
 
     const created = await createFoodEntry(c.env.DB, {
         user_id: user.id,
@@ -143,6 +164,7 @@ food.post('/entries', async (c) => {
         location_exif: locationExif,
         note,
         timestamp,
+        local_offset_minutes: localOffset.value,
     })
 
     return c.json({ data: created, meta: { home: { lat: HOME_LAT, lng: HOME_LNG } } }, 201)
@@ -168,6 +190,7 @@ food.patch('/entries/:id', async (c) => {
         note?: string | null
         timestamp?: string
         image_url?: string | null
+        local_offset_minutes?: number
     } = {}
 
     if ('feel' in body) {
@@ -203,6 +226,12 @@ food.patch('/entries/:id', async (c) => {
             return c.json({ error: 'timestamp must be a valid date/time string' }, 400)
         }
         update.timestamp = body.timestamp.trim()
+    }
+
+    if ('local_offset_minutes' in body) {
+        const localOffset = parseLocalOffsetMinutes(body.local_offset_minutes)
+        if (localOffset.error) return c.json({ error: localOffset.error }, 400)
+        update.local_offset_minutes = localOffset.value
     }
 
     const updated = await updateFoodEntry(c.env.DB, id, user.id, update)
@@ -259,9 +288,11 @@ food.post('/entries/photo', async (c) => {
     const note = noteRaw.trim() ? noteRaw.trim() : null
     const locationExif = sanitizeExifText((form.get('location_exif') as string | null) ?? null)
     const timestampRaw = (form.get('timestamp') as string | null)?.trim() ?? ''
+    const localOffset = parseLocalOffsetMinutes((form.get('local_offset_minutes') as string | null) ?? undefined)
     if (timestampRaw && !isIsoTimestamp(timestampRaw)) {
         return c.json({ error: 'timestamp must be a valid date/time string' }, 400)
     }
+    if (localOffset.error) return c.json({ error: localOffset.error }, 400)
 
     const objectKey = `food/${user.id}/${Date.now()}-${crypto.randomUUID()}-${filename}`
 
@@ -283,6 +314,7 @@ food.post('/entries/photo', async (c) => {
                 location_exif: locationExif,
                 note,
                 timestamp: timestampRaw || undefined,
+                local_offset_minutes: localOffset.value,
             })
 
             if (!updated) {
@@ -302,6 +334,7 @@ food.post('/entries/photo', async (c) => {
             note,
             image_url: objectKey,
             timestamp: timestampRaw || undefined,
+            local_offset_minutes: localOffset.value,
         })
 
         return c.json({ data: created, meta: { home: { lat: HOME_LAT, lng: HOME_LNG } } }, 201)

@@ -223,7 +223,7 @@
                         <div>
                             <p class="text-xs text-g-gray mb-1">Feel</p>
                             <div class="flex flex-wrap gap-2" id="feel-row">
-                                <button type="button" class="option-pill" data-feel="happy">HM Happy</button>
+                                <button type="button" class="option-pill" data-feel="happy">HA Happy</button>
                                 <button type="button" class="option-pill" data-feel="sad">SD Sad</button>
                             </div>
                         </div>
@@ -415,11 +415,15 @@
 
         function getTimeOfDayLabel(iso) {
             const date = new Date(iso)
-            const minutes = (date.getUTCHours() * 60) + date.getUTCMinutes()
+            const minutes = (date.getHours() * 60) + date.getMinutes()
             if (minutes >= ((5 * 60) + 0) && minutes <= ((11 * 60) + 0)) return 'breakfast'
             if (minutes >= ((11 * 60) + 1) && minutes <= ((15 * 60) + 0)) return 'lunch'
             if (minutes >= ((15 * 60) + 1) && minutes <= ((20 * 60) + 0)) return 'dinner'
             return 'late-night'
+        }
+
+        function getLocalOffsetMinutes() {
+            return new Date().getTimezoneOffset()
         }
 
         function refreshTimeOfDayLabel() {
@@ -548,16 +552,15 @@
                     qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
                     setAmPm(parts.ampm)
                 }
+                updatePillFromCurrentTime()
             } else {
                 applyTimePill('now')
-                qs('#timestamp-date-input').value = formatDateInput(new Date())
             }
 
             setOptionRow('#feel-row', 'feel', state.feel)
             setOptionRow('#energy-row', 'energy', state.energy)
             setOptionRow('#location-row', 'location', state.location)
             qs('#location-exif-hint').textContent = state.locationExif ? `EXIF location: ${state.locationExif}` : ''
-            updatePillFromCurrentTime()
             setPreviewFromEntry(entry)
         }
 
@@ -569,6 +572,7 @@
                 location: state.location,
                 location_exif: state.locationExif,
                 note: noteRaw || null,
+                local_offset_minutes: getLocalOffsetMinutes(),
             }
 
             const tsIso = composeIsoFromControls()
@@ -695,6 +699,7 @@
                 if (note) form.append('note', note)
                 const timestamp = composeIsoFromControls()
                 if (timestamp) form.append('timestamp', timestamp)
+                form.append('local_offset_minutes', String(getLocalOffsetMinutes()))
 
                 const res = await fetch('/api/food/entries/photo', {
                     method: 'POST',
@@ -730,7 +735,7 @@
 
         function renderEntryIcons(entry) {
             const parts = []
-            if (entry.feel) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.feel === 'happy' ? 'HM' : 'SD'}</span>`)
+            if (entry.feel) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.feel === 'happy' ? 'HA' : 'SD'}</span>`)
             if (entry.energy) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.energy === 'energized' ? 'EZ' : 'SL'}</span>`)
             if (entry.location) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${entry.location === 'home' ? 'HM' : 'AW'}</span>`)
             if (entry.time_of_day) parts.push(`<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">${escHtml(entry.time_of_day)}</span>`)
@@ -1044,8 +1049,9 @@
             const match = normalized.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
             if (!match) return null
             const [_, y, mo, d, h, mi, s] = match
-            const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}Z`
-            const date = new Date(iso)
+            // EXIF DateTimeOriginal is typically stored as local wall-clock time.
+            // Parse as local time, then convert to UTC ISO for storage consistency.
+            const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), 0)
             if (Number.isNaN(date.getTime())) return null
             return date.toISOString()
         }

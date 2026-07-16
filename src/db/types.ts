@@ -264,6 +264,7 @@ export type CreateFoodEntryInput = {
     note?: string | null
     image_url?: string | null
     timestamp?: string
+    local_offset_minutes?: number
 }
 
 export type UpdateFoodEntryInput = Partial<{
@@ -274,6 +275,7 @@ export type UpdateFoodEntryInput = Partial<{
     note: string | null
     image_url: string | null
     timestamp: string
+    local_offset_minutes: number
 }>
 
 export type ListFoodEntriesOptions = {

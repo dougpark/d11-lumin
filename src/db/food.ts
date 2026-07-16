@@ -10,9 +10,19 @@ function clampPerPage(value: number): number {
     return Math.min(value, 100)
 }
 
-function getTimeOfDayFromIso(isoTimestamp: string): 'breakfast' | 'lunch' | 'dinner' | 'late-night' {
+function normalizeMinutes(totalMinutes: number): number {
+    return ((totalMinutes % 1440) + 1440) % 1440
+}
+
+function getTimeOfDayFromIso(
+    isoTimestamp: string,
+    localOffsetMinutes?: number,
+): 'breakfast' | 'lunch' | 'dinner' | 'late-night' {
     const date = new Date(isoTimestamp)
-    const totalMinutes = (date.getUTCHours() * 60) + date.getUTCMinutes()
+    const utcMinutes = (date.getUTCHours() * 60) + date.getUTCMinutes()
+    const totalMinutes = Number.isInteger(localOffsetMinutes)
+        ? normalizeMinutes(utcMinutes - (localOffsetMinutes as number))
+        : utcMinutes
 
     if (totalMinutes >= ((5 * 60) + 0) && totalMinutes <= ((11 * 60) + 0)) return 'breakfast'
     if (totalMinutes >= ((11 * 60) + 1) && totalMinutes <= ((15 * 60) + 0)) return 'lunch'
@@ -79,10 +89,11 @@ export async function createFoodEntry(
         note = null,
         image_url = null,
         timestamp,
+        local_offset_minutes,
     } = input
 
     const effectiveTimestamp = timestamp ?? new Date().toISOString()
-    const timeOfDay = getTimeOfDayFromIso(effectiveTimestamp)
+    const timeOfDay = getTimeOfDayFromIso(effectiveTimestamp, local_offset_minutes)
 
     const created = await db
         .prepare(
@@ -124,7 +135,7 @@ export async function updateFoodEntry(
     if ('image_url' in input) map.image_url = input.image_url ?? null
     if ('timestamp' in input && typeof input.timestamp === 'string') {
         map.timestamp = input.timestamp
-        map.time_of_day = getTimeOfDayFromIso(input.timestamp)
+        map.time_of_day = getTimeOfDayFromIso(input.timestamp, input.local_offset_minutes)
     }
 
     const fields = Object.keys(map)
