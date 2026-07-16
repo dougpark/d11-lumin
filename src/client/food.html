@@ -158,23 +158,30 @@
                         <button id="btn-camera-note-ok" class="ml-2 text-g-blue hover:underline">Got it</button>
                     </div>
 
-                    <div class="flex flex-wrap gap-2 mb-4">
-                        <button id="btn-take-photo"
-                            class="text-xs font-medium bg-g-blue text-white rounded-[10px] px-3 py-2 hover:bg-blue-600 transition-colors">
-                            Take Photo
-                        </button>
-                        <button id="btn-upload-library"
-                            class="text-xs font-medium border border-g-border rounded-[10px] px-3 py-2 hover:bg-[#F7F9FC] transition-colors">
-                            Upload From Library
-                        </button>
+                    <div id="photo-controls" class="space-y-4 mb-4">
+                        <div class="flex flex-wrap gap-2">
+                            <button id="btn-take-photo"
+                                class="text-xs font-medium bg-g-blue text-white rounded-[10px] px-3 py-2 hover:bg-blue-600 transition-colors">
+                                Take Photo
+                            </button>
+                            <button id="btn-upload-library"
+                                class="text-xs font-medium border border-g-border rounded-[10px] px-3 py-2 hover:bg-[#F7F9FC] transition-colors">
+                                Upload From Library
+                            </button>
+                        </div>
+
+                        <input id="camera-input" type="file" accept="image/*" capture="environment" class="hidden">
+                        <input id="library-input" type="file" accept="image/*" class="hidden">
+
+                        <div id="dropzone" class="dropzone p-4">
+                            <p class="text-xs text-g-gray">Drop, paste, or upload a meal photo (max 8MB).</p>
+                            <p id="upload-status" class="text-xs text-g-gray mt-1">No photo uploaded yet.</p>
+                        </div>
                     </div>
 
-                    <input id="camera-input" type="file" accept="image/*" capture="environment" class="hidden">
-                    <input id="library-input" type="file" accept="image/*" class="hidden">
-
-                    <div id="dropzone" class="dropzone p-4 mb-4">
-                        <p class="text-xs text-g-gray">Drop, paste, or upload a meal photo (max 8MB).</p>
-                        <p id="upload-status" class="text-xs text-g-gray mt-1">No photo uploaded yet.</p>
+                    <div id="photo-locked-msg"
+                        class="hidden mb-4 rounded-[10px] border border-g-border bg-[#FAFBFF] px-3 py-2 text-xs text-g-gray">
+                        A photo is already attached to this entry. Start a new entry to add another photo.
                     </div>
 
                     <div id="preview-wrap" class="hidden mb-4">
@@ -500,11 +507,27 @@
                 wrap.classList.add('hidden')
                 img.removeAttribute('src')
                 state.imageUploaded = false
+                updatePhotoControlVisibility()
                 return
             }
             img.src = `/api/food/entries/${entry.id}/image`
             wrap.classList.remove('hidden')
             state.imageUploaded = true
+            updatePhotoControlVisibility()
+        }
+
+        function isPhotoLockedForCurrentEntry() {
+            return Boolean(state.activeEntryId && state.imageUploaded)
+        }
+
+        function updatePhotoControlVisibility() {
+            const controls = qs('#photo-controls')
+            const lockedMsg = qs('#photo-locked-msg')
+            if (!controls || !lockedMsg) return
+
+            const isLocked = isPhotoLockedForCurrentEntry()
+            controls.classList.toggle('hidden', isLocked)
+            lockedMsg.classList.toggle('hidden', !isLocked)
         }
 
         function applyEntryToForm(entry) {
@@ -627,6 +650,10 @@
 
         async function uploadPhoto(file) {
             if (!file) return
+            if (isPhotoLockedForCurrentEntry()) {
+                setSaveIndicator('error', 'This entry already has a photo')
+                return
+            }
             if (file.size > (8 * 1024 * 1024)) {
                 setSaveIndicator('error', 'File exceeds 8MB')
                 return
@@ -810,10 +837,12 @@
             const dropzone = qs('#dropzone')
 
             dropzone.addEventListener('dragenter', (event) => {
+                if (isPhotoLockedForCurrentEntry()) return
                 event.preventDefault()
                 dropzone.classList.add('drag-over')
             })
             dropzone.addEventListener('dragover', (event) => {
+                if (isPhotoLockedForCurrentEntry()) return
                 event.preventDefault()
                 dropzone.classList.add('drag-over')
             })
@@ -822,6 +851,7 @@
                 dropzone.classList.remove('drag-over')
             })
             dropzone.addEventListener('drop', (event) => {
+                if (isPhotoLockedForCurrentEntry()) return
                 event.preventDefault()
                 dropzone.classList.remove('drag-over')
                 const file = event.dataTransfer?.files?.[0]
@@ -829,6 +859,7 @@
             })
 
             document.addEventListener('paste', (event) => {
+                if (isPhotoLockedForCurrentEntry()) return
                 const items = event.clipboardData?.items || []
                 for (const item of items) {
                     if (item.type && item.type.startsWith('image/')) {
