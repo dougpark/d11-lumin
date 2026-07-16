@@ -700,7 +700,9 @@
             qs('#upload-status').textContent = `Reading ${displayName}...`
 
             try {
-                const exif = await readExifDataWithTimeout(file, 1800)
+                const exif = isLikelyMobileDevice()
+                    ? exifFallbackResult()
+                    : await readExifDataWithTimeout(file, 1800)
                 if (exif.locationLabel) {
                     state.locationExif = exif.locationLabel
                     qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
@@ -779,6 +781,13 @@
 
         function exifFallbackResult() {
             return { locationLabel: null, derivedLocation: 'home', capturedAtIso: null }
+        }
+
+        function isLikelyMobileDevice() {
+            const ua = navigator.userAgent || ''
+            const isMobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
+            const touchDesktop = navigator.maxTouchPoints > 1 && window.innerWidth < 1024
+            return isMobileUa || touchDesktop
         }
 
         async function readExifDataWithTimeout(file, timeoutMs) {
