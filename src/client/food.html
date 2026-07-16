@@ -199,13 +199,13 @@
 
                         <div id="dropzone" class="dropzone p-4">
                             <p class="text-xs text-g-gray">Drop, paste, or upload a meal photo (max 8MB).</p>
-                            <p id="upload-status" class="text-xs text-g-gray mt-1">No photo uploaded yet.</p>
+
                         </div>
                     </div>
 
                     <div id="photo-locked-msg"
                         class="hidden mb-4 rounded-[10px] border border-g-border bg-[#FAFBFF] px-3 py-2 text-xs text-g-gray">
-                        A photo is already attached to this entry. Start a new entry to add another photo.
+                        Start a new entry to add another photo.
                     </div>
 
                     <div id="preview-wrap" class="hidden mb-4">
@@ -695,11 +695,12 @@
                 return
             }
 
-            setSaveIndicator('saving', 'Uploading photo...')
-            qs('#upload-status').textContent = `Uploading ${file.name}...`
+            const displayName = file.name && file.name.trim() ? file.name : 'photo'
+            setSaveIndicator('saving', 'Preparing photo...')
+            qs('#upload-status').textContent = `Reading ${displayName}...`
 
             try {
-                const exif = await readExifData(file)
+                const exif = await readExifDataWithTimeout(file, 1800)
                 if (exif.locationLabel) {
                     state.locationExif = exif.locationLabel
                     qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
@@ -733,11 +734,22 @@
                 if (timestamp) form.append('timestamp', timestamp)
                 form.append('local_offset_minutes', String(getLocalOffsetMinutes()))
 
-                const res = await fetch('/api/food/entries/photo', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + state.authToken },
-                    body: form,
-                })
+                setSaveIndicator('saving', 'Uploading photo...')
+                qs('#upload-status').textContent = `Uploading ${displayName}...`
+
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 45000)
+                let res
+                try {
+                    res = await fetch('/api/food/entries/photo', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + state.authToken },
+                        body: form,
+                        signal: controller.signal,
+                    })
+                } finally {
+                    clearTimeout(timeoutId)
+                }
 
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}))
@@ -752,10 +764,31 @@
                 upsertEntry(saved)
                 applyEntryToForm(saved)
                 setSaveIndicator('saved', 'Photo uploaded')
-                qs('#upload-status').textContent = `Uploaded ${file.name}`
+                qs('#upload-status').textContent = `Uploaded ${displayName}`
             } catch (err) {
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                    setSaveIndicator('error', 'Upload timed out')
+                    qs('#upload-status').textContent = 'Upload timed out. Check connection and try again.'
+                    return
+                }
+
                 setSaveIndicator('error', err instanceof Error ? err.message : 'Upload failed')
                 qs('#upload-status').textContent = 'Upload failed. Try again.'
+            }
+        }
+
+        function exifFallbackResult() {
+            return { locationLabel: null, derivedLocation: 'home', capturedAtIso: null }
+        }
+
+        async function readExifDataWithTimeout(file, timeoutMs) {
+            try {
+                return await Promise.race([
+                    readExifData(file),
+                    new Promise((resolve) => setTimeout(() => resolve(exifFallbackResult()), timeoutMs)),
+                ])
+            } catch {
+                return exifFallbackResult()
             }
         }
 
@@ -1228,21 +1261,34 @@
         }
 
         function readExifData(file) {
-            return file.arrayBuffer().then((buffer) => {
+            const isJpegByType = typeof file.type === 'string' && /image\/jpeg|image\/jpg/i.test(file.type)
+            if (!isJpegByType) return Promise.resolve(exifFallbackResult())
+
+            // EXIF lives near the start of JPEGs; scanning only the header region avoids
+            // expensive reads/parsing on large mobile photos.
+            const MAX_EXIF_SCAN_BYTES = 512 * 1024
+            const scanBlob = file.size > MAX_EXIF_SCAN_BYTES ? file.slice(0, MAX_EXIF_SCAN_BYTES) : file
+
+            return scanBlob.arrayBuffer().then((buffer) => {
                 const view = new DataView(buffer)
-                if (view.getUint16(0) !== 0xFFD8) return { locationLabel: null, derivedLocation: 'home', capturedAtIso: null }
+                if (view.getUint16(0) !== 0xFFD8) return exifFallbackResult()
 
                 let offset = 2
                 let gpsLat = null
                 let gpsLng = null
                 let dateTimeOriginal = null
+                let guard = 0
 
-                while (offset < view.byteLength) {
+                while (offset < view.byteLength && guard < 20000) {
+                    guard += 1
                     const marker = view.getUint16(offset)
                     offset += 2
                     if (marker === 0xFFDA || marker === 0xFFD9) break
+                    if (offset + 2 > view.byteLength) break
                     const size = view.getUint16(offset)
                     offset += 2
+                    if (size < 2) break
+                    if (offset + (size - 2) > view.byteLength) break
                     if (marker !== 0xFFE1) {
                         offset += size - 2
                         continue
@@ -1359,7 +1405,7 @@
                 }
 
                 return { locationLabel, derivedLocation, capturedAtIso }
-            }).catch(() => ({ locationLabel: null, derivedLocation: 'home', capturedAtIso: null }))
+            }).catch(() => exifFallbackResult())
         }
 
         async function boot() {
