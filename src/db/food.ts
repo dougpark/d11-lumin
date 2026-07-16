@@ -14,9 +14,9 @@ function getTimeOfDayFromIso(isoTimestamp: string): 'breakfast' | 'lunch' | 'din
     const date = new Date(isoTimestamp)
     const totalMinutes = (date.getUTCHours() * 60) + date.getUTCMinutes()
 
-    if (totalMinutes <= ((11 * 60) + 0)) return 'breakfast'
-    if (totalMinutes <= ((15 * 60) + 0)) return 'lunch'
-    if (totalMinutes <= ((20 * 60) + 0)) return 'dinner'
+    if (totalMinutes >= ((5 * 60) + 0) && totalMinutes <= ((11 * 60) + 0)) return 'breakfast'
+    if (totalMinutes >= ((11 * 60) + 1) && totalMinutes <= ((15 * 60) + 0)) return 'lunch'
+    if (totalMinutes >= ((15 * 60) + 1) && totalMinutes <= ((20 * 60) + 0)) return 'dinner'
     return 'late-night'
 }
 

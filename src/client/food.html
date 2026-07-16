@@ -409,9 +409,9 @@
         function getTimeOfDayLabel(iso) {
             const date = new Date(iso)
             const minutes = (date.getUTCHours() * 60) + date.getUTCMinutes()
-            if (minutes <= ((11 * 60) + 0)) return 'breakfast'
-            if (minutes <= ((15 * 60) + 0)) return 'lunch'
-            if (minutes <= ((20 * 60) + 0)) return 'dinner'
+            if (minutes >= ((5 * 60) + 0) && minutes <= ((11 * 60) + 0)) return 'breakfast'
+            if (minutes >= ((11 * 60) + 1) && minutes <= ((15 * 60) + 0)) return 'lunch'
+            if (minutes >= ((15 * 60) + 1) && minutes <= ((20 * 60) + 0)) return 'dinner'
             return 'late-night'
         }
 
@@ -881,6 +881,9 @@
                 ;['#timestamp-date-input', '#timestamp-time-input'].forEach((sel) => {
                     const input = qs(sel)
                     if (!input) return
+                    input.addEventListener('input', () => {
+                        updatePillFromCurrentTime()
+                    })
                     input.addEventListener('change', () => {
                         updatePillFromCurrentTime()
                         scheduleSave(0)
