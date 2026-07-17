@@ -356,6 +356,8 @@
                 threshold: 72,
                 refreshing: false,
                 enabled: false,
+                debounceMs: 1500,
+                lastTriggeredAt: 0,
             },
         }
 
@@ -945,25 +947,16 @@
         }
 
         async function refreshFeedFromPull() {
+            const now = Date.now()
             if (state.pullRefresh.refreshing) return
+            if (now - state.pullRefresh.lastTriggeredAt < state.pullRefresh.debounceMs) return
+
             state.pullRefresh.refreshing = true
-            setPullIndicator('Refreshing...', true)
+            state.pullRefresh.lastTriggeredAt = now
+            setPullIndicator('Reloading...', true)
 
-            try {
-                const currentActiveId = state.activeEntryId
-                await loadEntries(true)
-
-                if (currentActiveId) {
-                    const currentEntry = state.entries.find((entry) => entry.id === currentActiveId)
-                    if (currentEntry) {
-                        applyEntryToForm(currentEntry)
-                        renderEntries()
-                    }
-                }
-            } finally {
-                state.pullRefresh.refreshing = false
-                setTimeout(() => setPullIndicator('Pull to refresh', false), 180)
-            }
+            // Pull-to-refresh should behave like a true page refresh on mobile.
+            window.location.reload()
         }
 
         function bindPullToRefresh() {
@@ -973,6 +966,7 @@
             document.addEventListener('touchstart', (event) => {
                 if (event.touches.length !== 1) return
                 if (state.pullRefresh.refreshing) return
+                if (Date.now() - state.pullRefresh.lastTriggeredAt < state.pullRefresh.debounceMs) return
                 if (window.scrollY > 0) return
                 if (!qs('#image-modal').classList.contains('hidden')) return
 
