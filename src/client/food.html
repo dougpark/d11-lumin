@@ -370,6 +370,11 @@
             else saveIndicator.classList.add('text-g-gray')
         }
 
+        function setUploadStatus(text) {
+            const el = qs('#upload-status')
+            if (el) el.textContent = text
+        }
+
         function setHeaderUserName(user) {
             const el = qs('#header-user-name')
             if (!el || !user) return
@@ -697,12 +702,10 @@
 
             const displayName = file.name && file.name.trim() ? file.name : 'photo'
             setSaveIndicator('saving', 'Preparing photo...')
-            qs('#upload-status').textContent = `Reading ${displayName}...`
+            setUploadStatus(`Reading ${displayName}...`)
 
             try {
-                const exif = isLikelyMobileDevice()
-                    ? exifFallbackResult()
-                    : await readExifDataWithTimeout(file, 1800)
+                const exif = await readExifDataWithTimeout(file, 5000)
                 if (exif.locationLabel) {
                     state.locationExif = exif.locationLabel
                     qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
@@ -737,7 +740,7 @@
                 form.append('local_offset_minutes', String(getLocalOffsetMinutes()))
 
                 setSaveIndicator('saving', 'Uploading photo...')
-                qs('#upload-status').textContent = `Uploading ${displayName}...`
+                setUploadStatus(`Uploading ${displayName}...`)
 
                 const controller = new AbortController()
                 const timeoutId = setTimeout(() => controller.abort(), 45000)
@@ -766,28 +769,21 @@
                 upsertEntry(saved)
                 applyEntryToForm(saved)
                 setSaveIndicator('saved', 'Photo uploaded')
-                qs('#upload-status').textContent = `Uploaded ${displayName}`
+                setUploadStatus(`Uploaded ${displayName}`)
             } catch (err) {
                 if (err instanceof DOMException && err.name === 'AbortError') {
                     setSaveIndicator('error', 'Upload timed out')
-                    qs('#upload-status').textContent = 'Upload timed out. Check connection and try again.'
+                    setUploadStatus('Upload timed out. Check connection and try again.')
                     return
                 }
 
                 setSaveIndicator('error', err instanceof Error ? err.message : 'Upload failed')
-                qs('#upload-status').textContent = 'Upload failed. Try again.'
+                setUploadStatus('Upload failed. Try again.')
             }
         }
 
         function exifFallbackResult() {
             return { locationLabel: null, derivedLocation: 'home', capturedAtIso: null }
-        }
-
-        function isLikelyMobileDevice() {
-            const ua = navigator.userAgent || ''
-            const isMobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
-            const touchDesktop = navigator.maxTouchPoints > 1 && window.innerWidth < 1024
-            return isMobileUa || touchDesktop
         }
 
         async function readExifDataWithTimeout(file, timeoutMs) {
@@ -809,7 +805,7 @@
 
             if (!window.isSecureContext || !navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
                 setSaveIndicator('error', 'Clipboard paste not supported')
-                qs('#upload-status').textContent = 'Clipboard image paste is not available on this browser. Use Upload From Library.'
+                setUploadStatus('Clipboard image paste is not available on this browser. Use Upload From Library.')
                 return
             }
 
@@ -830,10 +826,10 @@
                 }
 
                 setSaveIndicator('error', 'No image found in clipboard')
-                qs('#upload-status').textContent = 'Clipboard does not contain an image. Copy an image first.'
+                setUploadStatus('Clipboard does not contain an image. Copy an image first.')
             } catch {
                 setSaveIndicator('error', 'Clipboard access denied')
-                qs('#upload-status').textContent = 'Clipboard access denied. Use Upload From Library if prompted by your browser.'
+                setUploadStatus('Clipboard access denied. Use Upload From Library if prompted by your browser.')
             }
         }
 
