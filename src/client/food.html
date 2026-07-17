@@ -728,14 +728,19 @@
             setUploadStatus(`Reading ${displayName}...`)
 
             try {
-                const exif = await readExifDataWithTimeout(file, 12000)
-                if (exif.locationLabel) {
-                    state.locationExif = exif.locationLabel
-                    qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
-                }
-                if (exif.derivedLocation) {
-                    state.location = exif.derivedLocation
-                    setOptionRow('#location-row', 'location', state.location)
+                let exif = exifFallbackResult()
+                try {
+                    exif = await readExifDataWithTimeout(file, 12000)
+                    if (exif.locationLabel) {
+                        state.locationExif = exif.locationLabel
+                        qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
+                    }
+                    if (exif.derivedLocation) {
+                        state.location = exif.derivedLocation
+                        setOptionRow('#location-row', 'location', state.location)
+                    }
+                } catch {
+                    // EXIF failures should not block the upload path.
                 }
 
                 const capturedAtIso = exif.capturedAtIso || inferCapturedAtIsoFromFile(file)
