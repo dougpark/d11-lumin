@@ -691,6 +691,27 @@
             saveCurrentEntry()
         }
 
+        function applyCapturedTimestamp(iso) {
+            if (!iso) return false
+            const date = new Date(iso)
+            if (Number.isNaN(date.getTime())) return false
+
+            const parts = to12HourParts(date)
+            qs('#timestamp-date-input').value = formatDateInput(date)
+            qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
+            setAmPm(parts.ampm)
+            updatePillFromCurrentTime()
+            return true
+        }
+
+        function inferCapturedAtIsoFromFile(file) {
+            const lastModifiedMs = Number(file?.lastModified)
+            if (!Number.isFinite(lastModifiedMs) || lastModifiedMs <= 0) return null
+            const date = new Date(lastModifiedMs)
+            if (Number.isNaN(date.getTime())) return null
+            return date.toISOString()
+        }
+
         async function uploadPhoto(file) {
             if (!file) return
             if (isPhotoLockedForCurrentEntry()) {
@@ -707,7 +728,7 @@
             setUploadStatus(`Reading ${displayName}...`)
 
             try {
-                const exif = await readExifDataWithTimeout(file, 5000)
+                const exif = await readExifDataWithTimeout(file, 12000)
                 if (exif.locationLabel) {
                     state.locationExif = exif.locationLabel
                     qs('#location-exif-hint').textContent = `EXIF location: ${exif.locationLabel}`
@@ -717,15 +738,9 @@
                     setOptionRow('#location-row', 'location', state.location)
                 }
 
-                if (exif.capturedAtIso) {
-                    const date = new Date(exif.capturedAtIso)
-                    if (!Number.isNaN(date.getTime())) {
-                        const parts = to12HourParts(date)
-                        qs('#timestamp-date-input').value = formatDateInput(date)
-                        qs('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
-                        setAmPm(parts.ampm)
-                        updatePillFromCurrentTime()
-                    }
+                const capturedAtIso = exif.capturedAtIso || inferCapturedAtIsoFromFile(file)
+                if (applyCapturedTimestamp(capturedAtIso) && !exif.capturedAtIso) {
+                    setUploadStatus(`Using photo timestamp from ${displayName}...`)
                 }
 
                 const form = new FormData()
@@ -955,8 +970,10 @@
             state.pullRefresh.lastTriggeredAt = now
             setPullIndicator('Reloading...', true)
 
-            // Pull-to-refresh should behave like a true page refresh on mobile.
-            window.location.reload()
+            // iOS Safari standalone/PWA can ignore reload(); force a navigation refresh.
+            const refreshUrl = new URL(window.location.href)
+            refreshUrl.searchParams.set('_pull_refresh', String(now))
+            window.location.replace(refreshUrl.toString())
         }
 
         function bindPullToRefresh() {
