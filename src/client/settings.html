@@ -51,12 +51,37 @@
             color: #474747;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
         }
+
+        .settings-nav-button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
+            border-radius: 14px;
+            padding: 0.8rem 0.95rem;
+            text-align: left;
+            transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+            border: 1px solid transparent;
+        }
+
+        .settings-nav-button[data-active="true"] {
+            background: #EEF4FF;
+            color: #1F1F1F;
+            border-color: #CFE0FF;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+        }
+
+        .settings-panel {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(16px);
+        }
     </style>
 </head>
 
 <body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
-        <div class="max-w-5xl mx-auto px-6 h-16 flex items-center gap-3">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
             <a href="/start" class="flex-shrink-0">
                 <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
@@ -90,97 +115,85 @@
         <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">Back to Dashboard</a>
     </div>
 
-    <main id="content" class="hidden max-w-5xl mx-auto px-6 py-8 space-y-8">
-        <section id="settings-profile" class="bg-white border border-g-border rounded-[16px] p-6">
-            <h2 class="text-sm font-semibold text-g-black mb-4">Profile</h2>
-            <div class="space-y-2 mb-5 text-sm">
-                <p><span class="text-g-gray">Name:</span> <span id="profile-name" class="font-medium">-</span></p>
-                <p><span class="text-g-gray">Handle:</span> <span id="profile-handle" class="font-medium">-</span></p>
-                <p><span class="text-g-gray">Share Prefix:</span> <span id="profile-prefix" class="font-medium">-</span>
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <button id="btn-copy-login-link"
-                    class="text-sm font-medium text-g-blue border border-g-blue rounded-[10px] px-4 py-2 hover:bg-g-blue hover:text-white transition-colors">
-                    Copy Login Link
-                </button>
-                <button id="btn-sign-out"
-                    class="text-sm font-medium text-red-500 border border-red-200 rounded-[10px] px-4 py-2 hover:bg-red-50 transition-colors">
-                    Sign Out
-                </button>
-            </div>
-            <p id="profile-action-status" class="hidden mt-3 text-xs text-g-gray"></p>
-        </section>
+    <div id="drawer-backdrop" class="hidden fixed inset-0 z-30 bg-black/30 backdrop-blur-[1px] md:hidden"></div>
 
-        <section id="settings-api-tokens" class="bg-white border border-g-border rounded-[16px] p-6">
-            <h2 class="text-sm font-semibold text-g-black mb-4">API Tokens</h2>
-
-            <div class="border border-g-border rounded-[12px] p-4 bg-[#FAFAFA] mb-4">
-                <h3 class="text-xs font-semibold text-g-black mb-3 uppercase tracking-wide">Create token</h3>
-                <div class="grid md:grid-cols-2 gap-3">
-                    <input id="new-token-name" type="text" placeholder="Token name"
-                        class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
-                    <select id="new-token-expiry"
-                        class="w-full text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
-                        <option value="">No expiration</option>
-                        <option value="30d">30 days</option>
-                        <option value="90d">90 days</option>
-                        <option value="1y">1 year</option>
-                    </select>
+    <main id="settings-shell" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
+        <div class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <aside id="settings-drawer"
+                class="settings-panel fixed inset-y-0 left-0 z-40 w-[88vw] max-w-[320px] -translate-x-full border-r border-g-border shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:w-auto md:max-w-none md:translate-x-0 md:rounded-[24px] md:border md:shadow-sm">
+                <div class="flex h-full flex-col">
+                    <div class="flex items-center justify-between border-b border-g-border px-4 py-4 md:hidden">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Settings</p>
+                            <p class="text-sm font-semibold text-g-black">Navigate sections</p>
+                        </div>
+                        <button id="btn-nav-close" class="rounded-full p-2 text-g-gray hover:bg-[#F3F4F6]"
+                            aria-label="Close settings navigation">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4">
+                        <div class="mb-4 flex items-center justify-between md:justify-start md:gap-3">
+                            <button id="btn-nav-toggle"
+                                class="inline-flex items-center gap-2 rounded-full border border-g-border bg-white px-3 py-2 text-sm font-medium text-g-black shadow-sm hover:bg-[#F7F8FA] md:hidden"
+                                aria-label="Open settings navigation">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                                Sections
+                            </button>
+                            <div class="hidden md:block">
+                                <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Settings</p>
+                                <p class="text-sm font-semibold text-g-black">Sections</p>
+                            </div>
+                        </div>
+                        <nav id="settings-nav" class="space-y-5"></nav>
+                    </div>
                 </div>
-                <div class="mt-3 grid sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs text-g-gray">
-                    <label class="inline-flex items-center gap-2"><input id="scope-posts-read" type="checkbox"
-                            checked>posts:read</label>
-                    <label class="inline-flex items-center gap-2"><input id="scope-posts-write"
-                            type="checkbox">posts:write</label>
-                    <label class="inline-flex items-center gap-2"><input id="scope-tags-read" type="checkbox"
-                            checked>tags:read</label>
-                    <label class="inline-flex items-center gap-2"><input id="scope-rss-ingest"
-                            type="checkbox">rss:ingest</label>
+            </aside>
+
+            <section class="min-w-0">
+                <div class="settings-panel rounded-[24px] border border-g-border shadow-sm">
+                    <div class="flex items-start justify-between gap-4 border-b border-g-border px-4 py-4 sm:px-6">
+                        <div class="min-w-0">
+                            <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Current section</p>
+                            <h2 id="current-section-title" class="text-lg font-semibold text-g-black truncate">Profile
+                            </h2>
+                            <p id="current-section-subtitle" class="text-sm text-g-gray">Account and app settings are
+                                loaded on demand.</p>
+                        </div>
+                    </div>
+                    <div id="section-content" class="p-4 sm:p-6 lg:p-8"></div>
                 </div>
-                <div class="mt-3 flex items-center gap-2">
-                    <button id="btn-create-token"
-                        class="text-sm font-medium bg-g-blue text-white rounded-[10px] px-4 py-2 hover:bg-blue-600 transition-colors">Create
-                        Token</button>
-                    <span id="token-create-error" class="hidden text-xs text-red-500"></span>
-                </div>
-                <div id="token-reveal" class="hidden mt-3 p-3 rounded-[10px] border border-green-200 bg-green-50">
-                    <p class="text-xs font-semibold text-green-800 mb-1">Copy this token now. It will not be shown
-                        again.</p>
-                    <code id="token-reveal-value" class="block text-[11px] break-all text-green-900"></code>
-                </div>
-            </div>
-
-            <div id="token-list" class="space-y-2"></div>
-            <p id="token-loading" class="text-sm text-g-gray">Loading tokens...</p>
-            <p id="token-empty" class="hidden text-sm text-g-gray">No API tokens yet.</p>
-            <p id="token-error" class="hidden text-sm text-red-500">Could not load API tokens.</p>
-        </section>
-
-        <section id="settings-ui" class="bg-white border border-g-border rounded-[16px] p-6">
-            <h2 class="text-sm font-semibold text-g-black mb-2">UI</h2>
-            <p class="text-sm text-g-gray">UI preferences are coming soon.</p>
-        </section>
-
-        <section id="settings-search" class="bg-white border border-g-border rounded-[16px] p-6">
-            <h2 class="text-sm font-semibold text-g-black mb-2">Search</h2>
-            <p class="text-sm text-g-gray">Search preferences are coming soon.</p>
-        </section>
-
-        <section id="settings-llm" class="bg-white border border-g-border rounded-[16px] p-6">
-            <h2 class="text-sm font-semibold text-g-black mb-2">LLM</h2>
-            <p class="text-sm text-g-gray">LLM preferences are coming soon.</p>
-        </section>
+            </section>
+        </div>
     </main>
 
     <script>
         function qs(sel) { return document.querySelector(sel) }
+        function qsa(sel) { return Array.from(document.querySelectorAll(sel)) }
         function escHtml(value) {
-            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;')
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+        }
+
+        const SECTION_SEQUENCE = []
+        const SECTION_REGISTRY = new Map()
+        const SECTION_RUNTIME = {
+            apiTokens: { revealToken: '' },
         }
 
         let authToken = ''
         let currentUser = null
+        let currentSectionId = 'profile'
+        let navOpen = false
 
         function showProfileStatus(message, tone) {
             const el = qs('#profile-action-status')
@@ -228,12 +241,78 @@
             return undefined
         }
 
+        function readJsonObject(value) {
+            if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+            return value
+        }
+
+        function getSectionLabel(sectionId) {
+            return SECTION_REGISTRY.get(sectionId)?.label ?? 'Settings'
+        }
+
+        function updateSectionHeader(sectionId) {
+            const def = SECTION_REGISTRY.get(sectionId)
+            qs('#current-section-title').textContent = def?.label ?? 'Settings'
+            qs('#current-section-subtitle').textContent = def?.subtitle ?? 'Account and app settings are loaded on demand.'
+        }
+
+        function buildLocation(sectionId) {
+            const url = new URL(location.href)
+            url.searchParams.set('section', sectionId)
+            return url.toString()
+        }
+
+        function readSectionFromLocation() {
+            const sectionId = new URL(location.href).searchParams.get('section')?.trim()
+            if (sectionId && SECTION_REGISTRY.has(sectionId)) return sectionId
+            return 'profile'
+        }
+
+        function setDrawer(open) {
+            navOpen = open
+            const drawer = qs('#settings-drawer')
+            const backdrop = qs('#drawer-backdrop')
+            if (!drawer || !backdrop) return
+            if (window.matchMedia('(min-width: 768px)').matches) {
+                drawer.classList.remove('-translate-x-full')
+                backdrop.classList.add('hidden')
+                return
+            }
+            drawer.classList.toggle('-translate-x-full', !open)
+            backdrop.classList.toggle('hidden', !open)
+        }
+
+        function closeDrawer() {
+            setDrawer(false)
+        }
+
+        function renderLoadingPanel(message = 'Loading section…') {
+            return `
+                <div class="flex min-h-[280px] items-center justify-center">
+                    <div class="flex items-center gap-3 text-sm text-g-gray">
+                        <div class="spinner"></div>
+                        <span>${escHtml(message)}</span>
+                    </div>
+                </div>
+            `
+        }
+
+        function renderErrorPanel(message, retrySectionId) {
+            return `
+                <div class="rounded-[18px] border border-red-200 bg-red-50 p-5">
+                    <p class="text-sm font-semibold text-red-700">Could not load section</p>
+                    <p class="mt-1 text-sm text-red-600">${escHtml(message)}</p>
+                    <button data-retry-section="${escHtml(retrySectionId)}"
+                        class="mt-4 rounded-[10px] border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+                        Retry
+                    </button>
+                </div>
+            `
+        }
+
         function fillProfile(user) {
             const displayName = user.full_name || user.slug_prefix || 'User'
             qs('#header-user-name').textContent = displayName
-            qs('#profile-name').textContent = displayName
-            qs('#profile-handle').textContent = user.slug_prefix ? '@' + user.slug_prefix : '-'
-            qs('#profile-prefix').textContent = user.slug_prefix ? 'd11.me/l/' + user.slug_prefix + '/...' : '-'
         }
 
         function copyLoginLink() {
@@ -249,103 +328,499 @@
         }
 
         async function loadTokenList() {
-            const listEl = qs('#token-list')
-            qs('#token-loading').classList.remove('hidden')
-            qs('#token-empty').classList.add('hidden')
-            qs('#token-error').classList.add('hidden')
-            listEl.innerHTML = ''
+            const res = await api('GET', '/api/v1/tokens')
+            if (!res.ok) throw new Error('Could not load API tokens.')
+            const data = await res.json()
+            return data.data || []
+        }
 
-            try {
-                const res = await api('GET', '/api/v1/tokens')
-                if (!res.ok) throw new Error('tokens')
-                const data = await res.json()
-                const tokens = data.data || []
-                qs('#token-loading').classList.add('hidden')
-                if (!tokens.length) {
-                    qs('#token-empty').classList.remove('hidden')
-                    return
+        async function loadScopedSettings(appId) {
+            const res = await api('GET', `/api/v1/settings/${encodeURIComponent(appId)}`)
+            if (!res.ok) throw new Error(`Could not load ${appId} settings.`)
+            const data = await res.json()
+            return readJsonObject(data.data?.settings)
+        }
+
+        async function saveScopedSettings(appId, settings) {
+            const res = await api('PUT', `/api/v1/settings/${encodeURIComponent(appId)}`, { settings })
+            if (!res.ok) {
+                let errorMessage = `Could not save ${appId} settings.`
+                try {
+                    const data = await res.json()
+                    errorMessage = data.error || errorMessage
+                } catch {
+                    // leave default message
                 }
+                throw new Error(errorMessage)
+            }
+            return res.json()
+        }
 
-                tokens.forEach((token) => {
-                    const card = document.createElement('div')
-                    card.className = 'bg-[#FAFAFA] border border-g-border rounded-[12px] p-4'
-                    const scopes = (token.scopes || []).map((scope) => `<span class="token-chip">${escHtml(scope)}</span>`).join('')
-                    const lastUsed = token.last_used_at ? relTimestamp(token.last_used_at) : 'never used'
-                    const expires = token.expires_at ? new Date(token.expires_at).toLocaleDateString() : 'never'
-                    card.innerHTML = `
-                        <div class="flex items-start justify-between gap-2 mb-2">
-                            <span class="font-semibold text-sm text-g-black">${escHtml(token.name)}</span>
-                            <div class="flex gap-2 flex-shrink-0">
-                                <button data-rotate="${token.id}" class="text-xs text-g-blue hover:underline transition-colors">Rotate</button>
-                                <button data-revoke="${token.id}" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Revoke</button>
+        function renderProfileSection() {
+            const user = currentUser || {}
+            const displayName = user.full_name || user.slug_prefix || 'User'
+            const handle = user.slug_prefix ? '@' + user.slug_prefix : '-'
+            const prefix = user.slug_prefix ? 'd11.me/l/' + user.slug_prefix + '/...' : '-'
+
+            return `
+                <section class="space-y-6">
+                    <div class="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                        <div class="rounded-[18px] border border-g-border bg-[#FAFAFA] p-5">
+                            <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Account</p>
+                            <h3 class="mt-2 text-xl font-semibold text-g-black">${escHtml(displayName)}</h3>
+                            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                                <div>
+                                    <dt class="text-g-gray">Handle</dt>
+                                    <dd class="font-medium text-g-black">${escHtml(handle)}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-g-gray">Share prefix</dt>
+                                    <dd class="font-medium text-g-black">${escHtml(prefix)}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-g-gray">Email</dt>
+                                    <dd class="font-medium text-g-black">${escHtml(user.email || '-')}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-g-gray">Phone</dt>
+                                    <dd class="font-medium text-g-black">${escHtml(user.phone || '-')}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div class="rounded-[18px] border border-g-border bg-white p-5">
+                            <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Actions</p>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <button id="btn-copy-login-link"
+                                    class="rounded-[10px] border border-g-blue px-4 py-2 text-sm font-medium text-g-blue transition-colors hover:bg-g-blue hover:text-white">
+                                    Copy Login Link
+                                </button>
+                                <button id="btn-sign-out"
+                                    class="rounded-[10px] border border-red-200 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50">
+                                    Sign Out
+                                </button>
+                            </div>
+                            <p id="profile-action-status" class="mt-3 hidden text-xs text-g-gray"></p>
+                        </div>
+                    </div>
+                </section>
+            `
+        }
+
+        function renderApiTokensSection(data) {
+            const tokens = data.tokens || []
+            const revealToken = data.revealToken || ''
+
+            return `
+                <section class="space-y-5">
+                    <div class="rounded-[18px] border border-g-border bg-[#FAFAFA] p-5">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Create token</p>
+                                <h3 class="mt-1 text-base font-semibold text-g-black">Issue a new API token</h3>
                             </div>
                         </div>
-                        <div class="flex flex-wrap gap-1 mb-2">${scopes}</div>
-                        <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-g-gray">
-                            <span>Last used: <span class="text-g-black">${escHtml(lastUsed)}</span></span>
-                            <span>Expires: <span class="text-g-black">${escHtml(expires)}</span></span>
-                        </div>`
-                    listEl.appendChild(card)
-                })
+                        <div class="mt-4 grid gap-3 md:grid-cols-2">
+                            <input id="new-token-name" type="text" placeholder="Token name"
+                                class="w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20" />
+                            <select id="new-token-expiry"
+                                class="w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20">
+                                <option value="">No expiration</option>
+                                <option value="30d">30 days</option>
+                                <option value="90d">90 days</option>
+                                <option value="1y">1 year</option>
+                            </select>
+                        </div>
+                        <div class="mt-3 grid gap-2 text-xs text-g-gray sm:grid-cols-2 lg:grid-cols-3">
+                            <label class="inline-flex items-center gap-2"><input id="scope-posts-read" type="checkbox" checked>posts:read</label>
+                            <label class="inline-flex items-center gap-2"><input id="scope-posts-write" type="checkbox">posts:write</label>
+                            <label class="inline-flex items-center gap-2"><input id="scope-tags-read" type="checkbox" checked>tags:read</label>
+                            <label class="inline-flex items-center gap-2"><input id="scope-rss-ingest" type="checkbox">rss:ingest</label>
+                        </div>
+                        <div class="mt-4 flex items-center gap-2">
+                            <button id="btn-create-token"
+                                class="rounded-[10px] bg-g-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">Create token</button>
+                            <span id="token-create-error" class="hidden text-xs text-red-500"></span>
+                        </div>
+                        <div id="token-reveal" class="${revealToken ? '' : 'hidden'} mt-4 rounded-[12px] border border-green-200 bg-green-50 p-3">
+                            <p class="text-xs font-semibold text-green-800 mb-1">Copy this token now. It will not be shown again.</p>
+                            <code id="token-reveal-value" class="block break-all text-[11px] text-green-900">${escHtml(revealToken)}</code>
+                        </div>
+                    </div>
 
-                listEl.querySelectorAll('button[data-rotate]').forEach((btn) => {
-                    btn.addEventListener('click', async () => {
-                        const id = btn.getAttribute('data-rotate')
-                        await doRotateToken(id)
-                    })
-                })
-                listEl.querySelectorAll('button[data-revoke]').forEach((btn) => {
-                    btn.addEventListener('click', async () => {
-                        const id = btn.getAttribute('data-revoke')
-                        await doRevokeToken(id)
-                    })
-                })
-            } catch {
-                qs('#token-loading').classList.add('hidden')
-                qs('#token-error').classList.remove('hidden')
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Tokens</p>
+                                <h3 class="text-base font-semibold text-g-black">Saved API tokens</h3>
+                            </div>
+                            <p id="token-status" class="text-xs text-g-gray"></p>
+                        </div>
+                        <div id="token-list" class="space-y-3">
+                            ${tokens.length ? tokens.map(renderTokenCard).join('') : '<p id="token-empty" class="text-sm text-g-gray">No API tokens yet.</p>'}
+                        </div>
+                    </div>
+                </section>
+            `
+        }
+
+        function renderTokenCard(token) {
+            const scopes = (token.scopes || []).map((scope) => `<span class="token-chip">${escHtml(scope)}</span>`).join('')
+            const lastUsed = token.last_used_at ? relTimestamp(token.last_used_at) : 'never used'
+            const expires = token.expires_at ? new Date(token.expires_at).toLocaleDateString() : 'never'
+
+            return `
+                <div class="rounded-[14px] border border-g-border bg-white p-4">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="font-semibold text-sm text-g-black">${escHtml(token.name)}</span>
+                        <div class="flex flex-shrink-0 gap-2">
+                            <button data-rotate-token="${token.id}" class="text-xs text-g-blue hover:underline">Rotate</button>
+                            <button data-revoke-token="${token.id}" class="text-xs text-red-400 hover:text-red-600 hover:underline">Revoke</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1">${scopes}</div>
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-g-gray">
+                        <span>Last used: <span class="text-g-black">${escHtml(lastUsed)}</span></span>
+                        <span>Expires: <span class="text-g-black">${escHtml(expires)}</span></span>
+                    </div>
+                </div>
+            `
+        }
+
+        function renderSystemNotificationsSection(settings) {
+            const notifications = readJsonObject(settings.notifications)
+            const apiKey = typeof notifications.brrr_api_key === 'string' ? notifications.brrr_api_key : ''
+
+            return `
+                <section class="space-y-5">
+                    <div class="rounded-[18px] border border-g-border bg-white p-5">
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Notifications</p>
+                        <h3 class="mt-1 text-base font-semibold text-g-black">brrr notifications API key</h3>
+                        <p class="mt-2 text-sm text-g-gray">Stored in <span class="font-medium text-g-black">user_settings.system</span> as a namespaced JSON value.</p>
+                        <div class="mt-4 max-w-2xl">
+                            <label class="block text-sm font-medium text-g-black">API key</label>
+                            <input id="system-brrr-api-key" type="password" value="${escHtml(apiKey)}"
+                                placeholder="Enter brrr notifications API key"
+                                class="mt-2 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20" />
+                            <p class="mt-2 text-xs text-g-gray">This key is kept in the settings JSON blob under <span class="font-medium text-g-black">notifications.brrr_api_key</span>.</p>
+                        </div>
+                        <div class="mt-4 flex items-center gap-2">
+                            <button id="btn-save-system-notifications"
+                                class="rounded-[10px] bg-g-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">Save notifications</button>
+                            <span id="system-notifications-status" class="text-xs text-g-gray"></span>
+                        </div>
+                    </div>
+                </section>
+            `
+        }
+
+        function renderGenericAppSettingsSection(section, settings) {
+            return `
+                <section class="space-y-5">
+                    <div class="rounded-[18px] border border-g-border bg-white p-5">
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Preferences</p>
+                        <h3 class="mt-1 text-base font-semibold text-g-black">${escHtml(section.label)}</h3>
+                        <p class="mt-2 text-sm text-g-gray">App-specific settings for <span class="font-medium text-g-black">${escHtml(section.label)}</span> live in <span class="font-medium text-g-black">user_settings.${escHtml(section.appId)}</span>.</p>
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-g-black">Settings JSON</label>
+                            <textarea id="generic-settings-json" rows="10"
+                                class="mt-2 w-full rounded-[12px] border border-g-border px-3 py-2 font-mono text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20"></textarea>
+                            <p class="mt-2 text-xs text-g-gray">This editor stores a namespaced JSON object. Defaults remain in code when keys are missing.</p>
+                        </div>
+                        <div class="mt-4 flex items-center gap-2">
+                            <button id="btn-save-generic-settings"
+                                class="rounded-[10px] bg-g-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">Save settings</button>
+                            <span id="generic-settings-status" class="text-xs text-g-gray"></span>
+                        </div>
+                    </div>
+                </section>
+            `
+        }
+
+        function renderSectionSkeleton(sectionId) {
+            const def = SECTION_REGISTRY.get(sectionId)
+            return renderLoadingPanel(def?.subtitle || 'Loading section…')
+        }
+
+        function renderSectionContent(sectionId, data) {
+            const def = SECTION_REGISTRY.get(sectionId)
+            if (!def) return renderErrorPanel('Unknown section.', sectionId)
+            if (def.kind === 'profile') return renderProfileSection()
+            if (def.kind === 'api-tokens') return renderApiTokensSection(data)
+            if (def.kind === 'system-notifications') return renderSystemNotificationsSection(data)
+            if (def.kind === 'app-settings') return renderGenericAppSettingsSection(def, data)
+            return renderErrorPanel('Unsupported section.', sectionId)
+        }
+
+        function renderNav() {
+            const nav = qs('#settings-nav')
+            const groups = []
+
+            for (const sectionId of SECTION_SEQUENCE) {
+                const def = SECTION_REGISTRY.get(sectionId)
+                if (!def) continue
+                const groupName = def.group || 'Settings'
+                let group = groups.find((entry) => entry.groupName === groupName)
+                if (!group) {
+                    group = { groupName, items: [] }
+                    groups.push(group)
+                }
+                group.items.push({ sectionId, label: def.label })
             }
+
+            nav.innerHTML = groups.map((group) => `
+                <section class="space-y-2">
+                    <div class="flex items-center justify-between px-1">
+                        <h3 class="text-xs font-semibold uppercase tracking-[0.22em] text-g-gray">${escHtml(group.groupName)}</h3>
+                    </div>
+                    <div class="space-y-2">
+                        ${group.items.map((item) => `
+                            <button type="button" data-section-id="${escHtml(item.sectionId)}" class="settings-nav-button border border-transparent bg-white text-g-gray hover:border-g-border hover:bg-[#F7F8FA]">
+                                <span class="text-sm font-medium">${escHtml(item.label)}</span>
+                                <span class="text-xs text-g-gray">Open</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </section>
+            `).join('')
+
+            nav.querySelectorAll('button[data-section-id]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const sectionId = button.getAttribute('data-section-id') || 'profile'
+                    setActiveSection(sectionId)
+                    closeDrawer()
+                })
+            })
+        }
+
+        function updateNavActiveState() {
+            qsa('button[data-section-id]').forEach((button) => {
+                const isActive = button.getAttribute('data-section-id') === currentSectionId
+                button.setAttribute('data-active', isActive ? 'true' : 'false')
+            })
+        }
+
+        async function loadSection(sectionId) {
+            const def = SECTION_REGISTRY.get(sectionId)
+            if (!def) {
+                qs('#section-content').innerHTML = renderErrorPanel('Unknown section.', sectionId)
+                return
+            }
+
+            qs('#section-content').innerHTML = renderSectionSkeleton(sectionId)
+            updateSectionHeader(sectionId)
+
+            try {
+                const data = await def.load()
+                qs('#section-content').innerHTML = renderSectionContent(sectionId, data)
+                def.bind?.(data)
+                updateNavActiveState()
+            } catch (error) {
+                qs('#section-content').innerHTML = renderErrorPanel(error instanceof Error ? error.message : String(error), sectionId)
+                const retry = qs('#section-content button[data-retry-section]')
+                retry?.addEventListener('click', () => setActiveSection(sectionId))
+            }
+        }
+
+        function setActiveSection(sectionId) {
+            if (!SECTION_REGISTRY.has(sectionId)) sectionId = 'profile'
+            currentSectionId = sectionId
+            history.replaceState({}, '', buildLocation(sectionId))
+            updateNavActiveState()
+            loadSection(sectionId)
+        }
+
+        function buildSectionRegistry() {
+            SECTION_SEQUENCE.length = 0
+            SECTION_REGISTRY.clear()
+
+            const profileSection = {
+                id: 'profile',
+                label: 'Profile',
+                group: 'Profile',
+                subtitle: 'Account details and sign-in actions backed by users.',
+                kind: 'profile',
+                load: async () => currentUser,
+                bind: () => {
+                    qs('#btn-copy-login-link')?.addEventListener('click', copyLoginLink)
+                    qs('#btn-sign-out')?.addEventListener('click', doLogout)
+                },
+            }
+
+            const apiTokensSection = {
+                id: 'api-tokens',
+                label: 'API Tokens',
+                group: 'System',
+                subtitle: 'Create, rotate, and revoke personal API tokens.',
+                kind: 'api-tokens',
+                load: async () => {
+                    const tokens = await loadTokenList()
+                    return {
+                        tokens,
+                        revealToken: SECTION_RUNTIME.apiTokens.revealToken,
+                    }
+                },
+                bind: async () => {
+                    qs('#btn-create-token')?.addEventListener('click', doCreateToken)
+                    qsa('button[data-rotate-token]').forEach((button) => {
+                        button.addEventListener('click', async () => {
+                            const tokenId = button.getAttribute('data-rotate-token')
+                            await doRotateToken(tokenId)
+                        })
+                    })
+                    qsa('button[data-revoke-token]').forEach((button) => {
+                        button.addEventListener('click', async () => {
+                            const tokenId = button.getAttribute('data-revoke-token')
+                            await doRevokeToken(tokenId)
+                        })
+                    })
+                },
+            }
+
+            const notificationsSection = {
+                id: 'system-notifications',
+                label: 'Notifications',
+                group: 'System',
+                subtitle: 'Store system-level notification keys in user_settings.',
+                kind: 'system-notifications',
+                appId: 'system',
+                load: async () => loadScopedSettings('system'),
+                bind: async (data) => {
+                    qs('#btn-save-system-notifications')?.addEventListener('click', async () => {
+                        const status = qs('#system-notifications-status')
+                        if (status) {
+                            status.textContent = 'Saving...'
+                            status.classList.remove('text-red-500', 'text-green-700')
+                            status.classList.add('text-g-gray')
+                        }
+
+                        try {
+                            const apiKey = qs('#system-brrr-api-key')?.value.trim() || ''
+                            const payload = {
+                                notifications: {
+                                    ...readJsonObject(data.notifications),
+                                    brrr_api_key: apiKey,
+                                },
+                            }
+                            await saveScopedSettings('system', payload)
+                            if (status) {
+                                status.textContent = 'Saved.'
+                                status.classList.remove('text-red-500', 'text-g-gray')
+                                status.classList.add('text-green-700')
+                            }
+                        } catch (error) {
+                            if (status) {
+                                status.textContent = error instanceof Error ? error.message : String(error)
+                                status.classList.remove('text-green-700', 'text-g-gray')
+                                status.classList.add('text-red-500')
+                            }
+                        }
+                    })
+                },
+            }
+
+            const suiteItems = (window.LuminSuiteMenu?.getItems?.() || []).filter((item) => item.key !== 'settings')
+            const preferenceSections = suiteItems.map((item) => ({
+                id: `pref-${item.key}`,
+                label: item.label,
+                group: 'Preferences',
+                subtitle: `App-specific settings for ${item.label}.`,
+                kind: 'app-settings',
+                appId: item.key,
+                load: async () => loadScopedSettings(item.key),
+                bind: async (data) => {
+                    const textarea = qs('#generic-settings-json')
+                    if (textarea) textarea.value = JSON.stringify(data, null, 2)
+
+                    qs('#btn-save-generic-settings')?.addEventListener('click', async () => {
+                        const status = qs('#generic-settings-status')
+                        if (status) {
+                            status.textContent = 'Saving...'
+                            status.classList.remove('text-red-500', 'text-green-700')
+                            status.classList.add('text-g-gray')
+                        }
+
+                        try {
+                            const raw = textarea?.value || '{}'
+                            const parsed = JSON.parse(raw)
+                            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                                throw new Error('Settings JSON must be an object.')
+                            }
+                            await saveScopedSettings(item.key, parsed)
+                            if (status) {
+                                status.textContent = 'Saved.'
+                                status.classList.remove('text-red-500', 'text-g-gray')
+                                status.classList.add('text-green-700')
+                            }
+                        } catch (error) {
+                            if (status) {
+                                status.textContent = error instanceof Error ? error.message : String(error)
+                                status.classList.remove('text-green-700', 'text-g-gray')
+                                status.classList.add('text-red-500')
+                            }
+                        }
+                    })
+                },
+            }))
+
+            for (const section of [profileSection, apiTokensSection, notificationsSection, ...preferenceSections]) {
+                SECTION_SEQUENCE.push(section.id)
+                SECTION_REGISTRY.set(section.id, section)
+            }
+        }
+
+        function updateProfileSectionBindings() {
+            const form = qs('#settings-shell')
+            if (!form) return
         }
 
         async function doCreateToken() {
             const errEl = qs('#token-create-error')
-            errEl.classList.add('hidden')
-            const name = qs('#new-token-name').value.trim()
+            if (errEl) {
+                errEl.classList.add('hidden')
+                errEl.textContent = ''
+            }
+            const name = qs('#new-token-name')?.value.trim() || ''
             if (!name) {
-                errEl.textContent = 'Name is required.'
-                errEl.classList.remove('hidden')
+                if (errEl) {
+                    errEl.textContent = 'Name is required.'
+                    errEl.classList.remove('hidden')
+                }
                 return
             }
 
             const scopes = []
-            if (qs('#scope-posts-read').checked) scopes.push('posts:read')
-            if (qs('#scope-posts-write').checked) scopes.push('posts:write')
-            if (qs('#scope-tags-read').checked) scopes.push('tags:read')
-            if (qs('#scope-rss-ingest').checked) scopes.push('rss:ingest')
+            if (qs('#scope-posts-read')?.checked) scopes.push('posts:read')
+            if (qs('#scope-posts-write')?.checked) scopes.push('posts:write')
+            if (qs('#scope-tags-read')?.checked) scopes.push('tags:read')
+            if (qs('#scope-rss-ingest')?.checked) scopes.push('rss:ingest')
             if (!scopes.length) {
-                errEl.textContent = 'Select at least one scope.'
-                errEl.classList.remove('hidden')
+                if (errEl) {
+                    errEl.textContent = 'Select at least one scope.'
+                    errEl.classList.remove('hidden')
+                }
                 return
             }
 
-            const body = { name, scopes, expires_at: expiryToIso(qs('#new-token-expiry').value) }
+            const body = { name, scopes, expires_at: expiryToIso(qs('#new-token-expiry')?.value) }
             if (!body.expires_at) delete body.expires_at
 
             try {
                 const res = await api('POST', '/api/v1/tokens', body)
                 const data = await res.json()
                 if (!res.ok) {
-                    errEl.textContent = data.error || 'Could not create token.'
-                    errEl.classList.remove('hidden')
+                    if (errEl) {
+                        errEl.textContent = data.error || 'Could not create token.'
+                        errEl.classList.remove('hidden')
+                    }
                     return
                 }
-                qs('#new-token-name').value = ''
-                qs('#new-token-expiry').value = ''
-                qs('#token-reveal').classList.remove('hidden')
-                qs('#token-reveal-value').textContent = data.token || ''
-                loadTokenList()
+                SECTION_RUNTIME.apiTokens.revealToken = data.token || ''
+                await setActiveSection('api-tokens')
             } catch {
-                errEl.textContent = 'Request failed.'
-                errEl.classList.remove('hidden')
+                if (errEl) {
+                    errEl.textContent = 'Request failed.'
+                    errEl.classList.remove('hidden')
+                }
             }
         }
 
@@ -354,12 +829,11 @@
             try {
                 const res = await api('POST', '/api/v1/tokens/' + id + '/rotate', {})
                 const data = await res.json()
-                if (!res.ok) throw new Error(data.error || 'rotate')
-                qs('#token-reveal').classList.remove('hidden')
-                qs('#token-reveal-value').textContent = data.token || ''
-                loadTokenList()
-            } catch {
-                showProfileStatus('Could not rotate token.', 'error')
+                if (!res.ok) throw new Error(data.error || 'Could not rotate token.')
+                SECTION_RUNTIME.apiTokens.revealToken = data.token || ''
+                await setActiveSection('api-tokens')
+            } catch (error) {
+                showProfileStatus(error instanceof Error ? error.message : 'Could not rotate token.', 'error')
             }
         }
 
@@ -367,10 +841,11 @@
             if (!id) return
             try {
                 const res = await api('DELETE', '/api/v1/tokens/' + id)
-                if (!res.ok) throw new Error('revoke')
-                loadTokenList()
-            } catch {
-                showProfileStatus('Could not revoke token.', 'error')
+                if (!res.ok) throw new Error('Could not revoke token.')
+                SECTION_RUNTIME.apiTokens.revealToken = ''
+                await setActiveSection('api-tokens')
+            } catch (error) {
+                showProfileStatus(error instanceof Error ? error.message : 'Could not revoke token.', 'error')
             }
         }
 
@@ -390,9 +865,18 @@
                 currentUser = await meRes.json()
                 window.LuminSuiteMenu.setAdminAccess(currentUser.is_admin === 1)
                 fillProfile(currentUser)
-                await loadTokenList()
+
+                buildSectionRegistry()
+                renderNav()
+
+                const initialSection = readSectionFromLocation()
+                currentSectionId = initialSection
+                updateNavActiveState()
+                updateSectionHeader(initialSection)
+
                 qs('#loading').classList.add('hidden')
-                qs('#content').classList.remove('hidden')
+                qs('#settings-shell').classList.remove('hidden')
+                await loadSection(initialSection)
             } catch (e) {
                 qs('#loading').classList.add('hidden')
                 qs('#error-state').classList.remove('hidden')
@@ -409,7 +893,16 @@
 
         qs('#btn-copy-login-link')?.addEventListener('click', copyLoginLink)
         qs('#btn-sign-out')?.addEventListener('click', doLogout)
-        qs('#btn-create-token')?.addEventListener('click', doCreateToken)
+        qs('#btn-nav-toggle')?.addEventListener('click', () => setDrawer(true))
+        qs('#btn-nav-close')?.addEventListener('click', () => setDrawer(false))
+        qs('#drawer-backdrop')?.addEventListener('click', () => setDrawer(false))
+        window.addEventListener('popstate', () => {
+            const nextSection = readSectionFromLocation()
+            currentSectionId = nextSection
+            updateNavActiveState()
+            loadSection(nextSection)
+        })
+        window.addEventListener('resize', () => setDrawer(navOpen))
 
         boot()
     </script>

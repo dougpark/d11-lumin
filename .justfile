@@ -25,6 +25,11 @@ deploy:
     bun run deploy
     @date
 
+# Apply D1 migrations to the local database
+migrate-local-d1:
+    bunx wrangler d1 migrations apply d11-db
+    @date
+
 # Apply D1 migrations to the remote database
 migrate-remote-d1:
     bunx wrangler d1 migrations apply d11-db --remote

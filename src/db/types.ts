@@ -58,6 +58,13 @@ export type ApiToken = {
     created_at: string
 }
 
+export type UserSettings = {
+    user_id: number
+    app_id: string
+    settings: string
+    updated_at: string
+}
+
 export type ChatChannel = {
     id: number
     name: string

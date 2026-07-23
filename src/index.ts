@@ -8,6 +8,7 @@ import { apiTokenMiddleware } from './middleware/apiTokenMiddleware.ts'
 import authRoutes from './routes/auth.ts'
 import bookmarkRoutes from './routes/bookmarks.ts'
 import v1Routes from './routes/v1.ts'
+import settingsRoutes from './routes/settings.ts'
 import chatRoutes from './routes/chat.ts'
 import notesRoutes from './routes/notes.ts'
 import driveRoutes from './routes/drive.ts'
@@ -195,6 +196,7 @@ app.route('/api/notes', notesRoutes)
 app.route('/api/drive', driveRoutes)
 app.route('/api/health', healthRoutes)
 app.route('/api/food', foodRoutes)
+app.route('/api/v1/settings', settingsRoutes)
 
 // Convenience top-level aliases
 app.get('/api/tags', authMiddleware, async (c) => {
