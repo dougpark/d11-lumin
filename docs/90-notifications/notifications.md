@@ -1,5 +1,21 @@
 # brrrr iphone mac apple notifications
 
+# Create a Lumin notifications subsystem that can send push notifications to iOS and macOS devices using the brrr service.
+- available from any Lumin App
+- add a test button to the brrr settings.html section to send a test notification to the current device
+
+## notification types
+- simple text message
+- rich json message with title, message, sound, thread_id, expiration_date, volume 
+- Warning messages
+- Error messages
+
+## Featues
+- include sending app name and icon in the notification payload
+- include warning level - info, warning, error
+- include link to the app in the notification payload
+
+
 ## documentation
 https://brrr.now/docs/
 

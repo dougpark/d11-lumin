@@ -56,6 +56,42 @@ export async function upsertUserSettings(
     return row
 }
 
+/**
+ * Read a single setting value for a user.
+ * Supports dot-notation keys for nested objects (e.g. 'notifications.brrr_api_key').
+ * Returns `undefined` when the row, key, or any intermediate object is missing.
+ *
+ * @example
+ * const apiKey = await getSetting(db, userId, 'system', 'notifications.brrr_api_key')
+ * const theme  = await getSetting(db, userId, 'dashboard', 'theme')
+ */
+export async function getSetting(
+    db: D1Database,
+    userId: number,
+    appId: string,
+    key: string,
+): Promise<unknown> {
+    const row = await getUserSettings(db, userId, appId)
+    if (!row) return undefined
+
+    let parsed: Record<string, unknown>
+    try {
+        const p = JSON.parse(row.settings)
+        if (!p || typeof p !== 'object' || Array.isArray(p)) return undefined
+        parsed = p as Record<string, unknown>
+    } catch {
+        return undefined
+    }
+
+    const parts = key.split('.')
+    let cursor: unknown = parsed
+    for (const part of parts) {
+        if (cursor === null || typeof cursor !== 'object' || Array.isArray(cursor)) return undefined
+        cursor = (cursor as Record<string, unknown>)[part]
+    }
+    return cursor
+}
+
 export async function deleteUserSettings(
     db: D1Database,
     userId: number,

@@ -148,7 +148,7 @@
                             </button>
                             <div class="hidden md:block">
                                 <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Settings</p>
-                                <p class="text-sm font-semibold text-g-black">Sections</p>
+                                <!-- <p class="text-sm font-semibold text-g-black">Sections</p> -->
                             </div>
                         </div>
                         <nav id="settings-nav" class="space-y-5"></nav>
@@ -160,7 +160,7 @@
                 <div class="settings-panel rounded-[24px] border border-g-border shadow-sm">
                     <div class="flex items-start justify-between gap-4 border-b border-g-border px-4 py-4 sm:px-6">
                         <div class="min-w-0">
-                            <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Current section</p>
+                            <!-- <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Current section</p> -->
                             <h2 id="current-section-title" class="text-lg font-semibold text-g-black truncate">Profile
                             </h2>
                             <p id="current-section-subtitle" class="text-sm text-g-gray">Account and app settings are
@@ -506,6 +506,8 @@
                         <div class="mt-4 flex items-center gap-2">
                             <button id="btn-save-system-notifications"
                                 class="rounded-[10px] bg-g-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">Save notifications</button>
+                            <button id="btn-test-brrr"
+                                class="rounded-[10px] border border-g-border bg-white px-4 py-2 text-sm font-medium text-g-black transition-colors hover:bg-[#F7F8FA]">Send test</button>
                             <span id="system-notifications-status" class="text-xs text-g-gray"></span>
                         </div>
                     </div>
@@ -576,7 +578,7 @@
                         ${group.items.map((item) => `
                             <button type="button" data-section-id="${escHtml(item.sectionId)}" class="settings-nav-button border border-transparent bg-white text-g-gray hover:border-g-border hover:bg-[#F7F8FA]">
                                 <span class="text-sm font-medium">${escHtml(item.label)}</span>
-                                <span class="text-xs text-g-gray">Open</span>
+                                <!-- <span class="text-xs text-g-gray">Open</span> -->
                             </button>
                         `).join('')}
                     </div>
@@ -637,7 +639,7 @@
                 id: 'profile',
                 label: 'Profile',
                 group: 'Profile',
-                subtitle: 'Account details and sign-in actions backed by users.',
+                subtitle: 'Account details and sign-in actions.',
                 kind: 'profile',
                 load: async () => currentUser,
                 bind: () => {
@@ -713,6 +715,34 @@
                                 status.classList.remove('text-green-700', 'text-g-gray')
                                 status.classList.add('text-red-500')
                             }
+                        }
+                    })
+
+                    qs('#btn-test-brrr')?.addEventListener('click', async () => {
+                        const btn = qs('#btn-test-brrr')
+                        const status = qs('#system-notifications-status')
+                        if (btn) btn.setAttribute('disabled', '')
+                        if (status) {
+                            status.textContent = 'Sending...'
+                            status.classList.remove('text-red-500', 'text-green-700')
+                            status.classList.add('text-g-gray')
+                        }
+                        try {
+                            const res = await fetch('/api/notifications/test', { method: 'POST' })
+                            const json = await res.json()
+                            if (status) {
+                                status.textContent = res.ok ? 'Test notification sent!' : (json.error || 'Failed.')
+                                status.classList.remove('text-g-gray')
+                                status.classList.add(res.ok ? 'text-green-700' : 'text-red-500')
+                            }
+                        } catch (error) {
+                            if (status) {
+                                status.textContent = error instanceof Error ? error.message : 'Network error.'
+                                status.classList.remove('text-g-gray', 'text-green-700')
+                                status.classList.add('text-red-500')
+                            }
+                        } finally {
+                            if (btn) btn.removeAttribute('disabled')
                         }
                     })
                 },
