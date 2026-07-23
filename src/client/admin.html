@@ -112,8 +112,19 @@
             background: white;
         }
 
+        #admin-drawer {
+            background: white;
+            overflow-y: auto;
+        }
+
         @media (min-width: 1024px) {
             .admin-panel {
+                border-radius: 24px;
+                border: 1px solid #E3E3E3;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            #admin-drawer {
                 border-radius: 24px;
                 border: 1px solid #E3E3E3;
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -193,8 +204,8 @@
         <div class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
             <!-- ── Sidebar (mobile drawer + desktop) ── -->
             <aside id="admin-drawer"
-                class="admin-panel fixed inset-y-0 left-0 z-40 w-[88vw] max-w-[280px] -translate-x-full border-r border-g-border shadow-2xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:rounded-[24px] lg:border lg:shadow-sm">
-                <nav id="admin-nav" class="p-4 space-y-6 lg:p-5"></nav>
+                class="admin-panel fixed inset-y-0 left-0 z-40 w-[88vw] max-w-[280px] -translate-x-full border-r border-g-border shadow-2xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:rounded-[24px] lg:border lg:shadow-sm lg:overflow-y-auto">
+                <nav id="admin-nav" class="p-4 space-y-6 lg:p-5 lg:flex lg:flex-col"></nav>
             </aside>
 
             <!-- ── Content Area ── -->
