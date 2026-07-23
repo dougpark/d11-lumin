@@ -32,10 +32,8 @@
 - verify the invite code is valid and < max_uses
 - increment use_count after successful registration
 
-## settings.html
-- add a new admin section 
-- add a new form for invite codes
-- show admin section only to users with admin privileges, otherwise hidden
+## modify admin.html
+- add a new section for invite codes and create a new card for invite codes
 
 ## invite code generation
 - Standard UUIDv4 or a cryptographically secure 32-character hex token works great here
