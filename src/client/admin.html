@@ -39,14 +39,110 @@
                 transform: rotate(360deg);
             }
         }
+
+        .admin-nav-button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.75rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+            background: white;
+            color: #474747;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .admin-nav-button:hover {
+            border-color: #E3E3E3;
+            background: #F7F8FA;
+        }
+
+        .admin-nav-button[data-active="true"] {
+            border-color: #4285F4;
+            background: #F7F8FA;
+            color: #4285F4;
+            font-weight: 600;
+        }
+
+        #admin-nav {
+            padding: 1rem 1rem;
+        }
+
+        @media (min-width: 1024px) {
+            #admin-nav {
+                padding: 1.25rem;
+            }
+        }
+
+        #admin-drawer {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            width: 88vw;
+            max-width: 280px;
+            background: white;
+            border-right: 1px solid #E3E3E3;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            transform: translateX(-100%);
+        }
+
+        #admin-drawer.show {
+            transform: translateX(0);
+        }
+
+        @media (min-width: 1024px) {
+            #admin-drawer {
+                position: static;
+                inset: auto;
+                width: auto;
+                max-width: none;
+                background: transparent;
+                border: none;
+                transform: none;
+                z-index: auto;
+                overflow-y: visible;
+            }
+        }
+
+        .admin-panel {
+            background: white;
+        }
+
+        @media (min-width: 1024px) {
+            .admin-panel {
+                border-radius: 24px;
+                border: 1px solid #E3E3E3;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        #admin-drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 30;
+        }
+
+        #admin-drawer-overlay.hidden {
+            display: none;
+        }
     </style>
 </head>
 
 <body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
 
-    <!-- ── Nav ── -->
-    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border">
-        <div class="max-w-5xl mx-auto px-6 h-16 flex items-center gap-3">
+    <!-- ── Header ── -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+            <button id="btn-drawer-toggle" class="lg:hidden p-2 text-g-gray hover:text-g-blue transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
             <a href="/start" class="flex-shrink-0">
                 <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
             </a>
@@ -70,6 +166,9 @@
         </div>
     </header>
 
+    <!-- ── Drawer overlay ── -->
+    <div id="admin-drawer-overlay" class="hidden lg:hidden"></div>
+
     <!-- ── Loading ── -->
     <div id="loading" class="flex items-center justify-center py-40">
         <div class="spinner"></div>
@@ -77,7 +176,7 @@
 
     <!-- ── Error ── -->
     <div id="error-state" class="hidden text-center py-40 px-6">
-        <p class="font-semibold text-g-black mb-1">Could not load stats</p>
+        <p class="font-semibold text-g-black mb-1">Could not load admin panel</p>
         <p class="text-sm text-g-gray" id="error-msg">Please check your login and try again.</p>
         <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Dashboard</a>
     </div>
@@ -89,333 +188,481 @@
         <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Dashboard</a>
     </div>
 
-    <!-- ── Content ── -->
-    <main id="content" class="hidden max-w-5xl mx-auto px-6 py-8 space-y-8">
+    <!-- ── Main Content ── -->
+    <main id="content" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8">
+        <div class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <!-- ── Sidebar (mobile drawer + desktop) ── -->
+            <aside id="admin-drawer"
+                class="admin-panel fixed inset-y-0 left-0 z-40 w-[88vw] max-w-[280px] -translate-x-full border-r border-g-border shadow-2xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:rounded-[24px] lg:border lg:shadow-sm">
+                <nav id="admin-nav" class="p-4 space-y-6 lg:p-5"></nav>
+            </aside>
 
-        <!-- Section: Bookmarks -->
-        <section>
-            <button onclick="toggleSection('bookmarks')"
-                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
-                <h2 class="text-sm font-semibold text-g-black">Bookmarks</h2>
-                <svg id="chevron-bookmarks"
-                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            <div id="body-bookmarks" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-                <div class="bg-white border border-g-border rounded-[16px] p-4 col-span-2 sm:col-span-1 lg:col-span-2">
-                    <p class="text-xs text-g-gray mb-1">Total</p>
-                    <p class="text-3xl font-bold text-g-black" id="bm-total">—</p>
+            <!-- ── Content Area ── -->
+            <section class="min-w-0">
+                <div class="admin-panel rounded-[24px] border border-g-border shadow-sm">
+                    <div id="section-header"
+                        class="flex items-start justify-between gap-4 border-b border-g-border px-4 py-4 sm:px-6"></div>
+                    <div id="section-content" class="p-4 sm:p-6 lg:p-8 space-y-6"></div>
                 </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">Public</p>
-                    <p class="text-2xl font-bold text-green-600" id="bm-public">—</p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">Private</p>
-                    <p class="text-2xl font-bold text-g-black" id="bm-private">—</p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">AI Processed</p>
-                    <p class="text-2xl font-bold text-purple-600" id="bm-ai">—</p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">Full Text</p>
-                    <p class="text-2xl font-bold text-g-blue" id="bm-ft-completed">—</p>
-                    <p class="text-[11px] text-g-gray mt-0.5" id="bm-ft-failed"></p>
-                    <p class="text-[11px] text-yellow-600 mt-0.5" id="bm-ft-short"></p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">New (7d)</p>
-                    <p class="text-2xl font-bold text-g-blue" id="bm-7d">—</p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">New (30d)</p>
-                    <p class="text-2xl font-bold text-g-blue" id="bm-30d">—</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Section: Site -->
-        <section>
-            <button onclick="toggleSection('site')"
-                class="w-full flex items-center justify-between bg-white border border-g-border rounded-[16px] px-5 py-3.5 hover:bg-[#F3F4F6] transition-colors cursor-pointer mb-3 group">
-                <h2 class="text-sm font-semibold text-g-black">Site</h2>
-                <svg id="chevron-site"
-                    class="w-4 h-4 text-g-gray group-hover:text-g-black transition-transform duration-200" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            <div id="body-site" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">Users</p>
-                    <p class="text-2xl font-bold text-g-black" id="stat-users">—</p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">API Tokens</p>
-                    <p class="text-2xl font-bold text-g-black" id="stat-tokens">—</p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">RSS Feeds</p>
-                    <p class="text-2xl font-bold text-g-black" id="stat-feeds">—</p>
-                    <p class="text-[11px] text-g-gray mt-0.5" id="stat-feeds-active"></p>
-                </div>
-                <div class="bg-white border border-g-border rounded-[16px] p-4">
-                    <p class="text-xs text-g-gray mb-1">Live RSS Items</p>
-                    <p class="text-2xl font-bold text-g-black" id="stat-rss-items">—</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- ── Tabs: Tags / Feeds / Tokens / Users ──────────────────────────── -->
-        <div>
-
-            <!-- Tab bar -->
-            <div class="flex bg-white border border-g-border rounded-[16px] p-1 gap-1 mb-4 overflow-x-auto">
-                <button id="tab-btn-tags" onclick="switchTab('tags')"
-                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap bg-[#F0F2F5] text-g-black">
-                    Top Tags
-                </button>
-                <button id="tab-btn-feeds" onclick="switchTab('feeds')"
-                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap text-g-gray hover:text-g-black">
-                    RSS Feeds
-                </button>
-                <button id="tab-btn-tokens" onclick="switchTab('tokens')"
-                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap text-g-gray hover:text-g-black">
-                    API Tokens
-                </button>
-                <button id="tab-btn-users" onclick="switchTab('users')"
-                    class="flex-1 text-sm font-medium rounded-[12px] px-4 py-2 transition-colors whitespace-nowrap text-g-gray hover:text-g-black">
-                    Users
-                </button>
-            </div>
-
-            <!-- Tab: Top Tags -->
-            <div id="body-tags" class="bg-white border border-g-border rounded-[16px] p-5">
-                <div id="top-tags" class="flex flex-wrap gap-2"></div>
-            </div>
-
-            <!-- Tab: RSS Feeds (lazy-loaded) -->
-            <div id="body-feeds" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
-                <!-- Add feed form -->
-                <div class="px-5 py-4 border-b border-g-border bg-[#FAFAFA]">
-                    <div class="flex flex-col sm:flex-row gap-2">
-                        <input id="feed-url-input" type="url" placeholder="https://example.com/feed.xml"
-                            class="flex-1 text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
-                            oninput="clearFeedTestResult()" />
-                        <input id="feed-name-input" type="text" placeholder="Feed name"
-                            class="w-full sm:w-44 text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
-                        <button onclick="testFeed()"
-                            class="text-sm font-medium text-g-blue border border-g-blue rounded-[10px] px-4 py-2 hover:bg-g-blue hover:text-white transition-colors whitespace-nowrap">
-                            Test
-                        </button>
-                        <button onclick="addFeed()"
-                            class="text-sm font-medium bg-g-blue text-white rounded-[10px] px-4 py-2 hover:bg-blue-600 transition-colors whitespace-nowrap">
-                            Add Feed
-                        </button>
-                    </div>
-                    <div id="feed-test-result" class="hidden mt-2 text-xs rounded-[8px] px-3 py-2"></div>
-                </div>
-                <!-- Feed list -->
-                <div id="feeds-loading" class="flex items-center justify-center py-10">
-                    <div class="spinner"></div>
-                </div>
-                <div id="feeds-error" class="hidden text-center py-10 text-sm text-g-gray">Could not load feeds.</div>
-                <div id="feeds-list" class="hidden divide-y divide-g-border"></div>
-                <div id="feeds-empty" class="hidden text-center py-10 text-sm text-g-gray">No feeds yet. Add one above.
-                </div>
-            </div>
-
-            <!-- Tab: API Tokens (lazy-loaded) -->
-            <div id="body-tokens" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
-                <div id="tokens-loading" class="flex items-center justify-center py-10">
-                    <div class="spinner"></div>
-                </div>
-                <div id="tokens-error" class="hidden text-center py-10 text-sm text-g-gray">Could not load tokens.</div>
-                <div id="tokens-list" class="hidden divide-y divide-g-border"></div>
-                <div id="tokens-empty" class="hidden text-center py-10 text-sm text-g-gray">No API tokens found.</div>
-            </div>
-
-            <!-- Tab: Users (lazy-loaded) -->
-            <div id="body-users" class="hidden bg-white border border-g-border rounded-[16px] overflow-hidden">
-                <div id="users-loading" class="flex items-center justify-center py-10">
-                    <div class="spinner"></div>
-                </div>
-                <div id="users-error" class="hidden text-center py-10 text-sm text-g-gray">Could not load users.</div>
-                <div id="users-list" class="hidden divide-y divide-g-border"></div>
-            </div>
-
-        </div><!-- end tabs -->
-
+            </section>
+        </div>
     </main>
 
     <script>
         function qs(sel) { return document.querySelector(sel) }
+        function qsa(sel) { return document.querySelectorAll(sel) }
         function escHtml(s) {
             return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         }
         function fmt(n) { return Number(n).toLocaleString() }
 
-        function setHeaderUserName(user) {
-            const el = qs('#header-user-name')
-            if (!el || !user) return
-            el.textContent = user.full_name || user.slug_prefix || 'User'
+        let currentUserId = null
+        let currentSectionId = null
+        const SECTION_REGISTRY = new Map()
+        const SECTION_SEQUENCE = []
+        let adminData = null
+
+        // ── Section registry ──
+        function buildSectionRegistry() {
+            SECTION_SEQUENCE.length = 0
+            SECTION_REGISTRY.clear()
+
+            const sections = [
+                {
+                    id: 'stats',
+                    label: 'Stats',
+                    group: 'Admin',
+                    subtitle: 'Bookmarks and site-wide statistics.',
+                    load: async () => adminData,
+                },
+                {
+                    id: 'top-tags',
+                    label: 'Top Tags',
+                    group: 'Admin',
+                    subtitle: 'Most-used tags across all bookmarks.',
+                    load: async () => adminData,
+                },
+                {
+                    id: 'rss-feeds',
+                    label: 'RSS Feeds',
+                    group: 'Admin',
+                    subtitle: 'Manage RSS feeds and automation.',
+                    load: async () => {
+                        if (!window.adminRssLoaded) {
+                            window.adminRssLoaded = true
+                            const token = localStorage.getItem('d11_token')
+                            const res = await fetch('/api/admin/feeds', { headers: { 'Authorization': 'Bearer ' + token } })
+                            if (!res.ok) return { feeds: [] }
+                            const data = await res.json()
+                            return { feeds: data.feeds }
+                        }
+                        return { feeds: window.adminFeedsCache || [] }
+                    },
+                },
+                {
+                    id: 'api-tokens',
+                    label: 'API Tokens',
+                    group: 'Admin',
+                    subtitle: 'Manage system-wide API tokens.',
+                    load: async () => {
+                        if (!window.adminTokensLoaded) {
+                            window.adminTokensLoaded = true
+                            const token = localStorage.getItem('d11_token')
+                            const res = await fetch('/api/admin/tokens', { headers: { 'Authorization': 'Bearer ' + token } })
+                            if (!res.ok) return { tokens: [] }
+                            const data = await res.json()
+                            return { tokens: data.tokens }
+                        }
+                        return { tokens: window.adminTokensCache || [] }
+                    },
+                },
+                {
+                    id: 'users',
+                    label: 'Users',
+                    group: 'Admin',
+                    subtitle: 'Manage user accounts and permissions.',
+                    load: async () => {
+                        if (!window.adminUsersLoaded) {
+                            window.adminUsersLoaded = true
+                            const token = localStorage.getItem('d11_token')
+                            const res = await fetch('/api/admin/users', { headers: { 'Authorization': 'Bearer ' + token } })
+                            if (!res.ok) return { users: [] }
+                            const data = await res.json()
+                            return { users: data.users }
+                        }
+                        return { users: window.adminUsersCache || [] }
+                    },
+                },
+            ]
+
+            sections.forEach(s => {
+                SECTION_SEQUENCE.push(s.id)
+                SECTION_REGISTRY.set(s.id, s)
+            })
         }
 
-        let currentUserId = null
+        // ── Navigation ──
+        function renderNav() {
+            const nav = qs('#admin-nav')
+            const groups = []
 
-        async function boot() {
-            const token = localStorage.getItem('d11_token')
-            if (!token) { location.href = '/'; return }
-
-            // Fetch /me first to get current user id and verify admin
-            let me
-            try {
-                const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
-                if (!meRes.ok) { location.href = '/'; return }
-                me = await meRes.json()
-                currentUserId = me.id
-                setHeaderUserName(me)
-                window.LuminSuiteMenu.setAdminAccess(me.is_admin === 1)
-            } catch { location.href = '/'; return }
-
-            let data
-            try {
-                const res = await fetch('/api/admin/stats', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                })
-                if (res.status === 401) { location.href = '/'; return }
-                if (res.status === 403) {
-                    qs('#loading').classList.add('hidden')
-                    qs('#no-access-state').classList.remove('hidden')
-                    return
+            for (const sectionId of SECTION_SEQUENCE) {
+                const def = SECTION_REGISTRY.get(sectionId)
+                if (!def) continue
+                const groupName = def.group || 'Admin'
+                let group = groups.find((entry) => entry.groupName === groupName)
+                if (!group) {
+                    group = { groupName, items: [] }
+                    groups.push(group)
                 }
-                if (!res.ok) throw new Error('HTTP ' + res.status)
-                data = await res.json()
-            } catch (e) {
-                qs('#loading').classList.add('hidden')
-                qs('#error-state').classList.remove('hidden')
-                qs('#error-msg').textContent = String(e)
-                return
+                group.items.push({ sectionId, label: def.label })
             }
 
-            // Bookmarks
-            qs('#bm-total').textContent = fmt(data.bookmarks.total)
-            qs('#bm-public').textContent = fmt(data.bookmarks.public)
-            qs('#bm-private').textContent = fmt(data.bookmarks.private)
-            qs('#bm-ai').textContent = fmt(data.bookmarks.ai_processed)
-            const ftFailed = data.bookmarks.ft_failed ?? 0
-            const ftCompleted = data.bookmarks.ft_completed ?? 0
+            // Build the navigation with close button on mobile
+            nav.innerHTML = `
+                <div class="flex items-center justify-between lg:hidden mb-4 pb-2 border-b border-g-border">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Admin</p>
+                        <p class="text-sm font-semibold text-g-black">Navigate sections</p>
+                    </div>
+                    <button id="btn-nav-close" class="rounded-full p-2 text-g-gray hover:bg-[#F3F4F6]" aria-label="Close admin navigation">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                ${groups.map((group) => `
+                    <section class="space-y-2">
+                        <div class="px-1">
+                            <h3 class="text-xs font-semibold uppercase tracking-[0.22em] text-g-gray">${escHtml(group.groupName)}</h3>
+                        </div>
+                        <div class="space-y-2">
+                            ${group.items.map((item) => `
+                                <button type="button" data-section-id="${escHtml(item.sectionId)}" class="admin-nav-button">
+                                    <span class="font-medium">${escHtml(item.label)}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </section>
+                `).join('')}
+            `
+
+            // Add close button listener
+            qs('#btn-nav-close').addEventListener('click', closeDrawer)
+
+            nav.querySelectorAll('button[data-section-id]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const sectionId = button.getAttribute('data-section-id') || 'stats'
+                    setActiveSection(sectionId)
+                    closeDrawer()
+                })
+            })
+        }
+
+        function updateNavActiveState() {
+            qsa('button[data-section-id]').forEach((button) => {
+                const isActive = button.getAttribute('data-section-id') === currentSectionId
+                button.setAttribute('data-active', isActive ? 'true' : 'false')
+            })
+        }
+
+        function closeDrawer() {
+            const drawer = qs('#admin-drawer')
+            const overlay = qs('#admin-drawer-overlay')
+            drawer.classList.remove('show')
+            overlay.classList.add('hidden')
+        }
+
+        function openDrawer() {
+            const drawer = qs('#admin-drawer')
+            const overlay = qs('#admin-drawer-overlay')
+            drawer.classList.add('show')
+            overlay.classList.remove('hidden')
+        }
+
+        // ── Section rendering ──
+        function renderSectionHeader(sectionId) {
+            const def = SECTION_REGISTRY.get(sectionId)
+            if (!def) return ''
+            return `
+                <div class="min-w-0">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">${escHtml(def.group || 'Admin')}</p>
+                    <h2 class="mt-1 text-lg font-semibold text-g-black">${escHtml(def.label)}</h2>
+                    <p class="text-sm text-g-gray">${escHtml(def.subtitle)}</p>
+                </div>
+            `
+        }
+
+        function renderLoadingPanel() {
+            return `<div class="flex items-center justify-center py-12"><div class="spinner"></div></div>`
+        }
+
+        function renderErrorPanel(msg) {
+            return `<div class="text-center py-8 px-4"><p class="text-sm text-red-600">Error: ${escHtml(msg)}</p></div>`
+        }
+
+        function renderStatsSection(data) {
+            const bm = data?.bookmarks || {}
+            const ftFailed = bm.ft_failed ?? 0
+            const ftCompleted = bm.ft_completed ?? 0
             const ftTotal = ftCompleted + ftFailed
             const ftFailPct = ftTotal > 0 ? ((ftFailed / ftTotal) * 100).toFixed(1) : '0.0'
-            qs('#bm-ft-completed').textContent = fmt(ftCompleted)
-            qs('#bm-ft-failed').textContent = `${fmt(ftFailed)} failed · ${ftFailPct}%`
-            const ftShort = data.bookmarks.ft_short ?? 0
-            qs('#bm-ft-short').textContent = ftShort > 0 ? `${fmt(ftShort)} soft fail (<500)` : ''
-            qs('#bm-7d').textContent = fmt(data.bookmarks.new_7d)
-            qs('#bm-30d').textContent = fmt(data.bookmarks.new_30d)
+            const ftShort = bm.ft_short ?? 0
 
-            // Site
-            qs('#stat-users').textContent = fmt(data.users)
-            qs('#stat-tokens').textContent = fmt(data.api_tokens)
-            qs('#stat-feeds').textContent = fmt(data.rss_feeds.total)
-            qs('#stat-feeds-active').textContent = data.rss_feeds.active + ' active'
-            qs('#stat-rss-items').textContent = fmt(data.rss_items)
+            return `
+                <section class="space-y-4">
+                    <div class="rounded-[18px] border border-g-border bg-white p-5">
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Bookmarks</p>
+                        <h3 class="mt-1 text-lg font-semibold text-g-black">Statistics</h3>
+                        <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">Total</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(bm.total ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">Public</p>
+                                <p class="text-2xl font-bold text-green-600 mt-1">${fmt(bm.public ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">Private</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(bm.private ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">AI Processed</p>
+                                <p class="text-2xl font-bold text-purple-600 mt-1">${fmt(bm.ai_processed ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">Full Text</p>
+                                <p class="text-xl font-bold text-g-blue mt-1">${fmt(ftCompleted)}</p>
+                                <p class="text-[11px] text-g-gray mt-0.5">${fmt(ftFailed)} failed (${ftFailPct}%)</p>
+                                ${ftShort > 0 ? `<p class="text-[11px] text-yellow-600 mt-0.5">${fmt(ftShort)} soft fail</p>` : ''}
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">New (7d)</p>
+                                <p class="text-2xl font-bold text-g-blue mt-1">${fmt(bm.new_7d ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">New (30d)</p>
+                                <p class="text-2xl font-bold text-g-blue mt-1">${fmt(bm.new_30d ?? 0)}</p>
+                            </div>
+                        </div>
+                    </div>
 
-            // Top tags
-            const tagHtml = (data.top_tags ?? []).map(({ tag, count }) =>
-                `<span class="flex items-center gap-1.5 bg-[#F3F4F6] text-g-gray text-xs px-3 py-1 rounded-full">
-                    <span class="font-medium text-g-black">#${escHtml(tag)}</span>
-                    <span class="text-[11px]">${fmt(count)}</span>
-                </span>`
-            ).join('')
-            qs('#top-tags').innerHTML = tagHtml || '<span class="text-sm text-g-gray">No tags found.</span>'
-
-            qs('#loading').classList.add('hidden')
-            qs('#content').classList.remove('hidden')
+                    <div class="rounded-[18px] border border-g-border bg-white p-5">
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Site</p>
+                        <h3 class="mt-1 text-lg font-semibold text-g-black">Overview</h3>
+                        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">Users</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.users ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">API Tokens</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.api_tokens ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">RSS Feeds</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.rss_feeds?.total ?? 0)}</p>
+                                <p class="text-[11px] text-g-gray mt-0.5">${data?.rss_feeds?.active ?? 0} active</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">RSS Items</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.rss_items ?? 0)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            `
         }
 
-        // ── Tabs ──────────────────────────────────────────────────────────────
-        const sectionLoaded = {}
-        const TABS = ['tags', 'feeds', 'tokens', 'users']
-
-        function switchTab(name) {
-            TABS.forEach(t => {
-                qs(`#body-${t}`).classList.toggle('hidden', t !== name)
-                const btn = qs(`#tab-btn-${t}`)
-                if (t === name) {
-                    btn.classList.add('bg-[#F0F2F5]', 'text-g-black')
-                    btn.classList.remove('text-g-gray')
-                } else {
-                    btn.classList.remove('bg-[#F0F2F5]', 'text-g-black')
-                    btn.classList.add('text-g-gray')
+        function renderTopTagsSection(data) {
+            const tags = data?.top_tags ?? []
+            return `
+                <section class="rounded-[18px] border border-g-border bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Trending</p>
+                    <h3 class="mt-1 text-lg font-semibold text-g-black">Top Tags</h3>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        ${tags.length === 0 ? '<span class="text-sm text-g-gray">No tags found.</span>' :
+                    tags.map(({ tag, count }) =>
+                        `<span class="flex items-center gap-1.5 bg-[#F3F4F6] text-g-gray text-xs px-3 py-1.5 rounded-full">
+                                    <span class="font-medium text-g-black">#${escHtml(tag)}</span>
+                                    <span class="text-[11px]">${fmt(count)}</span>
+                                </span>`
+                    ).join('')
                 }
-            })
-            if (!sectionLoaded[name]) {
-                sectionLoaded[name] = true
-                const token = localStorage.getItem('d11_token')
-                if (name === 'users') loadUsers(token)
-                if (name === 'feeds') loadFeeds(token)
-                if (name === 'tokens') loadAdminTokens(token)
-            }
+                    </div>
+                </section>
+            `
         }
 
-        async function loadUsers(token) {
-            qs('#users-loading').classList.remove('hidden')
-            qs('#users-error').classList.add('hidden')
-            qs('#users-list').classList.add('hidden')
-            try {
-                const res = await fetch('/api/admin/users', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                })
-                if (!res.ok) throw new Error('HTTP ' + res.status)
-                const data = await res.json()
-                renderUsers(data.users, token)
-            } catch {
-                qs('#users-loading').classList.add('hidden')
-                qs('#users-error').classList.remove('hidden')
-            }
+        function renderRssFeedsSection(data) {
+            return renderRssFeeds(data?.feeds || [])
         }
 
-        function renderUsers(users, token) {
-            const list = qs('#users-list')
-            list.innerHTML = users.map(u => {
-                const isSelf = u.id === currentUserId
-                const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'
-                const lastAdded = u.last_bookmark_at ? new Date(u.last_bookmark_at).toLocaleDateString() : 'never'
-                const total = u.bookmark_total ?? 0
-                const pub = u.bookmark_public ?? 0
-                const priv = u.bookmark_private ?? 0
-                const ai = u.bookmark_ai ?? 0
-                const aiPct = total > 0 ? Math.round(ai / total * 100) : 0
-                const adminBadge = u.is_admin
-                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Admin</span>`
-                    : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-g-gray">User</span>`
-                const adminBtn = isSelf
-                    ? `<span class="text-xs text-g-gray italic">you</span>`
-                    : u.is_admin
-                        ? `<button onclick="toggleAdmin(${u.id}, false, '${escHtml(u.slug_prefix)}')" class="text-xs text-red-500 hover:text-red-700 hover:underline transition-colors">Remove admin</button>`
-                        : `<button onclick="toggleAdmin(${u.id}, true, '${escHtml(u.slug_prefix)}')" class="text-xs text-g-blue hover:text-blue-700 hover:underline transition-colors">Make admin</button>`
-                const aiPrivateBtn = u.ai_allow_private
-                    ? `<button onclick="toggleAiPrivate(${u.id}, false)" class="text-xs text-purple-600 hover:text-purple-800 hover:underline transition-colors" title="AI enriches all bookmarks — click to restrict to public only">AI: all</button>`
-                    : `<button onclick="toggleAiPrivate(${u.id}, true)" class="text-xs text-g-gray hover:text-g-black hover:underline transition-colors" title="AI only enriches public bookmarks — click to allow all">AI: public only</button>`
-                const deleteBtn = isSelf ? '' :
-                    `<span class="text-g-border text-xs select-none">|</span>
-                     <button onclick="deleteUser(${u.id}, '${escHtml(u.slug_prefix)}')" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Delete</button>`
-                const statPill = (label, value, color) =>
-                    `<span class="inline-flex items-center gap-1 text-[11px] text-g-gray">
-                        <span class="font-medium ${color}">${value}</span>
-                        <span>${label}</span>
-                    </span>`
-                return `<div class="px-5 py-4 hover:bg-[#FAFAFA] transition-colors" id="user-row-${u.id}">
-                    <!-- Row 1: identity + controls -->
-                    <div class="flex items-center justify-between gap-3 mb-1.5">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="font-semibold text-g-black">@${escHtml(u.slug_prefix)}</span>
-                            ${u.full_name ? `<span class="text-sm text-g-gray truncate">${escHtml(u.full_name)}</span>` : ''}
-                            ${u.email ? `<span class="text-xs text-g-gray truncate hidden sm:inline">${escHtml(u.email)}</span>` : ''}
+        function renderRssFeeds(feeds) {
+            return `
+                <section class="rounded-[18px] border border-g-border bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Feeds</p>
+                    <h3 class="mt-1 text-lg font-semibold text-g-black">RSS Management</h3>
+
+                    <!-- Add feed form -->
+                    <div class="mt-4 space-y-3 pb-4 border-b border-g-border">
+                        <div class="grid sm:grid-cols-2 gap-2">
+                            <input id="feed-url-input" type="url" placeholder="https://example.com/feed.xml"
+                                class="text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue"
+                                oninput="clearFeedTestResult()" />
+                            <input id="feed-name-input" type="text" placeholder="Feed name"
+                                class="text-sm border border-g-border rounded-[10px] px-3 py-2 outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="testFeed()" class="text-sm font-medium text-g-blue border border-g-blue rounded-[10px] px-4 py-2 hover:bg-g-blue hover:text-white transition-colors">Test</button>
+                            <button onclick="addFeed()" class="text-sm font-medium bg-g-blue text-white rounded-[10px] px-4 py-2 hover:bg-blue-600 transition-colors">Add Feed</button>
+                        </div>
+                        <div id="feed-test-result" class="hidden text-xs rounded-[8px] px-3 py-2"></div>
+                    </div>
+
+                    <!-- Feeds list -->
+                    <div id="feeds-content" class="mt-4">
+                        ${feeds.length === 0
+                    ? '<p class="text-sm text-g-gray text-center py-8">No RSS feeds yet. Add one above.</p>'
+                    : `<div class="space-y-3">${feeds.map(f => renderFeedRow(f)).join('')}</div>`
+                }
+                    </div>
+                </section>
+            `
+        }
+
+        function renderFeedRow(f) {
+            const activeBadge = f.is_active
+                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
+                : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-g-gray">Paused</span>`
+            const toggleBtn = f.is_active
+                ? `<button onclick="toggleFeedActive(${f.id}, false)" class="text-xs text-g-gray hover:text-g-black hover:underline">Pause</button>`
+                : `<button onclick="toggleFeedActive(${f.id}, true)" class="text-xs text-green-600 hover:text-green-800 hover:underline">Resume</button>`
+            const added = f.created_at ? new Date(f.created_at).toLocaleDateString() : '—'
+            return `
+                <div class="bg-[#FAFAFA] rounded-[12px] p-3 border border-g-border/50" id="feed-row-${f.id}">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold text-g-black text-sm">${escHtml(f.name)}</p>
+                            <a href="${escHtml(f.url)}" target="_blank" rel="noopener" class="text-xs text-g-gray hover:text-g-blue truncate block">${escHtml(f.url)}</a>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            ${activeBadge}
+                            ${toggleBtn}
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-g-gray mb-2">
+                        <span><span class="font-medium text-g-black">${fmt(f.item_count ?? 0)}</span> items</span>
+                        <span><span class="font-medium text-purple-600">${fmt(f.ai_pending ?? 0)}</span> AI pending</span>
+                        <span><span class="font-medium text-g-black">${relativeTime(f.last_fetched_at)}</span> fetched</span>
+                        <span><span class="font-medium text-g-black">${added}</span> added</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="fetchFeedNow(${f.id})" class="text-xs text-g-blue hover:text-blue-700 hover:underline">Fetch now</button>
+                        <span class="text-g-border text-xs select-none">|</span>
+                        <button onclick="deleteFeed(${f.id}, '${escHtml(f.name)}', ${f.item_count ?? 0})" class="text-xs text-red-400 hover:text-red-600 hover:underline">Delete</button>
+                    </div>
+                </div>
+            `
+        }
+
+        function renderApiTokensSection(data) {
+            return renderApiTokensList(data?.tokens || [])
+        }
+
+        function renderApiTokensList(tokens) {
+            return `
+                <section class="rounded-[18px] border border-g-border bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Tokens</p>
+                    <h3 class="mt-1 text-lg font-semibold text-g-black">API Tokens</h3>
+                    <div class="mt-4">
+                        ${tokens.length === 0
+                    ? '<p class="text-sm text-g-gray text-center py-8">No API tokens found.</p>'
+                    : `<div class="space-y-3">${tokens.map(t => renderTokenRow(t)).join('')}</div>`
+                }
+                    </div>
+                </section>
+            `
+        }
+
+        function renderTokenRow(t) {
+            let scopes = []
+            try { scopes = JSON.parse(t.scopes) } catch { }
+            const expires = t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'never'
+            const created = t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'
+            return `
+                <div class="bg-[#FAFAFA] rounded-[12px] p-3 border border-g-border/50">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <p class="font-semibold text-g-black text-sm">${escHtml(t.name)}</p>
+                                <span class="text-xs text-g-blue font-medium">@${escHtml(t.slug_prefix)}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-1">${scopes.map(s => `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#F3F4F6] text-g-gray font-mono">${escHtml(s)}</span>`).join('')}</div>
+                        </div>
+                        <button onclick="adminRevokeToken(${t.id}, '${escHtml(t.name)}', '${escHtml(t.slug_prefix)}')" class="flex-shrink-0 text-xs text-red-400 hover:text-red-600 hover:underline">Revoke</button>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-g-gray">
+                        <span><span class="font-medium text-g-black">${relativeTime(t.last_used_at)}</span> last used</span>
+                        <span><span class="font-medium text-g-black">${expires}</span> expires</span>
+                        <span><span class="font-medium text-g-black">${created}</span> created</span>
+                    </div>
+                </div>
+            `
+        }
+
+        function renderUsersSection(data) {
+            return renderUsersList(data?.users || [])
+        }
+
+        function renderUsersList(users) {
+            return `
+                <section class="rounded-[18px] border border-g-border bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Users</p>
+                    <h3 class="mt-1 text-lg font-semibold text-g-black">User Management</h3>
+                    <div class="mt-4">
+                        ${users.length === 0
+                    ? '<p class="text-sm text-g-gray text-center py-8">No users found.</p>'
+                    : `<div class="space-y-3">${users.map(u => renderUserRow(u)).join('')}</div>`
+                }
+                    </div>
+                </section>
+            `
+        }
+
+        function renderUserRow(u) {
+            const isSelf = u.id === currentUserId
+            const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'
+            const lastAdded = u.last_bookmark_at ? new Date(u.last_bookmark_at).toLocaleDateString() : 'never'
+            const total = u.bookmark_total ?? 0
+            const pub = u.bookmark_public ?? 0
+            const priv = u.bookmark_private ?? 0
+            const ai = u.bookmark_ai ?? 0
+            const aiPct = total > 0 ? Math.round(ai / total * 100) : 0
+            const adminBadge = u.is_admin
+                ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Admin</span>`
+                : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-g-gray">User</span>`
+            const adminBtn = isSelf
+                ? `<span class="text-xs text-g-gray italic">you</span>`
+                : u.is_admin
+                    ? `<button onclick="toggleAdmin(${u.id}, false, '${escHtml(u.slug_prefix)}')" class="text-xs text-red-500 hover:text-red-700 hover:underline">Remove admin</button>`
+                    : `<button onclick="toggleAdmin(${u.id}, true, '${escHtml(u.slug_prefix)}')" class="text-xs text-g-blue hover:text-blue-700 hover:underline">Make admin</button>`
+            const aiPrivateBtn = u.ai_allow_private
+                ? `<button onclick="toggleAiPrivate(${u.id}, false)" class="text-xs text-purple-600 hover:text-purple-800 hover:underline" title="AI enriches all bookmarks">AI: all</button>`
+                : `<button onclick="toggleAiPrivate(${u.id}, true)" class="text-xs text-g-gray hover:text-g-black hover:underline" title="AI only enriches public">AI: public</button>`
+            const deleteBtn = isSelf ? '' :
+                `<span class="text-g-border text-xs select-none">|</span>
+                 <button onclick="deleteUser(${u.id}, '${escHtml(u.slug_prefix)}')" class="text-xs text-red-400 hover:text-red-600 hover:underline">Delete</button>`
+            return `
+                <div class="bg-[#FAFAFA] rounded-[12px] p-3 border border-g-border/50" id="user-row-${u.id}">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="font-semibold text-g-black">@${escHtml(u.slug_prefix)}</span>
+                                ${u.full_name ? `<span class="text-sm text-g-gray">${escHtml(u.full_name)}</span>` : ''}
+                            </div>
+                            ${u.email ? `<p class="text-xs text-g-gray">${escHtml(u.email)}</p>` : ''}
                         </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
                             ${adminBadge}
@@ -425,83 +672,61 @@
                             ${deleteBtn}
                         </div>
                     </div>
-                    <!-- Row 2: stats -->
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        ${statPill('bookmarks', fmt(total), 'text-g-black')}
-                        ${statPill('public', fmt(pub), 'text-green-600')}
-                        ${statPill('private', fmt(priv), 'text-g-gray')}
-                        ${statPill('AI', aiPct + '%', 'text-purple-600')}
-                        ${statPill('last added', lastAdded, 'text-g-black')}
-                        ${statPill('joined', joined, 'text-g-black')}
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-g-gray">
+                        <span><span class="font-medium text-g-black">${fmt(total)}</span> bookmarks</span>
+                        <span><span class="font-medium text-green-600">${fmt(pub)}</span> public</span>
+                        <span><span class="font-medium text-g-gray">${fmt(priv)}</span> private</span>
+                        <span><span class="font-medium text-purple-600">${aiPct}%</span> AI</span>
+                        <span><span class="font-medium text-g-black">${lastAdded}</span> last added</span>
+                        <span><span class="font-medium text-g-black">${joined}</span> joined</span>
                     </div>
-                </div>`
-            }).join('')
-            qs('#users-loading').classList.add('hidden')
-            qs('#users-list').classList.remove('hidden')
+                </div>
+            `
         }
 
-        async function toggleAdmin(userId, makeAdmin, handle) {
-            const action = makeAdmin ? 'Grant admin to' : 'Remove admin from'
-            if (!confirm(`${action} @${handle}?`)) return
+        function renderSectionContent(sectionId, data) {
+            if (sectionId === 'stats') return renderStatsSection(data)
+            if (sectionId === 'top-tags') return renderTopTagsSection(data)
+            if (sectionId === 'rss-feeds') return renderRssFeedsSection(data)
+            if (sectionId === 'api-tokens') return renderApiTokensSection(data)
+            if (sectionId === 'users') return renderUsersSection(data)
+            return renderErrorPanel('Unknown section')
+        }
 
-            const token = localStorage.getItem('d11_token')
+        async function loadSection(sectionId) {
+            const def = SECTION_REGISTRY.get(sectionId)
+            if (!def) {
+                qs('#section-content').innerHTML = renderErrorPanel('Unknown section')
+                return
+            }
+
+            qs('#section-header').innerHTML = renderSectionHeader(sectionId)
+            qs('#section-content').innerHTML = renderLoadingPanel()
+
             try {
-                const res = await fetch(`/api/admin/users/${userId}`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_admin: makeAdmin }),
-                })
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}))
-                    alert('Error: ' + (err.error ?? 'Unknown error'))
-                    return
-                }
-                loadUsers(token)
-            } catch (e) {
-                alert('Request failed: ' + String(e))
+                const data = await def.load()
+                qs('#section-content').innerHTML = renderSectionContent(sectionId, data)
+                updateNavActiveState()
+            } catch (error) {
+                qs('#section-content').innerHTML = renderErrorPanel(error instanceof Error ? error.message : String(error))
             }
         }
 
-        async function toggleAiPrivate(userId, newVal) {
-            const token = localStorage.getItem('d11_token')
-            try {
-                const res = await fetch(`/api/admin/users/${userId}`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ai_allow_private: newVal }),
-                })
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}))
-                    alert('Error: ' + (err.error ?? 'Unknown error'))
-                    return
-                }
-                loadUsers(token)
-            } catch (e) {
-                alert('Request failed: ' + String(e))
-            }
+        function setActiveSection(sectionId) {
+            if (!SECTION_REGISTRY.has(sectionId)) sectionId = 'stats'
+            currentSectionId = sectionId
+            history.replaceState({}, '', `?section=${sectionId}`)
+            updateNavActiveState()
+            loadSection(sectionId)
         }
 
-        async function deleteUser(userId, handle) {
-            if (!confirm(`Delete @${handle} and all their bookmarks?\n\nThis cannot be undone.`)) return
-            const token = localStorage.getItem('d11_token')
-            try {
-                const res = await fetch(`/api/admin/users/${userId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + token },
-                })
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}))
-                    alert('Error: ' + (err.error ?? 'Unknown error'))
-                    return
-                }
-                loadUsers(token)
-            } catch (e) {
-                alert('Request failed: ' + String(e))
-            }
+        function setHeaderUserName(user) {
+            const el = qs('#header-user-name')
+            if (!el || !user) return
+            el.textContent = user.full_name || user.slug_prefix || 'User'
         }
 
-        // ── RSS Feeds ─────────────────────────────────────────────────────────
-
+        // ── Utilities ──
         function relativeTime(dateStr) {
             if (!dateStr) return 'never'
             const diff = Date.now() - new Date(dateStr).getTime()
@@ -515,71 +740,7 @@
             return new Date(dateStr).toLocaleDateString()
         }
 
-        async function loadFeeds(token) {
-            qs('#feeds-loading').classList.remove('hidden')
-            qs('#feeds-error').classList.add('hidden')
-            qs('#feeds-list').classList.add('hidden')
-            qs('#feeds-empty').classList.add('hidden')
-            try {
-                const res = await fetch('/api/admin/feeds', { headers: { 'Authorization': 'Bearer ' + token } })
-                if (!res.ok) throw new Error('HTTP ' + res.status)
-                const data = await res.json()
-                renderFeeds(data.feeds)
-            } catch {
-                qs('#feeds-loading').classList.add('hidden')
-                qs('#feeds-error').classList.remove('hidden')
-            }
-        }
-
-        function renderFeeds(feeds) {
-            qs('#feeds-loading').classList.add('hidden')
-            if (!feeds || feeds.length === 0) {
-                qs('#feeds-empty').classList.remove('hidden')
-                return
-            }
-            const statPill = (label, value, color) =>
-                `<span class="inline-flex items-center gap-1 text-[11px] text-g-gray">
-                    <span class="font-medium ${color}">${value}</span>
-                    <span>${label}</span>
-                </span>`
-            qs('#feeds-list').innerHTML = feeds.map(f => {
-                const activeBadge = f.is_active
-                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>`
-                    : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F3F4F6] text-g-gray">Paused</span>`
-                const toggleBtn = f.is_active
-                    ? `<button onclick="toggleFeedActive(${f.id}, false)" class="text-xs text-g-gray hover:text-g-black hover:underline transition-colors">Pause</button>`
-                    : `<button onclick="toggleFeedActive(${f.id}, true)" class="text-xs text-green-600 hover:text-green-800 hover:underline transition-colors">Resume</button>`
-                const added = f.created_at ? new Date(f.created_at).toLocaleDateString() : '—'
-                return `<div class="px-5 py-4 hover:bg-[#FAFAFA] transition-colors" id="feed-row-${f.id}">
-                    <!-- Row 1 -->
-                    <div class="flex items-center justify-between gap-3 mb-1.5">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="font-semibold text-g-black">${escHtml(f.name)}</span>
-                            <a href="${escHtml(f.url)}" target="_blank" rel="noopener"
-                                class="text-xs text-g-gray hover:text-g-blue truncate max-w-[220px] hidden sm:inline transition-colors"
-                                title="${escHtml(f.url)}">${escHtml(f.url)}</a>
-                        </div>
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                            ${activeBadge}
-                            ${toggleBtn}
-                            <span class="text-g-border text-xs select-none">|</span>
-                            <button onclick="fetchFeedNow(${f.id})" class="text-xs text-g-blue hover:text-blue-700 hover:underline transition-colors">Fetch now</button>
-                            <span class="text-g-border text-xs select-none">|</span>
-                            <button onclick="deleteFeed(${f.id}, '${escHtml(f.name)}', ${f.item_count ?? 0})" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Delete</button>
-                        </div>
-                    </div>
-                    <!-- Row 2: stats -->
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        ${statPill('items', fmt(f.item_count ?? 0), 'text-g-black')}
-                        ${statPill('AI pending', fmt(f.ai_pending ?? 0), 'text-purple-600')}
-                        ${statPill('last fetched', relativeTime(f.last_fetched_at), 'text-g-black')}
-                        ${statPill('added', added, 'text-g-black')}
-                    </div>
-                </div>`
-            }).join('')
-            qs('#feeds-list').classList.remove('hidden')
-        }
-
+        // ── Feed management ──
         function clearFeedTestResult() {
             const el = qs('#feed-test-result')
             el.classList.add('hidden')
@@ -609,7 +770,6 @@
                 }
                 resultEl.className = 'mt-2 text-xs rounded-[8px] px-3 py-2 bg-green-50 text-green-800'
                 resultEl.textContent = `✓ "${data.feed_title}" — ${data.item_count} items, newest: "${data.newest_item?.title ?? '?'}"`
-                // Auto-populate name field if empty
                 const nameInput = qs('#feed-name-input')
                 if (!nameInput.value.trim() && data.feed_title) {
                     nameInput.value = data.feed_title
@@ -638,8 +798,8 @@
                 qs('#feed-url-input').value = ''
                 qs('#feed-name-input').value = ''
                 clearFeedTestResult()
-                sectionLoaded['feeds'] = false  // force reload
-                loadFeeds(token)
+                window.adminRssLoaded = false
+                loadSection('rss-feeds')
             } catch (e) {
                 alert('Request failed: ' + String(e))
             }
@@ -654,7 +814,8 @@
                     body: JSON.stringify({ is_active: newVal }),
                 })
                 if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
-                loadFeeds(token)
+                window.adminRssLoaded = false
+                loadSection('rss-feeds')
             } catch (e) { alert('Request failed: ' + String(e)) }
         }
 
@@ -670,7 +831,8 @@
                 const data = await res.json()
                 if (!res.ok) { alert('Error: ' + (data.error ?? 'Unknown error')); return }
                 alert(`Fetched ${data.fetched} items — ${data.inserted} new.`)
-                loadFeeds(token)
+                window.adminRssLoaded = false
+                loadSection('rss-feeds')
             } catch (e) {
                 alert('Request failed: ' + String(e))
             } finally {
@@ -687,67 +849,9 @@
                     headers: { 'Authorization': 'Bearer ' + token },
                 })
                 if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
-                loadFeeds(token)
+                window.adminRssLoaded = false
+                loadSection('rss-feeds')
             } catch (e) { alert('Request failed: ' + String(e)) }
-        }
-
-        // ── Admin API Tokens ──────────────────────────────────────────────────
-
-        async function loadAdminTokens(token) {
-            qs('#tokens-loading').classList.remove('hidden')
-            qs('#tokens-error').classList.add('hidden')
-            qs('#tokens-list').classList.add('hidden')
-            qs('#tokens-empty').classList.add('hidden')
-            try {
-                const res = await fetch('/api/admin/tokens', { headers: { 'Authorization': 'Bearer ' + token } })
-                if (!res.ok) throw new Error('HTTP ' + res.status)
-                const data = await res.json()
-                renderAdminTokens(data.tokens)
-            } catch {
-                qs('#tokens-loading').classList.add('hidden')
-                qs('#tokens-error').classList.remove('hidden')
-            }
-        }
-
-        function renderAdminTokens(tokens) {
-            qs('#tokens-loading').classList.add('hidden')
-            if (!tokens || tokens.length === 0) {
-                qs('#tokens-empty').classList.remove('hidden')
-                return
-            }
-            const statPill = (label, value, color) =>
-                `<span class="inline-flex items-center gap-1 text-[11px] text-g-gray">
-                    <span class="font-medium ${color}">${value}</span>
-                    <span>${label}</span>
-                </span>`
-            qs('#tokens-list').innerHTML = tokens.map(t => {
-                let scopes = []
-                try { scopes = JSON.parse(t.scopes) } catch { }
-                const scopePills = scopes.map(s =>
-                    `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#F3F4F6] text-g-gray font-mono">${escHtml(s)}</span>`
-                ).join('')
-                const expires = t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'never'
-                const created = t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'
-                return `<div class="px-5 py-4 hover:bg-[#FAFAFA] transition-colors">
-                    <!-- Row 1 -->
-                    <div class="flex items-center justify-between gap-3 mb-1.5">
-                        <div class="flex items-center gap-2 flex-wrap min-w-0">
-                            <span class="font-semibold text-g-black">${escHtml(t.name)}</span>
-                            <span class="text-xs text-g-blue font-medium">@${escHtml(t.slug_prefix)}</span>
-                            <div class="flex flex-wrap gap-1">${scopePills}</div>
-                        </div>
-                        <button onclick="adminRevokeToken(${t.id}, '${escHtml(t.name)}', '${escHtml(t.slug_prefix)}')"
-                            class="flex-shrink-0 text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Revoke</button>
-                    </div>
-                    <!-- Row 2: stats -->
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        ${statPill('last used', relativeTime(t.last_used_at), 'text-g-black')}
-                        ${statPill('expires', expires, t.expires_at && new Date(t.expires_at) < new Date() ? 'text-red-500' : 'text-g-black')}
-                        ${statPill('created', created, 'text-g-black')}
-                    </div>
-                </div>`
-            }).join('')
-            qs('#tokens-list').classList.remove('hidden')
         }
 
         async function adminRevokeToken(tokenId, name, handle) {
@@ -759,8 +863,105 @@
                     headers: { 'Authorization': 'Bearer ' + token },
                 })
                 if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
-                loadAdminTokens(token)
+                window.adminTokensLoaded = false
+                loadSection('api-tokens')
             } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        async function toggleAdmin(userId, makeAdmin, handle) {
+            const action = makeAdmin ? 'Grant admin to' : 'Remove admin from'
+            if (!confirm(`${action} @${handle}?`)) return
+
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_admin: makeAdmin }),
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                window.adminUsersLoaded = false
+                loadSection('users')
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        async function toggleAiPrivate(userId, newVal) {
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ai_allow_private: newVal }),
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                window.adminUsersLoaded = false
+                loadSection('users')
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        async function deleteUser(userId, handle) {
+            if (!confirm(`Delete @${handle} and all their bookmarks?\n\nThis cannot be undone.`)) return
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                window.adminUsersLoaded = false
+                loadSection('users')
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        // ── Drawer toggle ──
+        qs('#btn-drawer-toggle').addEventListener('click', openDrawer)
+        qs('#admin-drawer-overlay').addEventListener('click', closeDrawer)
+
+        // ── Boot ──
+        async function boot() {
+            const token = localStorage.getItem('d11_token')
+            if (!token) { location.href = '/'; return }
+
+            let me
+            try {
+                const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+                if (!meRes.ok) { location.href = '/'; return }
+                me = await meRes.json()
+                currentUserId = me.id
+                setHeaderUserName(me)
+                window.LuminSuiteMenu.setAdminAccess(me.is_admin === 1)
+            } catch { location.href = '/'; return }
+
+            let data
+            try {
+                const res = await fetch('/api/admin/stats', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                })
+                if (res.status === 401) { location.href = '/'; return }
+                if (res.status === 403) {
+                    qs('#loading').classList.add('hidden')
+                    qs('#no-access-state').classList.remove('hidden')
+                    return
+                }
+                if (!res.ok) throw new Error('HTTP ' + res.status)
+                data = await res.json()
+                adminData = data
+            } catch (e) {
+                qs('#loading').classList.add('hidden')
+                qs('#error-state').classList.remove('hidden')
+                qs('#error-msg').textContent = String(e)
+                return
+            }
+
+            buildSectionRegistry()
+            renderNav()
+
+            const urlParams = new URLSearchParams(location.search)
+            const initialSection = urlParams.get('section') || 'stats'
+
+            qs('#loading').classList.add('hidden')
+            qs('#content').classList.remove('hidden')
+            setActiveSection(initialSection)
         }
 
         window.LuminSuiteMenu.initMenu({
