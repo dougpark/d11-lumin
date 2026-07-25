@@ -304,6 +304,24 @@
                         return { users: window.adminUsersCache || [] }
                     },
                 },
+                {
+                    id: 'user-api-tokens',
+                    label: 'My API Tokens',
+                    group: 'Account',
+                    subtitle: 'Create and manage your personal API tokens.',
+                    load: async () => {
+                        if (!window.adminUserTokensLoaded) {
+                            window.adminUserTokensLoaded = true
+                            const token = localStorage.getItem('d11_token')
+                            const res = await fetch('/api/v1/tokens', { headers: { 'Authorization': 'Bearer ' + token } })
+                            if (!res.ok) return { tokens: [] }
+                            const data = await res.json()
+                            window.adminUserTokensCache = data.data || []
+                            return { tokens: window.adminUserTokensCache }
+                        }
+                        return { tokens: window.adminUserTokensCache || [] }
+                    },
+                },
             ]
 
             sections.forEach(s => {
@@ -703,12 +721,129 @@
             `
         }
 
+        function renderUserApiTokensSection(data) {
+            return renderUserApiTokensList(data?.tokens || [])
+        }
+
+        function renderUserApiTokensList(tokens) {
+            const isAdmin = window.adminUserIsAdmin
+            return `
+                <section class="rounded-[18px] border border-g-border bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Your Tokens</p>
+                    <h3 class="mt-1 text-lg font-semibold text-g-black">API Tokens</h3>
+
+                    <!-- Token list -->
+                    <div class="mt-4" id="user-tokens-list">
+                        ${tokens.length === 0
+                    ? '<p class="text-sm text-g-gray text-center py-8">No tokens yet. Create one below.</p>'
+                    : `<div class="space-y-3">${tokens.map(t => renderUserTokenRow(t)).join('')}</div>`
+                }
+                    </div>
+
+                    <!-- Create form -->
+                    <div class="mt-6 border-t border-g-border pt-6 space-y-4">
+                        <div>
+                            <p class="text-xs font-semibold text-g-gray uppercase tracking-wide mb-3">Create New Token</p>
+                            <input id="user-token-name" type="text" placeholder="e.g. my python script" maxlength="100"
+                                class="w-full border border-g-border rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue" />
+                        </div>
+
+                        <!-- Scopes -->
+                        <div class="space-y-2">
+                            <p class="text-xs font-medium text-g-gray">Scopes</p>
+                            <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                <input type="checkbox" id="user-scope-posts-read" checked class="accent-g-blue"> Read bookmarks
+                                <span class="text-[10px] text-g-gray font-mono ml-auto">posts:read</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                <input type="checkbox" id="user-scope-tags-read" checked class="accent-g-blue"> Read tags
+                                <span class="text-[10px] text-g-gray font-mono ml-auto">tags:read</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                <input type="checkbox" id="user-scope-posts-write" class="accent-g-blue"> Write bookmarks
+                                <span class="text-[10px] text-g-gray font-mono ml-auto">posts:write</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                <input type="checkbox" id="user-scope-rss-ingest" class="accent-g-blue"> Ingest RSS posts
+                                <span class="text-[10px] text-g-gray font-mono ml-auto">rss:ingest</span>
+                            </label>
+                            ${isAdmin ? `
+                                <div class="space-y-2 ml-4 border-l-2 border-g-border pl-4">
+                                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                        <input type="checkbox" id="user-scope-ai-rss" class="accent-g-blue"> AI: RSS processing
+                                        <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:rss</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                        <input type="checkbox" id="user-scope-ai-bm" class="accent-g-blue"> AI: Bookmark processing
+                                        <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:bookmarks</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                        <input type="checkbox" id="user-scope-ai-files" class="accent-g-blue"> AI: File processing
+                                        <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:files</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                        <input type="checkbox" id="user-scope-fulltext" class="accent-g-blue"> Full-text fetching
+                                        <span class="text-[10px] text-g-gray font-mono ml-auto">fulltext:process</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
+                                        <input type="checkbox" id="user-scope-synthesis" class="accent-g-blue"> Synthesis digest
+                                        <span class="text-[10px] text-g-gray font-mono ml-auto">synthesis:process</span>
+                                    </label>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Expiry -->
+                        <div class="flex items-center gap-3">
+                            <label class="text-xs font-medium text-g-gray whitespace-nowrap">Expires</label>
+                            <select id="user-token-expiry"
+                                class="flex-1 border border-g-border rounded-[10px] px-3 py-2 text-sm focus:outline-none focus:border-g-blue bg-white">
+                                <option value="">Never</option>
+                                <option value="30d">30 days</option>
+                                <option value="90d">90 days</option>
+                                <option value="1y">1 year</option>
+                            </select>
+                            <button onclick="userTokenCreate()"
+                                class="bg-g-blue text-white text-sm font-semibold px-5 py-2 rounded-[10px] hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Create Token
+                            </button>
+                        </div>
+                        <div id="user-token-create-error"
+                            class="hidden text-xs text-red-500 bg-red-50 border border-red-100 rounded-[8px] px-3 py-2"></div>
+                    </div>
+                </section>
+            `
+        }
+
+        function renderUserTokenRow(t) {
+            const scopes = (t.scopes ?? [])
+            const lastUsed = t.last_used_at ? relativeTime(t.last_used_at) : 'never used'
+            const expires = t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'never'
+            return `
+                <div class="bg-[#FAFAFA] rounded-[12px] p-3 border border-g-border/50" id="user-token-row-${t.id}">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <span class="font-semibold text-sm text-g-black">${escHtml(t.name)}</span>
+                        <div class="flex gap-2 flex-shrink-0">
+                            <button onclick="userTokenRotate(${t.id})" class="text-xs text-g-blue hover:underline transition-colors">Rotate</button>
+                            <button onclick="userTokenRevoke(${t.id})" class="text-xs text-red-400 hover:text-red-600 hover:underline transition-colors">Revoke</button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mb-2">${scopes.map(s => `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white border border-g-border text-g-gray font-mono">${escHtml(s)}</span>`).join('')}</div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-g-gray">
+                        <span>Last used: <span class="text-g-black">${lastUsed}</span></span>
+                        <span>Expires: <span class="text-g-black">${expires}</span></span>
+                    </div>
+                </div>
+            `
+        }
+
         function renderSectionContent(sectionId, data) {
             if (sectionId === 'stats') return renderStatsSection(data)
             if (sectionId === 'invite-codes') return renderInviteCodesSection(data)
             if (sectionId === 'rss-feeds') return renderRssFeedsSection(data)
             if (sectionId === 'revoke-api-tokens') return renderRevokeApiTokensSection(data)
             if (sectionId === 'users') return renderUsersSection(data)
+            if (sectionId === 'user-api-tokens') return renderUserApiTokensSection(data)
             return renderErrorPanel('Unknown section')
         }
 
@@ -932,6 +1067,103 @@
             } catch (e) { alert('Request failed: ' + String(e)) }
         }
 
+        // ── User API Token management ──
+        function expiryToIso(val) {
+            if (!val) return undefined
+            const now = new Date()
+            if (val === '30d') { now.setDate(now.getDate() + 30); return now.toISOString() }
+            if (val === '90d') { now.setDate(now.getDate() + 90); return now.toISOString() }
+            if (val === '1y') { now.setFullYear(now.getFullYear() + 1); return now.toISOString() }
+            return undefined
+        }
+
+        async function userTokenCreate() {
+            const name = qs('#user-token-name').value.trim()
+            const errEl = qs('#user-token-create-error')
+            errEl.classList.add('hidden')
+            if (!name) { errEl.textContent = 'Name is required.'; errEl.classList.remove('hidden'); return }
+
+            const scopes = []
+            if (qs('#user-scope-posts-read').checked) scopes.push('posts:read')
+            if (qs('#user-scope-posts-write')?.checked) scopes.push('posts:write')
+            if (qs('#user-scope-tags-read').checked) scopes.push('tags:read')
+            if (qs('#user-scope-rss-ingest')?.checked) scopes.push('rss:ingest')
+            if (window.adminUserIsAdmin) {
+                if (qs('#user-scope-ai-rss')?.checked) scopes.push('ai:process:rss')
+                if (qs('#user-scope-ai-bm')?.checked) scopes.push('ai:process:bookmarks')
+                if (qs('#user-scope-ai-files')?.checked) scopes.push('ai:process:files')
+                if (qs('#user-scope-fulltext')?.checked) scopes.push('fulltext:process')
+                if (qs('#user-scope-synthesis')?.checked) scopes.push('synthesis:process')
+            }
+            if (scopes.length === 0) { errEl.textContent = 'Select at least one scope.'; errEl.classList.remove('hidden'); return }
+
+            const expiryVal = qs('#user-token-expiry').value
+            const body = { name, scopes, expires_at: expiryToIso(expiryVal) }
+            if (!body.expires_at) delete body.expires_at
+
+            try {
+                const token = localStorage.getItem('d11_token')
+                const res = await fetch('/api/v1/tokens', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                })
+                const data = await res.json()
+                if (!res.ok) { errEl.textContent = data.error ?? 'Unknown error'; errEl.classList.remove('hidden'); return }
+                qs('#user-token-name').value = ''
+                qs('#user-token-expiry').value = ''
+                showUserTokenReveal(data.token)
+                window.adminUserTokensLoaded = false
+                loadSection('user-api-tokens')
+            } catch (e) {
+                errEl.textContent = 'Request failed: ' + String(e)
+                errEl.classList.remove('hidden')
+            }
+        }
+
+        async function userTokenRevoke(id) {
+            if (!confirm('Revoke this token? Any scripts using it will stop working immediately.')) return
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/v1/tokens/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
+                window.adminUserTokensLoaded = false
+                loadSection('user-api-tokens')
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        async function userTokenRotate(id) {
+            const token = localStorage.getItem('d11_token')
+            try {
+                const res = await fetch(`/api/v1/tokens/${id}/rotate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                })
+                const data = await res.json()
+                if (!res.ok) { alert(data.error ?? 'Could not rotate token.'); return }
+                showUserTokenReveal(data.token)
+                window.adminUserTokensLoaded = false
+                loadSection('user-api-tokens')
+            } catch (e) { alert('Request failed: ' + String(e)) }
+        }
+
+        function showUserTokenReveal(rawToken) {
+            qs('#user-reveal-token-text').textContent = rawToken
+            qs('#user-token-reveal-modal').classList.remove('hidden')
+        }
+
+        function closeUserTokenReveal() {
+            qs('#user-token-reveal-modal').classList.add('hidden')
+        }
+
+        function copyUserRevealToken() {
+            navigator.clipboard.writeText(qs('#user-reveal-token-text').textContent)
+            alert('Token copied to clipboard!')
+        }
+
         // ── Drawer toggle ──
         qs('#btn-drawer-toggle').addEventListener('click', openDrawer)
         qs('#admin-drawer-overlay').addEventListener('click', closeDrawer)
@@ -947,6 +1179,7 @@
                 if (!meRes.ok) { location.href = '/'; return }
                 me = await meRes.json()
                 currentUserId = me.id
+                window.adminUserIsAdmin = me.is_admin === 1
                 setHeaderUserName(me)
                 window.LuminSuiteMenu.setAdminAccess(me.is_admin === 1)
             } catch { location.href = '/'; return }
@@ -992,6 +1225,31 @@
 
         boot()
     </script>
+
+    <!-- ── User Token reveal modal ── -->
+    <div id="user-token-reveal-modal"
+        class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center px-4">
+        <div class="bg-white rounded-[24px] p-8 max-w-md w-full shadow-soft fade-in">
+            <div class="w-12 h-12 bg-amber-50 rounded-[12px] flex items-center justify-center mb-4">
+                <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-g-black mb-1">Save your token</h3>
+            <p class="text-g-gray text-sm mb-4 leading-relaxed">This is the only time this token will be shown. Copy it
+                now and store it somewhere safe.</p>
+            <div class="bg-[#F3F4F6] rounded-[10px] px-4 py-3 font-mono text-xs break-all text-g-black mb-4 select-all"
+                id="user-reveal-token-text"></div>
+            <div class="flex gap-3">
+                <button onclick="copyUserRevealToken()"
+                    class="flex-1 border border-g-border text-g-black font-medium py-2.5 rounded-full hover:border-g-blue hover:text-g-blue transition-all text-sm">Copy
+                    Token</button>
+                <button onclick="closeUserTokenReveal()"
+                    class="flex-1 bg-g-blue text-white font-semibold py-2.5 rounded-full hover:bg-blue-600 transition-all text-sm">Done</button>
+            </div>
+        </div>
+    </div>
 
 </body>
 
