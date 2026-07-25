@@ -274,7 +274,7 @@
                     id: 'revoke-api-tokens',
                     label: 'Revoke API Tokens',
                     group: 'Admin',
-                    subtitle: 'Revokesystem-wide API tokens.',
+                    subtitle: 'Revoke system-wide API tokens.',
                     load: async () => {
                         if (!window.adminTokensLoaded) {
                             window.adminTokensLoaded = true
@@ -306,9 +306,9 @@
                 },
                 {
                     id: 'user-api-tokens',
-                    label: 'My API Tokens',
+                    label: 'My Admin API Tokens',
                     group: 'Account',
-                    subtitle: 'Create and manage your personal API tokens.',
+                    subtitle: 'Admin API tokens are tied to your admin account.',
                     load: async () => {
                         if (!window.adminUserTokensLoaded) {
                             window.adminUserTokensLoaded = true
@@ -768,7 +768,8 @@
                                 <span class="text-[10px] text-g-gray font-mono ml-auto">rss:ingest</span>
                             </label>
                             ${isAdmin ? `
-                                <div class="space-y-2 ml-4 border-l-2 border-g-border pl-4">
+                            <p class="text-xs font-medium text-g-gray">Admin Scopes</p>
+                                <div class="space-y-2 ">
                                     <label class="flex items-center gap-2 text-sm text-g-black cursor-pointer">
                                         <input type="checkbox" id="user-scope-ai-rss" class="accent-g-blue"> AI: RSS processing
                                         <span class="text-[10px] text-g-gray font-mono ml-auto">ai:process:rss</span>
