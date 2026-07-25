@@ -247,10 +247,10 @@
                     load: async () => adminData,
                 },
                 {
-                    id: 'top-tags',
-                    label: 'Top Tags',
+                    id: 'invite-codes',
+                    label: 'Invite Codes',
                     group: 'Admin',
-                    subtitle: 'Most-used tags across all bookmarks.',
+                    subtitle: 'Manage invite codes for the platform.',
                     load: async () => adminData,
                 },
                 {
@@ -271,10 +271,10 @@
                     },
                 },
                 {
-                    id: 'api-tokens',
-                    label: 'API Tokens',
+                    id: 'revoke-api-tokens',
+                    label: 'Revoke API Tokens',
                     group: 'Admin',
-                    subtitle: 'Manage system-wide API tokens.',
+                    subtitle: 'Revokesystem-wide API tokens.',
                     load: async () => {
                         if (!window.adminTokensLoaded) {
                             window.adminTokensLoaded = true
@@ -419,9 +419,35 @@
             const ftTotal = ftCompleted + ftFailed
             const ftFailPct = ftTotal > 0 ? ((ftFailed / ftTotal) * 100).toFixed(1) : '0.0'
             const ftShort = bm.ft_short ?? 0
+            const tags = data?.top_tags ?? []
 
             return `
                 <section class="space-y-4">
+
+                    <div class="rounded-[18px] border border-g-border bg-white p-5">
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Site</p>
+                        <h3 class="mt-1 text-lg font-semibold text-g-black">Overview</h3>
+                        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">Users</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.users ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">API Tokens</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.api_tokens ?? 0)}</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">RSS Feeds</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.rss_feeds?.total ?? 0)}</p>
+                                <p class="text-[11px] text-g-gray mt-0.5">${data?.rss_feeds?.active ?? 0} active</p>
+                            </div>
+                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
+                                <p class="text-xs text-g-gray">RSS Items</p>
+                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.rss_items ?? 0)}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="rounded-[18px] border border-g-border bg-white p-5">
                         <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Bookmarks</p>
                         <h3 class="mt-1 text-lg font-semibold text-g-black">Statistics</h3>
@@ -459,36 +485,8 @@
                         </div>
                     </div>
 
-                    <div class="rounded-[18px] border border-g-border bg-white p-5">
-                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Site</p>
-                        <h3 class="mt-1 text-lg font-semibold text-g-black">Overview</h3>
-                        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
-                                <p class="text-xs text-g-gray">Users</p>
-                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.users ?? 0)}</p>
-                            </div>
-                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
-                                <p class="text-xs text-g-gray">API Tokens</p>
-                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.api_tokens ?? 0)}</p>
-                            </div>
-                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
-                                <p class="text-xs text-g-gray">RSS Feeds</p>
-                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.rss_feeds?.total ?? 0)}</p>
-                                <p class="text-[11px] text-g-gray mt-0.5">${data?.rss_feeds?.active ?? 0} active</p>
-                            </div>
-                            <div class="bg-[#F7F8FA] rounded-[12px] p-3">
-                                <p class="text-xs text-g-gray">RSS Items</p>
-                                <p class="text-2xl font-bold text-g-black mt-1">${fmt(data?.rss_items ?? 0)}</p>
-                            </div>
-                        </div>
-                    </div>
+                    
                 </section>
-            `
-        }
-
-        function renderTopTagsSection(data) {
-            const tags = data?.top_tags ?? []
-            return `
                 <section class="rounded-[18px] border border-g-border bg-white p-5">
                     <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Trending</p>
                     <h3 class="mt-1 text-lg font-semibold text-g-black">Top Tags</h3>
@@ -502,6 +500,16 @@
                     ).join('')
                 }
                     </div>
+                </section>
+            `
+        }
+
+        function renderInviteCodesSection(data) {
+            return `
+                <section class="rounded-[18px] border border-g-border bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Invite Codes</p>
+                    <h3 class="mt-1 text-lg font-semibold text-g-black">Invite Codes</h3>
+                    
                 </section>
             `
         }
@@ -578,14 +586,14 @@
             `
         }
 
-        function renderApiTokensSection(data) {
-            return renderApiTokensList(data?.tokens || [])
+        function renderRevokeApiTokensSection(data) {
+            return renderRevokeApiTokensList(data?.tokens || [])
         }
 
-        function renderApiTokensList(tokens) {
+        function renderRevokeApiTokensList(tokens) {
             return `
                 <section class="rounded-[18px] border border-g-border bg-white p-5">
-                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Tokens</p>
+                    <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Revoke Tokens</p>
                     <h3 class="mt-1 text-lg font-semibold text-g-black">API Tokens</h3>
                     <div class="mt-4">
                         ${tokens.length === 0
@@ -697,9 +705,9 @@
 
         function renderSectionContent(sectionId, data) {
             if (sectionId === 'stats') return renderStatsSection(data)
-            if (sectionId === 'top-tags') return renderTopTagsSection(data)
+            if (sectionId === 'invite-codes') return renderInviteCodesSection(data)
             if (sectionId === 'rss-feeds') return renderRssFeedsSection(data)
-            if (sectionId === 'api-tokens') return renderApiTokensSection(data)
+            if (sectionId === 'revoke-api-tokens') return renderRevokeApiTokensSection(data)
             if (sectionId === 'users') return renderUsersSection(data)
             return renderErrorPanel('Unknown section')
         }
@@ -875,7 +883,7 @@
                 })
                 if (!res.ok) { const err = await res.json().catch(() => ({})); alert('Error: ' + (err.error ?? 'Unknown error')); return }
                 window.adminTokensLoaded = false
-                loadSection('api-tokens')
+                loadSection('revoke-api-tokens')
             } catch (e) { alert('Request failed: ' + String(e)) }
         }
 
