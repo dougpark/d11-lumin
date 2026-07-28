@@ -61,11 +61,11 @@ function desktopDropdown(type: 'full' | 'compact'): string {
             ${BTN('openImportFile(); toggleUserMenu()', 'Import Bookmarks')}
             ${LNKA('/import/pinboard', 'Import from Pinboard')}
             ${LNKA('/import/browser', 'Import from Browser')}
-            ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}`
+            `
     }
     // compact (explore / news)
     return `
-            ${BTN('openTokenDrawer(); toggleUserMenu()', 'API Tokens')}`
+            ${LNKA('/', 'Home')}`
 }
 
 // ── Mobile bottom nav ────────────────────────────────────────────────────────
@@ -140,12 +140,17 @@ const SHARED_SCRIPT = `<script>
         if (!user) return
         var initials = ((user.full_name || user.slug_prefix || '?')).slice(0, 2).toUpperCase()
         var displayName = user.full_name || user.slug_prefix || 'User'
+
         var avatarEl = document.getElementById('user-avatar')
         if (avatarEl) avatarEl.textContent = initials
+
         var headerUserNameEl = document.getElementById('header-user-name')
         if (headerUserNameEl) headerUserNameEl.textContent = displayName
-        var handleEl = document.getElementById('user-handle')
-        if (handleEl) handleEl.textContent = user.slug_prefix || ''
+
+        var handleEl
+        // var handleEl = document.getElementById('user-handle')
+        // if (handleEl) handleEl.textContent = user.slug_prefix || ''
+
         var nameEl = document.getElementById('menu-name')
         if (nameEl) nameEl.textContent = displayName
         var prefixEl = document.getElementById('menu-prefix')
@@ -313,7 +318,7 @@ export function renderHeader(config: HeaderConfig): string {
             <!-- User avatar + dropdown -->
             <div class="relative flex-shrink-0">
                 <button onclick="toggleUserMenu()" class="flex items-center gap-2 text-sm text-g-gray hover:text-g-black transition-colors">
-                    <div id="user-avatar" class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-g-blue font-bold text-xs">?</div>
+                    <div id="user-avatar" class=" font-bold ">?</div>
                     <span id="user-handle" class="hidden sm:block text-xs font-semibold text-g-gray max-w-[96px] truncate"></span>
                 </button>
                 <div id="user-menu" class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-52 py-1 z-50">
