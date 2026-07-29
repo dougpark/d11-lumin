@@ -39,11 +39,11 @@ Out of scope for this pass: RSS/email ingestion, chat/AI enrichment content, adm
 - [x] Verify upload failure cleanup (`ATTACHMENTS.delete(objectKey)` on DB failure) doesn't leave orphaned files with sensitive content if it silently fails (currently swallowed in a bare `catch`).
 - [x] Confirm there's no virus/malware scanning gap that matters for the threat model (accepted risk for personal use — documented as a known limitation, not fixed).
 
-### Phase 3 — Auth & Session Integrity
-- [ ] Confirm session tokens (`users.token_hash`) have an expiry/rotation mechanism — read `src/db/users.ts` for token issuance/expiry logic (not yet confirmed in this pass).
-- [ ] Confirm `hashToken` (SHA-256) lookup pattern doesn't need `timingSafeEqual` (DB-indexed equality lookup is fine; the risk is only with byte-by-byte string comparison of secrets, which is not what's happening here) — document as verified-safe rather than a false-positive flag.
-- [ ] Re-verify `apiTokenMiddleware` never allows an API token scoped to one purpose to reach unrelated endpoints (check `scopes` JSON field usage/enforcement — grep for `.scopes` consumers).
-- [ ] Confirm cookie `d11_auth` has `HttpOnly`, `Secure`, `SameSite` attributes set at issuance (`auth.ts` routes) given CORS is `origin: '*'`.
+### Phase 3 — Auth & Session Integrity ✅ (see [findings-2026-07-29-phase3-auth.md](findings-2026-07-29-phase3-auth.md))
+- [x] Confirm session tokens (`users.token_hash`) have an expiry/rotation mechanism — read `src/db/users.ts` for token issuance/expiry logic (not yet confirmed in this pass).
+- [x] Confirm `hashToken` (SHA-256) lookup pattern doesn't need `timingSafeEqual` (DB-indexed equality lookup is fine; the risk is only with byte-by-byte string comparison of secrets, which is not what's happening here) — document as verified-safe rather than a false-positive flag.
+- [x] Re-verify `apiTokenMiddleware` never allows an API token scoped to one purpose to reach unrelated endpoints (check `scopes` JSON field usage/enforcement — grep for `.scopes` consumers).
+- [x] Confirm cookie `d11_auth` has `HttpOnly`, `Secure`, `SameSite` attributes set at issuance (`auth.ts` routes) given CORS is `origin: '*'`.
 
 ### Phase 4 — CORS / Transport
 - [ ] `src/index.ts` sets `cors({ origin: '*', allowHeaders: ['Authorization','Content-Type'] })` — confirm `credentials` is never enabled alongside wildcard origin (it currently isn't, but re-verify since this is a common regression), and confirm cookie-based routes (`/l/:prefix/:slug`) aren't reachable cross-origin in a way that leaks private bookmarks/attachments.
