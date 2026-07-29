@@ -33,12 +33,22 @@ export function checkRateLimit(userId: string): boolean {
     const recentTimestamps = userTimestamps.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
 
     if (recentTimestamps.length >= MAX_REQUESTS_PER_USER_PER_MINUTE) {
+        userRequestTimestamps.set(userId, recentTimestamps)
         return false // Rate limit exceeded
     }
 
     // Add current timestamp
     recentTimestamps.push(now)
     userRequestTimestamps.set(userId, recentTimestamps)
+
+    // Bound the map's lifetime memory footprint — this isolate may live for
+    // hours and see many distinct users, so drop any other tracked user whose
+    // entire window has gone stale rather than letting entries accumulate forever.
+    for (const [key, timestamps] of userRequestTimestamps) {
+        if (key !== userId && !timestamps.some((ts) => now - ts < RATE_LIMIT_WINDOW_MS)) {
+            userRequestTimestamps.delete(key)
+        }
+    }
 
     return true
 }
@@ -60,10 +70,7 @@ export async function callOllama(
             stream: false,
         }
 
-        console.log(`Sending request to Ollama: ${JSON.stringify(body)}`)
-        console.log(`Using Ollama URL: ${env.OLLAMA_URL}`)
-        console.log(`Using CF Access Client ID: ${env.CF_ACCESS_CLIENT_ID}`)
-        console.log(`Using CF Access Client Secret: ${env.CF_ACCESS_CLIENT_SECRET}`)
+        console.log(`Sending request to Ollama at ${env.OLLAMA_URL}`)
 
         // Create abort controller with 25-second timeout (leaving 5s buffer for Workers limit)
         const controller = new AbortController()

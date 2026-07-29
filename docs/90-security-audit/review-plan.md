@@ -54,10 +54,10 @@ Out of scope for this pass: RSS/email ingestion, chat/AI enrichment content, adm
 - [x] Confirm soft-delete (`softDeleteDriveItem`) actually blocks R2 object retrieval post-delete, or if the R2 object remains fetchable via an old signed token until it expires (acceptable given short TTL, but confirm no permanent unsigned path survives deletion).
 - [x] Confirm error messages returned to clients never leak SQL, file paths, or R2 key structure.
 
-### Phase 6 — Edge Runtime / Isolate Hygiene
-- [ ] Grep for module-level `let`/`var` mutable state outside request handlers across `src/` (cross-request leak risk in reused isolates).
-- [ ] Confirm all `waitUntil` fire-and-forget calls (e.g., `touchApiToken`) don't carry sensitive payloads that could race with request teardown.
-- [ ] Confirm large R2 objects are streamed (`c.body(object.body)`) rather than buffered via `.text()`/`.arrayBuffer()` — spot-checked as already correct in `drive.ts`/`notes.ts`.
+### Phase 6 — Edge Runtime / Isolate Hygiene ✅ (see [findings-2026-07-29-phase6-runtime.md](findings-2026-07-29-phase6-runtime.md))
+- [x] Grep for module-level `let`/`var` mutable state outside request handlers across `src/` (cross-request leak risk in reused isolates).
+- [x] Confirm all `waitUntil` fire-and-forget calls (e.g., `touchApiToken`) don't carry sensitive payloads that could race with request teardown.
+- [x] Confirm large R2 objects are streamed (`c.body(object.body)`) rather than buffered via `.text()`/`.arrayBuffer()` — spot-checked as already correct in `drive.ts`/`notes.ts`.
 
 ### Phase 7 — Secrets & Config
 - [ ] Confirm `TOKEN_SECRET`, `CF_ACCESS_CLIENT_ID/SECRET` are only ever read via `c.env` and set with `wrangler secret put` — never hardcoded or committed (per `wrangler.toml` comments).
