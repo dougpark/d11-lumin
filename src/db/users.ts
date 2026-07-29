@@ -52,6 +52,25 @@ export async function createUser(
     return result
 }
 
+/** Replace a user's session token hash (used to rotate/reset the login token). Returns the updated row. */
+export async function updateUserTokenHash(
+    db: D1Database,
+    userId: number,
+    tokenHash: string,
+): Promise<User | null> {
+    const result = await db
+        .prepare(
+            `UPDATE users
+       SET token_hash = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+       WHERE id = ?
+       RETURNING *`,
+        )
+        .bind(tokenHash, userId)
+        .first<User>()
+
+    return result ?? null
+}
+
 /** Update a user's profile fields. Returns the updated row. */
 export async function updateUser(
     db: D1Database,

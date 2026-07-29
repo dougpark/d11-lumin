@@ -2,8 +2,8 @@
 
 import { Hono } from 'hono'
 import type { Env } from '../index.ts'
-import { hashToken, generateToken } from '../utils/auth.ts'
-import { getUserByTokenHash, createUser } from '../db/users.ts'
+import { hashToken, generateToken, extractBearer } from '../utils/auth.ts'
+import { getUserByTokenHash, createUser, updateUserTokenHash } from '../db/users.ts'
 
 const auth = new Hono<{ Bindings: Env }>()
 
@@ -81,6 +81,36 @@ auth.get('/me', async (c) => {
         phone: user.phone,
         created_at: user.created_at,
         is_admin: user.is_admin,
+    })
+})
+
+/**
+ * POST /api/auth/rotate-token
+ * Requires Bearer token (current session token).
+ *
+ * Issues a brand new session token for the authenticated user and
+ * invalidates the old one immediately (single global token per user —
+ * this signs out every other browser/device, not just this one).
+ * Returns the plain token — shown once — never stored.
+ */
+auth.post('/rotate-token', async (c) => {
+    const token = extractBearer(c.req.header('Authorization'))
+    if (!token) return c.json({ error: 'Unauthorized' }, 401)
+
+    const tokenHash = await hashToken(token)
+    const user = await getUserByTokenHash(c.env.DB, tokenHash)
+    if (!user) return c.json({ error: 'Unauthorized' }, 401)
+
+    const plainToken = generateToken()
+    const newTokenHash = await hashToken(plainToken)
+    const updated = await updateUserTokenHash(c.env.DB, user.id, newTokenHash)
+    if (!updated) return c.json({ error: 'Could not rotate token' }, 500)
+
+    console.log('session token rotated', { userId: user.id, at: new Date().toISOString() })
+
+    return c.json({
+        message: 'Session token rotated. Save it now — it will not be shown again.',
+        token: plainToken,   // shown exactly once
     })
 })
 
