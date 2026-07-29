@@ -90,6 +90,21 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
 }))
 
+// Baseline security response headers — applied to every response.
+// - X-Content-Type-Options stops browsers from re-sniffing a stored file's
+//   bytes into a more dangerous type than the one we declare (defense-in-depth
+//   alongside the inline-render allow-list on attachment/drive downloads).
+// - Referrer-Policy prevents presigned download URLs (which carry a signed
+//   token in the query string) from leaking via the Referer header if a page
+//   rendering/linking to one navigates to or fetches a third-party origin.
+// - X-Frame-Options blocks this app from being framed/clickjacked elsewhere.
+app.use('*', async (c, next) => {
+  await next()
+  c.header('X-Content-Type-Options', 'nosniff')
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+  c.header('X-Frame-Options', 'DENY')
+})
+
 // ─── Public routes ────────────────────────────────────────────────────────────
 
 // Auth (register / me)

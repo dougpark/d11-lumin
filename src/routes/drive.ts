@@ -79,9 +79,28 @@ function escapeMarkdownLabel(value: string): string {
     return value.replace(/\\/g, '\\\\').replace(/\]/g, '\\]')
 }
 
+// Content-types that are safe to render inline in a browser (raster images).
+// Deliberately excludes image/svg+xml — SVGs can embed <script> and would
+// execute in the viewer's session if rendered inline. Anything not in this
+// list is always served/embedded as a plain link (attachment disposition),
+// regardless of what the client requests, no matter what content-type the
+// uploader claimed. Drive intentionally accepts any file type for storage —
+// this only gates what may be rendered inline, not what may be uploaded.
+const INLINE_SAFE_IMAGE_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+])
+
+function isInlineSafeImageType(contentType: string): boolean {
+    return INLINE_SAFE_IMAGE_TYPES.has(contentType.toLowerCase().trim())
+}
+
 function buildDriveAttachmentMarkdown(filename: string, contentType: string, url: string): string {
     const label = escapeMarkdownLabel(filename || 'file')
-    if (contentType.toLowerCase().startsWith('image/')) {
+    if (isInlineSafeImageType(contentType)) {
         return `![${label}](${url})`
     }
     return `📄 [${label}](${url})`
@@ -118,13 +137,16 @@ drive.get('/download', async (c) => {
     const object = await c.env.ATTACHMENTS.get(item.url)
     if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
 
-    const inline = c.req.query('inline') === '1'
+    // Only ever render known-safe raster image types inline; everything else
+    // (including SVG, which can embed <script>) is always forced to download
+    // regardless of the caller-supplied ?inline= param or the stored content-type.
+    const inline = c.req.query('inline') === '1' && isInlineSafeImageType(item.content_type || '')
     const safeFilename = (item.filename || 'download').replace(/"/g, '')
 
     c.header('Content-Type', item.content_type || 'application/octet-stream')
     c.header('Content-Length', String(item.size ?? 0))
     c.header('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${safeFilename}"`)
-    c.header('Cache-Control', 'private, max-age=60')
+    c.header('Cache-Control', 'no-store')
     return c.body(object.body)
 })
 
