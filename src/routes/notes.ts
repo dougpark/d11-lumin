@@ -496,6 +496,13 @@ notes.post('/:id/attachments', async (c) => {
         return c.json({ error: 'Attachments storage is not configured' }, 500)
     }
 
+    // Reject oversized uploads before buffering the multipart body into memory —
+    // the post-parse size check below can't run until the whole body is read.
+    const declaredLength = Number.parseInt(c.req.header('content-length') ?? '', 10)
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_ATTACHMENT_BYTES) {
+        return c.json({ error: 'File exceeds 20MB limit' }, 413)
+    }
+
     let form: FormData
     try {
         form = await c.req.formData()
@@ -569,7 +576,16 @@ notes.post('/:id/attachments', async (c) => {
         }, 201)
     } catch (err) {
         // Best-effort cleanup if DB insert fails after object upload.
-        try { await c.env.ATTACHMENTS.delete(objectKey) } catch { /* ignore */ }
+        try {
+            await c.env.ATTACHMENTS.delete(objectKey)
+        } catch (cleanupErr) {
+            console.error('notes attachment cleanup failed — orphaned R2 object', {
+                objectKey,
+                userId: user.id,
+                noteId: id,
+                error: (cleanupErr as Error).message,
+            })
+        }
         return c.json({ error: (err as Error).message || 'Upload failed' }, 400)
     }
 })

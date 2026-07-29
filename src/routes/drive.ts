@@ -245,6 +245,15 @@ drive.post('/files', async (c) => {
     const user = c.get('user')
     if (!c.env.ATTACHMENTS) return c.json({ error: 'Attachments storage is not configured' }, 500)
 
+    // Reject oversized uploads before buffering the multipart body into memory.
+    // filePart.size (checked below) is only known *after* formData() has fully
+    // parsed the request body, so this Content-Length check is the only thing
+    // that can stop an oversized body from being read into the isolate at all.
+    const declaredLength = Number.parseInt(c.req.header('content-length') ?? '', 10)
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_DRIVE_UPLOAD_BYTES) {
+        return c.json({ error: 'File exceeds 100MB limit' }, 413)
+    }
+
     let form: FormData
     try {
         form = await c.req.formData()
@@ -306,7 +315,15 @@ drive.post('/files', async (c) => {
 
         return c.json({ data: { drive_item: driveItem, attachment } }, 201)
     } catch (err) {
-        try { await c.env.ATTACHMENTS.delete(objectKey) } catch { /* ignore */ }
+        try {
+            await c.env.ATTACHMENTS.delete(objectKey)
+        } catch (cleanupErr) {
+            console.error('drive upload cleanup failed — orphaned R2 object', {
+                objectKey,
+                userId: user.id,
+                error: (cleanupErr as Error).message,
+            })
+        }
         return c.json({ error: (err as Error).message || 'Upload failed' }, 400)
     }
 })

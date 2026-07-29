@@ -32,12 +32,12 @@ Out of scope for this pass: RSS/email ingestion, chat/AI enrichment content, adm
 - [ ] **Out-of-band (Cloudflare dashboard):** verify `d11-note-attachments` and `d11-food-entries` R2 buckets have **no public access / no r2.dev URL / no custom domain** enabled. Code review can't fully confirm this — must be checked in the CF dashboard or via `wrangler r2 bucket` settings.
 - [ ] Confirm no endpoint returns a raw/unsigned R2 URL to the client (only signed, time-limited tokens or session-gated proxy routes).
 
-### Phase 2 — Upload Path Hardening
-- [ ] Validate file size limits are enforced server-side (not just client-side) — confirm `MAX_DRIVE_UPLOAD_BYTES` (100MB) is checked before/at `put()`, not after full buffering (check for streaming vs. buffering into memory — Worker has a 128MB memory ceiling).
-- [ ] Check `sanitizeFilename()` / content-type handling for injection into `Content-Disposition` header (header injection via filename with `\r\n` or quotes) — confirm quote-stripping is sufficient.
-- [ ] Confirm content-type is not blindly trusted for anything security-sensitive (e.g., no path renders uploaded HTML/SVG inline that could execute script — check `isImageContentType` / inline vs attachment disposition logic for stored-XSS risk via SVG or HTML uploads).
-- [ ] Verify upload failure cleanup (`ATTACHMENTS.delete(objectKey)` on DB failure) doesn't leave orphaned files with sensitive content if it silently fails (currently swallowed in a bare `catch`).
-- [ ] Confirm there's no virus/malware scanning gap that matters for the threat model (likely accepted risk for personal use — note it as a known limitation rather than a blocker).
+### Phase 2 — Upload Path Hardening ✅ (see [findings-2026-07-29-phase2-upload.md](findings-2026-07-29-phase2-upload.md))
+- [x] Validate file size limits are enforced server-side (not just client-side) — confirm `MAX_DRIVE_UPLOAD_BYTES` (100MB) is checked before/at `put()`, not after full buffering (check for streaming vs. buffering into memory — Worker has a 128MB memory ceiling).
+- [x] Check `sanitizeFilename()` / content-type handling for injection into `Content-Disposition` header (header injection via filename with `\r\n` or quotes) — confirm quote-stripping is sufficient.
+- [x] Confirm content-type is not blindly trusted for anything security-sensitive (e.g., no path renders uploaded HTML/SVG inline that could execute script — check `isImageContentType` / inline vs attachment disposition logic for stored-XSS risk via SVG or HTML uploads). *(fixed in Phase 1, re-verified here)*
+- [x] Verify upload failure cleanup (`ATTACHMENTS.delete(objectKey)` on DB failure) doesn't leave orphaned files with sensitive content if it silently fails (currently swallowed in a bare `catch`).
+- [x] Confirm there's no virus/malware scanning gap that matters for the threat model (accepted risk for personal use — documented as a known limitation, not fixed).
 
 ### Phase 3 — Auth & Session Integrity
 - [ ] Confirm session tokens (`users.token_hash`) have an expiry/rotation mechanism — read `src/db/users.ts` for token issuance/expiry logic (not yet confirmed in this pass).

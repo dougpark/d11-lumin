@@ -247,6 +247,13 @@ food.post('/entries/photo', async (c) => {
         return c.json({ error: 'Food image storage is not configured' }, 500)
     }
 
+    // Reject oversized uploads before buffering the multipart body into memory —
+    // the post-parse size check below can't run until the whole body is read.
+    const declaredLength = Number.parseInt(c.req.header('content-length') ?? '', 10)
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_FOOD_IMAGE_BYTES) {
+        return c.json({ error: 'File exceeds 8MB limit' }, 413)
+    }
+
     let form: FormData
     try {
         form = await c.req.formData()
@@ -318,7 +325,16 @@ food.post('/entries/photo', async (c) => {
             })
 
             if (!updated) {
-                await c.env.FOOD_ENTRIES.delete(objectKey)
+                try {
+                    await c.env.FOOD_ENTRIES.delete(objectKey)
+                } catch (cleanupErr) {
+                    console.error('food photo cleanup failed — orphaned R2 object', {
+                        objectKey,
+                        userId: user.id,
+                        entryId,
+                        error: (cleanupErr as Error).message,
+                    })
+                }
                 return c.json({ error: 'Food entry not found' }, 404)
             }
 
@@ -339,7 +355,15 @@ food.post('/entries/photo', async (c) => {
 
         return c.json({ data: created, meta: { home: { lat: HOME_LAT, lng: HOME_LNG } } }, 201)
     } catch (err) {
-        try { await c.env.FOOD_ENTRIES.delete(objectKey) } catch { /* ignore cleanup failures */ }
+        try {
+            await c.env.FOOD_ENTRIES.delete(objectKey)
+        } catch (cleanupErr) {
+            console.error('food photo cleanup failed — orphaned R2 object', {
+                objectKey,
+                userId: user.id,
+                error: (cleanupErr as Error).message,
+            })
+        }
         return c.json({ error: (err as Error).message || 'Upload failed' }, 400)
     }
 })
