@@ -98,11 +98,37 @@ app.use('*', cors({
 //   token in the query string) from leaking via the Referer header if a page
 //   rendering/linking to one navigates to or fetches a third-party origin.
 // - X-Frame-Options blocks this app from being framed/clickjacked elsewhere.
+// - Content-Security-Policy (report-only) — the client is a hand-written,
+//   inline-script SPA (Tailwind CDN + inline onclick handlers + inline
+//   <script> blocks per app file, no build step — see AGENTS.md), so a
+//   strict CSP would break every page today. This policy allows those
+//   existing patterns (script/style 'unsafe-inline', Tailwind CDN, Google
+//   Fonts, arbitrary bookmark favicon/preview images) while still locking
+//   down connect-src/object-src/base-uri/form-action/frame-ancestors — the
+//   directives that matter most for containing an XSS payload (session
+//   token lives in localStorage/cookie, readable by JS — see Phase 3 &
+//   session-token audit docs). Report-Only for now: logs violations to the
+//   browser console without blocking anything, so we can verify all client
+//   pages are unaffected before switching to enforcing mode.
+const CSP_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' https: data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ')
+
 app.use('*', async (c, next) => {
   await next()
   c.header('X-Content-Type-Options', 'nosniff')
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
   c.header('X-Frame-Options', 'DENY')
+  c.header('Content-Security-Policy-Report-Only', CSP_POLICY)
 })
 
 // ─── Public routes ────────────────────────────────────────────────────────────
