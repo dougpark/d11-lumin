@@ -106,7 +106,7 @@ chat.post('/messages', async (c) => {
                 (async () => {
                     try {
                         // Check rate limit
-                        if (!checkRateLimit(user.id)) {
+                        if (!checkRateLimit(String(user.id))) {
                             await trackAiRequest(c.env.DB, {
                                 channel_id: channel.id,
                                 message_id: id,
