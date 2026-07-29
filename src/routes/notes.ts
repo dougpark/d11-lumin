@@ -207,7 +207,7 @@ notes.get('/attachments/download', async (c) => {
     c.header('Content-Type', attachment.content_type || 'application/octet-stream')
     c.header('Content-Length', String(attachment.size))
     c.header('Content-Disposition', `attachment; filename="${attachment.filename.replace(/"/g, '')}"`)
-    c.header('Cache-Control', 'private, max-age=60')
+    c.header('Cache-Control', 'no-store')
     return c.body(object.body)
 })
 

@@ -327,7 +327,7 @@ app.get('/api/ai/files/download', async (c) => {
   c.header('Content-Type', attachment.content_type || 'application/octet-stream')
   c.header('Content-Length', String(attachment.size ?? 0))
   c.header('Content-Disposition', `attachment; filename="${safeFilename}"`)
-  c.header('Cache-Control', 'private, max-age=60')
+  c.header('Cache-Control', 'no-store')
   return c.body(object.body)
 })
 

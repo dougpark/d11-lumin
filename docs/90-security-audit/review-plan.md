@@ -45,9 +45,9 @@ Out of scope for this pass: RSS/email ingestion, chat/AI enrichment content, adm
 - [x] Re-verify `apiTokenMiddleware` never allows an API token scoped to one purpose to reach unrelated endpoints (check `scopes` JSON field usage/enforcement — grep for `.scopes` consumers).
 - [x] Confirm cookie `d11_auth` has `HttpOnly`, `Secure`, `SameSite` attributes set at issuance (`auth.ts` routes) given CORS is `origin: '*'`.
 
-### Phase 4 — CORS / Transport
-- [ ] `src/index.ts` sets `cors({ origin: '*', allowHeaders: ['Authorization','Content-Type'] })` — confirm `credentials` is never enabled alongside wildcard origin (it currently isn't, but re-verify since this is a common regression), and confirm cookie-based routes (`/l/:prefix/:slug`) aren't reachable cross-origin in a way that leaks private bookmarks/attachments.
-- [ ] Confirm all attachment/download responses set restrictive caching (`private`, `no-store`/`no-cache`) so CDN/shared caches never retain financial/health documents. Spot-checked: `drive.ts` uses `private, max-age=60`; `notes.ts` permalink uses `private, no-cache, must-revalidate`. Confirm consistency and whether `max-age=60` should be `no-store` for high-sensitivity files.
+### Phase 4 — CORS / Transport ✅ (see [findings-2026-07-29-phase4-cors-transport.md](findings-2026-07-29-phase4-cors-transport.md))
+- [x] `src/index.ts` sets `cors({ origin: '*', allowHeaders: ['Authorization','Content-Type'] })` — confirm `credentials` is never enabled alongside wildcard origin (it currently isn't, but re-verify since this is a common regression), and confirm cookie-based routes (`/l/:prefix/:slug`) aren't reachable cross-origin in a way that leaks private bookmarks/attachments.
+- [x] Confirm all attachment/download responses set restrictive caching (`private`, `no-store`/`no-cache`) so CDN/shared caches never retain financial/health documents. Spot-checked: `drive.ts` uses `private, max-age=60`; `notes.ts` permalink uses `private, no-cache, must-revalidate`. Confirm consistency and whether `max-age=60` should be `no-store` for high-sensitivity files.
 
 ### Phase 5 — D1 / Data Layer
 - [ ] Confirm all attachment/drive/health/financial-relevant queries are parameterized (spot pattern already looks correct via `.bind()`, but sweep `src/db/drive.ts`, `src/db/notes.ts`, `src/db/health.ts` for any string-concatenated SQL).
