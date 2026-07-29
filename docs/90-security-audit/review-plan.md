@@ -59,9 +59,9 @@ Out of scope for this pass: RSS/email ingestion, chat/AI enrichment content, adm
 - [x] Confirm all `waitUntil` fire-and-forget calls (e.g., `touchApiToken`) don't carry sensitive payloads that could race with request teardown.
 - [x] Confirm large R2 objects are streamed (`c.body(object.body)`) rather than buffered via `.text()`/`.arrayBuffer()` — spot-checked as already correct in `drive.ts`/`notes.ts`.
 
-### Phase 7 — Secrets & Config
-- [ ] Confirm `TOKEN_SECRET`, `CF_ACCESS_CLIENT_ID/SECRET` are only ever read via `c.env` and set with `wrangler secret put` — never hardcoded or committed (per `wrangler.toml` comments).
-- [ ] Confirm no `.dev.vars` or local secret file is committed to git.
+### Phase 7 — Secrets & Config ✅ (see [findings-2026-07-29-phase7-secrets-config.md](findings-2026-07-29-phase7-secrets-config.md))
+- [x] Confirm `TOKEN_SECRET`, `CF_ACCESS_CLIENT_ID/SECRET` are only ever read via `c.env` and set with `wrangler secret put` — never hardcoded or committed (per `wrangler.toml` comments).
+- [x] Confirm no `.dev.vars` or local secret file is committed to git.
 
 ## Deliverable
 
