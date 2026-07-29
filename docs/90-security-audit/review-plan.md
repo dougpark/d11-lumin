@@ -49,10 +49,10 @@ Out of scope for this pass: RSS/email ingestion, chat/AI enrichment content, adm
 - [x] `src/index.ts` sets `cors({ origin: '*', allowHeaders: ['Authorization','Content-Type'] })` — confirm `credentials` is never enabled alongside wildcard origin (it currently isn't, but re-verify since this is a common regression), and confirm cookie-based routes (`/l/:prefix/:slug`) aren't reachable cross-origin in a way that leaks private bookmarks/attachments.
 - [x] Confirm all attachment/download responses set restrictive caching (`private`, `no-store`/`no-cache`) so CDN/shared caches never retain financial/health documents. Spot-checked: `drive.ts` uses `private, max-age=60`; `notes.ts` permalink uses `private, no-cache, must-revalidate`. Confirm consistency and whether `max-age=60` should be `no-store` for high-sensitivity files.
 
-### Phase 5 — D1 / Data Layer
-- [ ] Confirm all attachment/drive/health/financial-relevant queries are parameterized (spot pattern already looks correct via `.bind()`, but sweep `src/db/drive.ts`, `src/db/notes.ts`, `src/db/health.ts` for any string-concatenated SQL).
-- [ ] Confirm soft-delete (`softDeleteDriveItem`) actually blocks R2 object retrieval post-delete, or if the R2 object remains fetchable via an old signed token until it expires (acceptable given short TTL, but confirm no permanent unsigned path survives deletion).
-- [ ] Confirm error messages returned to clients never leak SQL, file paths, or R2 key structure.
+### Phase 5 — D1 / Data Layer ✅ (see [findings-2026-07-29-phase5-data-layer.md](findings-2026-07-29-phase5-data-layer.md))
+- [x] Confirm all attachment/drive/health/financial-relevant queries are parameterized (spot pattern already looks correct via `.bind()`, but sweep `src/db/drive.ts`, `src/db/notes.ts`, `src/db/health.ts` for any string-concatenated SQL).
+- [x] Confirm soft-delete (`softDeleteDriveItem`) actually blocks R2 object retrieval post-delete, or if the R2 object remains fetchable via an old signed token until it expires (acceptable given short TTL, but confirm no permanent unsigned path survives deletion).
+- [x] Confirm error messages returned to clients never leak SQL, file paths, or R2 key structure.
 
 ### Phase 6 — Edge Runtime / Isolate Hygiene
 - [ ] Grep for module-level `let`/`var` mutable state outside request handlers across `src/` (cross-request leak risk in reused isolates).

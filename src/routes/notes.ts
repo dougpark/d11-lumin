@@ -457,7 +457,16 @@ notes.delete('/:id', async (c) => {
 
         if (c.env.ATTACHMENTS) {
             for (const url of deleted.attachmentUrls) {
-                try { await c.env.ATTACHMENTS.delete(url) } catch { /* ignore */ }
+                try {
+                    await c.env.ATTACHMENTS.delete(url)
+                } catch (cleanupErr) {
+                    console.error('note delete cleanup failed — orphaned R2 object', {
+                        objectKey: url,
+                        userId: user.id,
+                        noteId: id,
+                        error: (cleanupErr as Error).message,
+                    })
+                }
             }
         }
 
@@ -606,7 +615,17 @@ notes.delete('/:id/attachments/:attachmentId', async (c) => {
     if (!deleted) return c.json({ error: 'Attachment not found' }, 404)
 
     if (c.env.ATTACHMENTS && deleted.should_delete_object) {
-        try { await c.env.ATTACHMENTS.delete(deleted.attachment.url) } catch { /* ignore */ }
+        try {
+            await c.env.ATTACHMENTS.delete(deleted.attachment.url)
+        } catch (cleanupErr) {
+            console.error('attachment delete cleanup failed — orphaned R2 object', {
+                objectKey: deleted.attachment.url,
+                userId: user.id,
+                noteId: id,
+                attachmentId,
+                error: (cleanupErr as Error).message,
+            })
+        }
     }
 
     return c.json({ data: { attachment_id: attachmentId } })
