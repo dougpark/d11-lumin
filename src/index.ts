@@ -110,11 +110,12 @@ app.use('*', cors({
 //   session-token audit docs). Report-Only for now: logs violations to the
 //   browser console without blocking anything, so we can verify all client
 //   pages are unaffected before switching to enforcing mode.
+
 const CSP_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com",
+  "font-src 'self' https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com",
   "img-src 'self' https: data:",
   "connect-src 'self'",
   "object-src 'none'",
