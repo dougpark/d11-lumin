@@ -1485,7 +1485,6 @@
             noteDrafts: {},
             noteAttachments: [],
             noteImagePreviews: [],
-            noteAttachmentAccessUrls: {},
             noteUploadQueue: [],
             notePreviewOpen: false,
             noteAttachmentsPanelOpen: false,
@@ -1855,7 +1854,6 @@
             syncNoteCardSelectionStyles()
             state.noteAttachments = []
             state.noteImagePreviews = []
-            state.noteAttachmentAccessUrls = {}
             state.noteUploadQueue = []
             state.noteLastSavedContent = ''
             if (!keepContent) {
@@ -2461,17 +2459,6 @@
                 return
             }
 
-            const signedByAttachmentId = new Map(
-                state.noteImagePreviews.map((preview) => [preview.attachment_id, preview.url]),
-            )
-            const signedByPermalink = new Map()
-            for (const attachment of state.noteAttachments) {
-                const signedUrl = state.noteAttachmentAccessUrls[attachment.attachment_id] || signedByAttachmentId.get(attachment.attachment_id)
-                if (!signedUrl) continue
-                if (typeof attachment.permalink_url !== 'string' || !attachment.permalink_url) continue
-                signedByPermalink.set(normalizeUrlForMatch(attachment.permalink_url), signedUrl)
-            }
-
             if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
                 const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 const rendered = marked.parse(safeSource, { gfm: true, breaks: true })
@@ -2479,16 +2466,10 @@
                 const template = document.createElement('template')
                 template.innerHTML = rendered
 
-                for (const image of template.content.querySelectorAll('img')) {
-                    const src = image.getAttribute('src') || ''
-                    const signedSrc = signedByPermalink.get(normalizeUrlForMatch(src))
-                    if (signedSrc) image.setAttribute('src', signedSrc)
-                }
-
+                // Image/link srcs already point at the session-authenticated, cacheable
+                // permalink route (baked in at insert time by buildAttachmentMarkdown), so
+                // no signed-token swap is needed here.
                 for (const link of template.content.querySelectorAll('a')) {
-                    const href = link.getAttribute('href') || ''
-                    const signedHref = signedByPermalink.get(normalizeUrlForMatch(href))
-                    if (signedHref) link.setAttribute('href', signedHref)
                     link.setAttribute('target', '_blank')
                     link.setAttribute('rel', 'noopener noreferrer')
                 }
@@ -2514,13 +2495,7 @@
                     if (deferHydrationRender) {
                         el.noteEditorPreview.innerHTML = '<p class="text-sm text-muted-fg">Loading preview...</p>'
                     } else {
-                        const noteId = state.editingNote.note_id
-                        ensureNoteAttachmentAccessUrls(noteId)
-                            .finally(() => {
-                                if (state.notePreviewOpen && isEditingNote(noteId)) {
-                                    renderNoteMarkdownPreview()
-                                }
-                            })
+                        renderNoteMarkdownPreview()
                     }
                 } else {
                     renderNoteMarkdownPreview()
@@ -2783,7 +2758,6 @@
             state.noteImagePreviews = []
             state.noteLastSavedContent = (note.content || '').trim()
             state.noteSaveInFlight = false
-            state.noteAttachmentAccessUrls = {}
             closeNoteEditorMenu()
             setActivePage(state.isDesktopView ? 'notes-list' : 'note-editor')
             setNoteEditorValue(note.content || '')
@@ -3006,23 +2980,12 @@
             if (!isEditingNote(noteId)) return
             const imageAttachments = state.noteAttachments.filter((attachment) =>
                 typeof attachment.content_type === 'string' && attachment.content_type.startsWith('image/'))
-            const previews = []
-            for (const attachment of imageAttachments) {
-                if (!isEditingNote(noteId)) return
-                try {
-                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
-                    if (access?.data?.url) {
-                        previews.push({
-                            attachment_id: attachment.attachment_id,
-                            filename: attachment.filename,
-                            permalink_url: attachment.permalink_url || '',
-                            url: access.data.url,
-                        })
-                    }
-                } catch { /* ignore */ }
-            }
-            if (!isEditingNote(noteId)) return
-            state.noteImagePreviews = previews
+            state.noteImagePreviews = imageAttachments.map((attachment) => ({
+                attachment_id: attachment.attachment_id,
+                filename: attachment.filename,
+                permalink_url: attachment.permalink_url || '',
+                url: attachment.permalink_url || '',
+            }))
         }
 
         function renderNoteAttachments() {
@@ -3092,28 +3055,10 @@
             const res = await api(`/api/notes/${noteId}/attachments`)
             if (!isEditingNote(noteId)) return
             state.noteAttachments = res?.data || []
-            await ensureNoteAttachmentAccessUrls(noteId)
             await loadNoteImagePreviews(noteId)
             if (!isEditingNote(noteId)) return
             renderNoteAttachments()
             if (state.notePreviewOpen && !skipPreviewRender) renderNoteMarkdownPreview()
-        }
-
-        async function ensureNoteAttachmentAccessUrls(noteId) {
-            if (!isEditingNote(noteId)) return
-            const nextUrls = { ...state.noteAttachmentAccessUrls }
-            for (const attachment of state.noteAttachments) {
-                if (!isEditingNote(noteId)) return
-                if (typeof nextUrls[attachment.attachment_id] === 'string' && nextUrls[attachment.attachment_id]) continue
-                try {
-                    const access = await api(`/api/notes/${noteId}/attachments/${attachment.attachment_id}/access`)
-                    if (access?.data?.url) {
-                        nextUrls[attachment.attachment_id] = access.data.url
-                    }
-                } catch { /* ignore */ }
-            }
-            if (!isEditingNote(noteId)) return
-            state.noteAttachmentAccessUrls = nextUrls
         }
 
         function renderUploadQueue() {

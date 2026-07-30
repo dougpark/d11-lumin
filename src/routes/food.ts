@@ -383,10 +383,18 @@ food.get('/entries/:id/image', async (c) => {
     const object = await c.env.FOOD_ENTRIES.get(imageKey)
     if (!object || !object.body) return c.json({ error: 'Image payload missing' }, 404)
 
+    const etag = `"food-${id}-${object.size}"`
     c.header('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
-    c.header('Cache-Control', 'private, no-cache, must-revalidate, max-age=31536000')
+    c.header('Cache-Control', 'private, max-age=31536000, immutable')
     c.header('Vary', 'Authorization')
+    c.header('ETag', etag)
     c.header('X-Robots-Tag', 'noindex, nofollow')
+
+    const ifNoneMatch = c.req.header('if-none-match')
+    if (ifNoneMatch && ifNoneMatch.split(',').map((v) => v.trim()).includes(etag)) {
+        return c.body(null, 304)
+    }
+
     return c.body(object.body)
 })
 

@@ -226,7 +226,7 @@ notes.get('/attachments/p/:slug', async (c) => {
     if (!object || !object.body) return c.json({ error: 'Attachment payload missing' }, 404)
 
     const etag = `"${attachment.attachment_slug}-${attachment.size}-${attachment.cache_version}"`
-    c.header('Cache-Control', 'private, no-cache, must-revalidate, max-age=31536000')
+    c.header('Cache-Control', 'private, max-age=31536000, immutable')
     c.header('Vary', 'Authorization')
     c.header('ETag', etag)
     c.header('X-Robots-Tag', 'noindex, nofollow')
