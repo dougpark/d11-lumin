@@ -523,20 +523,6 @@
                 </div>
                 <!-- search button -->
                 <div class="flex items-center gap-1 ml-2">
-                    <div class="relative">
-                        <button id="btn-suite-menu-messages" class="header-icon-btn" title="Suite navigation"
-                            aria-label="Open suite navigation" aria-expanded="false">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
-                                </path>
-                            </svg>
-                        </button>
-                        <div id="suite-menu-messages"
-                            class="hidden absolute right-0 top-10 bg-white border border-border rounded-xl shadow-lg w-56 p-2 z-50 text-[#1a1a2e]">
-                        </div>
-                    </div>
                     <button id="btn-search" class="header-icon-btn" title="Search" aria-label="Open search">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd"
@@ -1663,12 +1649,6 @@
         window.LuminSuiteMenu.initMenu({
             buttonId: 'btn-suite-menu-channels',
             menuId: 'suite-menu-channels',
-            activePage: 'chat',
-            mode: 'accent',
-        })
-        window.LuminSuiteMenu.initMenu({
-            buttonId: 'btn-suite-menu-messages',
-            menuId: 'suite-menu-messages',
             activePage: 'chat',
             mode: 'accent',
         })
