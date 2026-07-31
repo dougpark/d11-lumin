@@ -17,7 +17,7 @@ import healthRoutes from './routes/health.ts'
 import foodRoutes from './routes/food.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
-import { createInviteCode, listInviteCodes, revokeInviteCode } from './db/invites.ts'
+import { createInviteCode, listInviteCodes, revokeInviteCode, getInviteRedemptions } from './db/invites.ts'
 import { hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
@@ -1521,6 +1521,18 @@ app.patch('/api/admin/invites/:id/revoke', authMiddleware, async (c) => {
   if (!revoked) return c.json({ error: 'Invite not found or already revoked' }, 404)
 
   return c.json({ ok: true, invite: revoked })
+})
+
+// GET /api/admin/invites/:id/redemptions — list users who redeemed an invite code (admin only)
+app.get('/api/admin/invites/:id/redemptions', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const inviteId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(inviteId) || inviteId < 1) return c.json({ error: 'Invalid invite id' }, 400)
+
+  const redemptions = await getInviteRedemptions(c.env.DB, inviteId)
+  return c.json({ redemptions })
 })
 
 // ─── Admin RSS Feeds BREAD ────────────────────────────────────────────────────

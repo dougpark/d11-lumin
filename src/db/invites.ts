@@ -115,6 +115,35 @@ export async function recordInviteRedemption(
         .run()
 }
 
+export type InviteRedemptionWithUser = {
+    id: number
+    invite_code_id: number
+    user_id: number
+    created_at: string
+    slug_prefix: string
+    full_name: string | null
+    email: string | null
+}
+
+/** List everyone who redeemed a given invite code, newest first (admin view). */
+export async function getInviteRedemptions(
+    db: D1Database,
+    inviteCodeId: number,
+): Promise<InviteRedemptionWithUser[]> {
+    const result = await db
+        .prepare(
+            `SELECT r.id, r.invite_code_id, r.user_id, r.created_at,
+              u.slug_prefix, u.full_name, u.email
+       FROM invite_redemptions r
+       JOIN users u ON u.id = r.user_id
+       WHERE r.invite_code_id = ?
+       ORDER BY r.created_at DESC`,
+        )
+        .bind(inviteCodeId)
+        .all<InviteRedemptionWithUser>()
+    return result.results
+}
+
 /** Revoke an invite code (sets revoked_at to now). Returns the updated row, or null if not found. */
 export async function revokeInviteCode(db: D1Database, id: number): Promise<InviteCode | null> {
     const result = await db
