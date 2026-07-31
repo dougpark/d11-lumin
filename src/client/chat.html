@@ -547,12 +547,20 @@
 
             <!-- Composer -->
             <form id="composer"
-                class="flex-shrink-0 bg-[#f0f2f5] border-t border-border px-3 py-2.5 overflow-hidden w-full max-w-full">
+                class="relative flex-shrink-0 bg-[#f0f2f5] border-t border-border px-3 py-2.5 overflow-hidden w-full max-w-full">
                 <div class="flex items-end gap-2 min-w-0">
                     <div
                         class="flex-1 bg-white border border-border rounded-2xl px-4 py-2 flex items-end gap-2 min-h-[40px] min-w-0 overflow-hidden">
                         <textarea id="message-input" maxlength="4000" placeholder="Message"
                             class="flex-1 bg-transparent text-base text-[#1a1a2e] placeholder-muted-fg outline-none resize-none leading-relaxed max-h-24 min-w-0"></textarea>
+                        <button id="btn-emoji" type="button"
+                            class="shrink-0 p-1 text-muted-fg hover:text-primary rounded-lg" title="Emoji"
+                            aria-label="Insert emoji" aria-expanded="false">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9.75 9.75c.5-.667 1-.667 1.5 0m3.5 0c.5-.667 1-.667 1.5 0M9 15c.85 1 1.9 1.5 3 1.5s2.15-.5 3-1.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
                     </div>
                     <button id="composer-submit" type="submit"
                         class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-[#0d47a1] flex-shrink-0">
@@ -563,6 +571,11 @@
                         </svg>
                     </button>
                 </div>
+
+                <!-- Emoji picker popover -->
+                <div id="emoji-picker"
+                    class="hidden absolute bottom-full right-3 mb-2 w-64 max-h-56 overflow-y-auto bg-white border border-border rounded-xl shadow-lg p-2 grid grid-cols-8 gap-1 z-50"
+                    role="menu" aria-label="Emoji picker"></div>
             </form>
         </section>
 
@@ -679,6 +692,8 @@
             composerSubmit: document.getElementById('composer-submit'),
             composerSubmitPath: document.getElementById('composer-submit-path'),
             messageInput: document.getElementById('message-input'),
+            btnEmoji: document.getElementById('btn-emoji'),
+            emojiPicker: document.getElementById('emoji-picker'),
             messages: document.getElementById('messages'),
             searchInput: document.getElementById('search-input'),
             sortBtns: Array.from(document.querySelectorAll('.sort-btn')),
@@ -1599,6 +1614,61 @@
         el.messageInput.addEventListener('input', () => {
             el.messageInput.style.height = 'auto'
             el.messageInput.style.height = Math.min(el.messageInput.scrollHeight, 96) + 'px'
+        })
+
+        const EMOJI_LIST = [
+            '😀', '😂', '😅', '😊', '😍', '😘', '😜', '🤔',
+            '😴', '😭', '😡', '🥳', '😎', '🤗', '🙄', '😇',
+            '👍', '👎', '👏', '🙌', '🙏', '💪', '👋', '✌️',
+            '🤝', '👀', '🔥', '✨', '🎉', '💯', '⚡', '⭐',
+            '❤️', '💔', '💕', '😢', '😱', '🤯', '😬', '🥰',
+            '🤩', '😆', '😉', '🤣', '🙃', '😐', '👌', '🎂',
+        ]
+
+        function renderEmojiPicker() {
+            el.emojiPicker.innerHTML = EMOJI_LIST.map((emoji) =>
+                `<button type="button" class="emoji-option text-xl leading-none p-1 rounded-lg hover:bg-muted" data-emoji="${emoji}">${emoji}</button>`
+            ).join('')
+        }
+        renderEmojiPicker()
+
+        function setEmojiPickerOpen(open) {
+            el.emojiPicker.classList.toggle('hidden', !open)
+            el.btnEmoji.setAttribute('aria-expanded', open ? 'true' : 'false')
+        }
+
+        function insertEmojiAtCursor(emoji) {
+            const input = el.messageInput
+            const start = input.selectionStart ?? input.value.length
+            const end = input.selectionEnd ?? input.value.length
+            input.value = input.value.slice(0, start) + emoji + input.value.slice(end)
+            const cursor = start + emoji.length
+            input.setSelectionRange(cursor, cursor)
+            input.dispatchEvent(new Event('input'))
+            input.focus()
+        }
+
+        el.btnEmoji.addEventListener('click', (event) => {
+            event.stopPropagation()
+            setEmojiPickerOpen(el.emojiPicker.classList.contains('hidden'))
+        })
+
+        el.emojiPicker.addEventListener('click', (event) => {
+            const btn = event.target.closest('.emoji-option')
+            if (!btn) return
+            insertEmojiAtCursor(btn.dataset.emoji)
+        })
+
+        document.addEventListener('click', (event) => {
+            if (el.emojiPicker.classList.contains('hidden')) return
+            if (el.emojiPicker.contains(event.target) || el.btnEmoji.contains(event.target)) return
+            setEmojiPickerOpen(false)
+        })
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !el.emojiPicker.classList.contains('hidden')) {
+                setEmojiPickerOpen(false)
+            }
         })
 
         el.searchInput.addEventListener('keydown', async (event) => {
