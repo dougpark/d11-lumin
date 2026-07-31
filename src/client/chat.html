@@ -148,6 +148,61 @@
             background-color: #f0f2f5;
         }
 
+        /* Desktop layout: channels + messages side-by-side */
+        @media (min-width: 768px) {
+            body {
+                align-items: center;
+                padding: 2rem 1rem;
+            }
+
+            #chat-shell {
+                max-width: 1080px;
+                height: calc(100dvh - 4rem);
+                min-height: 600px;
+                flex-direction: row;
+                border-radius: 1rem;
+                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.14);
+                border: 1px solid rgba(0, 0, 0, 0.06);
+            }
+
+            #channels-page,
+            #messages-page {
+                position: relative;
+                inset: auto;
+                transform: none !important;
+                transition: none;
+                pointer-events: auto;
+                z-index: auto;
+            }
+
+            #channels-page {
+                width: 320px;
+                min-width: 320px;
+                max-width: 320px;
+                flex-shrink: 0;
+                border-right: 1px solid rgba(0, 0, 0, 0.08);
+            }
+
+            #messages-page {
+                width: auto;
+                min-width: 0;
+                flex: 1;
+            }
+
+            /* Overlay pages (search) only cover the messages column */
+            .overlay-page {
+                left: 320px;
+            }
+
+            #btn-back {
+                display: none;
+            }
+
+            .message-bubble {
+                max-width: 480px;
+            }
+        }
+
         .header-icon-btn {
             padding: 0.4rem;
             border-radius: 0.5rem;
@@ -489,13 +544,6 @@
                                 clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <!-- profile button -->
-                    <button id="btn-profile" class="header-icon-btn" title="Profile" aria-label="Open profile">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
                 </div>
             </header>
 
@@ -571,29 +619,6 @@
                         Reported Messages
                     </button>
                 </div>
-            </div>
-        </section>
-
-        <!-- profile page -->
-        <section id="profile-page" class="stack-page overlay-page" hidden>
-            <header class="px-4 py-4 border-b border-border bg-white flex items-center justify-between">
-                <div class="flex items-center min-w-0">
-                    <h2 class="text-base font-semibold text-[#1a1a2e]">Profile</h2>
-                </div>
-                <button id="btn-profile-back" class="p-1.5 rounded-lg hover:bg-muted" title="Dismiss"
-                    aria-label="Dismiss to messages">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </button>
-            </header>
-            <div class="flex-1 overflow-y-auto p-4">
-                <div class="rounded-xl border border-border bg-white p-4">
-                    <p class="text-xs uppercase tracking-wide text-muted-fg mb-2">User</p>
-                    <p id="profile-user-name" class="text-base font-semibold text-[#1a1a2e]">Loading...</p>
-                    <p id="profile-user-handle" class="text-sm text-muted-fg mt-1"></p>
-                </div>
-                <p class="text-xs text-muted-fg mt-4">Temporary profile page. More account settings coming soon.</p>
             </div>
         </section>
 
@@ -674,19 +699,14 @@
             btnLogout: document.getElementById('btn-logout'),
             btnBack: document.getElementById('btn-back'),
             btnSearch: document.getElementById('btn-search'),
-            btnProfile: document.getElementById('btn-profile'),
             btnSearchBack: document.getElementById('btn-search-back'),
-            btnProfileBack: document.getElementById('btn-profile-back'),
 
             btnReports: document.getElementById('btn-reports'),
             reportsDialog: document.getElementById('reports-dialog'),
             reportsList: document.getElementById('reports-list'),
             closeReports: document.getElementById('close-reports'),
             searchPage: document.getElementById('search-page'),
-            profilePage: document.getElementById('profile-page'),
 
-            profileUserName: document.getElementById('profile-user-name'),
-            profileUserHandle: document.getElementById('profile-user-handle'),
             voterPopup: document.getElementById('voter-popup'),
             voterPopupTitle: document.getElementById('voter-popup-title'),
             voterPopupList: document.getElementById('voter-popup-list'),
@@ -788,8 +808,6 @@
 
             const overlayPages = {
                 search: el.searchPage,
-                profile: el.profilePage,
-
             }
 
             for (const [overlayName, overlayEl] of Object.entries(overlayPages)) {
@@ -853,28 +871,16 @@
                 return
             }
 
-            if (page === 'profile') {
-                const subtitle = state.user?.slug_prefix ? `@${state.user.slug_prefix}` : 'Your account'
-                setMessageHeader('Profile', subtitle, { animate })
-                return
-            }
-
-
-
             setMessageHeader(`#${state.currentChannel}`, state.lastMessageStatus, { animate })
         }
 
         function updateHeaderActionButtons() {
             const searchActive = state.activePage === 'search'
-            const profileActive = state.activePage === 'profile'
 
             el.btnSearch.classList.toggle('active', searchActive)
-            el.btnProfile.classList.toggle('active', profileActive)
 
             el.btnSearch.disabled = state.contentMode === 'chat' && searchActive
-            el.btnProfile.disabled = profileActive
             el.btnSearch.setAttribute('aria-pressed', searchActive ? 'true' : 'false')
-            el.btnProfile.setAttribute('aria-pressed', profileActive ? 'true' : 'false')
         }
 
         function updateComposerMode() {
@@ -929,7 +935,7 @@
                 })
             }
 
-            if (state.activePage !== 'search' && state.activePage !== 'profile') {
+            if (state.activePage !== 'search') {
                 applyHeaderContext(state.activePage, { animate: true })
             }
         }
@@ -1520,8 +1526,6 @@
                 }
                 state.lastMessageStatus = 'Loading messages...'
                 el.channelsUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
-                el.profileUserName.textContent = state.user.full_name || state.user.slug_prefix || 'User'
-                el.profileUserHandle.textContent = state.user.slug_prefix ? `@${state.user.slug_prefix}` : ''
 
                 const query = new URLSearchParams(location.search)
                 const fromMode = 'chat'
@@ -1550,7 +1554,7 @@
                 await loadMessages({ forceScrollBottom: true })
 
 
-                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels') {
+                if (fromView === 'search' || fromView === 'messages' || fromView === 'channels') {
                     const safeView = fromView
                     const finalView = safeView
                     setActivePage(finalView, { sync: false })
@@ -1560,9 +1564,6 @@
                     el.messageInput.focus()
                 } else {
                     goToChannelsPage({ sync: false })
-                }
-                if (fromView === 'search' || fromView === 'profile' || fromView === 'messages' || fromView === 'channels') {
-                    // handled above; keep branch for structural continuity
                 }
                 applyHeaderContext(state.activePage, { animate: false })
                 updateHeaderActionButtons()
@@ -1642,7 +1643,7 @@
 
         // el.btnLogout.addEventListener('click', doLogout)
         el.btnBack.addEventListener('click', () => {
-            if (state.activePage === 'search' || state.activePage === 'profile') {
+            if (state.activePage === 'search') {
                 goToMessagesPage()
             } else {
                 goToChannelsPage()
@@ -1657,15 +1658,7 @@
                 setActivePage('search')
             }
         })
-        el.btnProfile.addEventListener('click', () => {
-            if (state.activePage === 'profile') {
-                goToMessagesPage()
-            } else {
-                setActivePage('profile')
-            }
-        })
         el.btnSearchBack.addEventListener('click', () => goToMessagesPage())
-        el.btnProfileBack.addEventListener('click', () => goToMessagesPage())
 
         window.LuminSuiteMenu.initMenu({
             buttonId: 'btn-suite-menu-channels',
