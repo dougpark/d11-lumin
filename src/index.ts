@@ -29,6 +29,7 @@ import {
 } from './utils/attachmentTokens.ts'
 // @ts-expect-error — text module loaded by Wrangler rule
 import appHtml from './client/app.html'
+import landingHtml from './client/landing.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import stationHtml from './client/station.html'
 // @ts-expect-error — text module loaded by Wrangler rule
@@ -1746,8 +1747,12 @@ const exploreNavSlot = `<div class="hidden sm:flex items-center rounded-full bor
 const exploreHeader = renderHeader({ activePage: 'explore', pageTitle: 'Explore', searchPlaceholder: 'Filter tags', navTopTitle: 'Top tags', showAdd: false, dropdownItems: 'compact', showMobileFooter: true, navSlot: exploreNavSlot })
 const newsHeader = renderHeader({ activePage: 'news', pageTitle: 'News', searchPlaceholder: 'Filter topics', navTopTitle: 'All topics', showAdd: false, dropdownItems: 'compact', showMobileFooter: true })
 app.get('/', (c) => {
+  const hasAuthCookie = !!getCookie(c, 'd11_auth')
+  const hasQuery = Object.keys(c.req.query()).length > 0
+  if (!hasAuthCookie && !hasQuery) return c.html(landingHtml as string)
   return c.html((appHtml as string).replace('%%HEADER%%', appHeader))
 })
+app.get('/landing', (c) => c.html(landingHtml as string))
 app.get('/add', (c) => c.html((appHtml as string).replace('%%HEADER%%', appHeader)))
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
 app.get('/e', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
