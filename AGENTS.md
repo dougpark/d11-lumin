@@ -70,3 +70,7 @@ db.batch([stmt1, stmt2])  // parallel queries
 - **Sort injection protection** — `listBookmarks` allowlists sort columns via a `const` tuple. Maintain this pattern when adding sort options.
 - **Cron handler** — `*/30 * * * *` is configured in `wrangler.toml`. The `scheduled` export must live in `index.ts`.
 - **No staging** — `bun run deploy` goes straight to production (`d11.me`).
+- **Invite-only registration** — `POST /api/auth/register` always requires a valid `invite` code (see `docs/88-user-register/invite.md`), **except** for the very first registration when the `users` table is empty (bootstrap case — no admin exists yet to create an invite). There is no self-service way to create the first admin beyond that: bootstrap it manually after the first registration with
+  `bunx wrangler d1 execute d11-db --remote --command "UPDATE users SET is_admin = 1 WHERE id = 1"`
+  (use `--local` for local dev). That first admin can then create invite codes for everyone else from the Admin panel.
+

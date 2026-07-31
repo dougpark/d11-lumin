@@ -13,6 +13,25 @@ export type User = {
     is_admin: number          // 0 = regular user, 1 = admin
 }
 
+export type InviteCode = {
+    id: number
+    code: string
+    created_by: number
+    note: string | null
+    max_uses: number
+    use_count: number
+    expires_at: string
+    revoked_at: string | null
+    created_at: string
+}
+
+export type InviteRedemption = {
+    id: number
+    invite_code_id: number
+    user_id: number
+    created_at: string
+}
+
 export type Bookmark = {
     id: number
     user_id: number

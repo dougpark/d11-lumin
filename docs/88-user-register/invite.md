@@ -25,15 +25,16 @@
 - the invite code is passed as a query parameter in the url (e.g., https://d11.me/?auth=register&next=%2Fstart&invite=INVITE_CODE)
 
 ### Invalid invite codes
-- if the invite code is invalid, expired, revoked, or has been used up, show an error message and do not allow the user to register
-- ask them to contact the admin for a new invite code
+- if the invite code is missing, invalid, expired, revoked, or has been used up, show an error message and do not allow the user to register
+- ask them to contact the admin for a new invite code, there is no self-service way to generate a new invite code
+- all new registrations require an invite code.
 
 ### modify user registration flow to require an invite code for new users
 - verify the invite code is valid and < max_uses
 - increment use_count after successful registration
 
 ## modify admin.html
-- add a new section for invite codes and create a new card for invite codes
+- add a new section for invite codes and create a new panel for managing invite codes
 
 ## invite code generation
 - Standard UUIDv4 or a cryptographically secure 32-character hex token works great here

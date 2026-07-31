@@ -17,6 +17,7 @@ import healthRoutes from './routes/health.ts'
 import foodRoutes from './routes/food.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
+import { createInviteCode, listInviteCodes, revokeInviteCode } from './db/invites.ts'
 import { hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
@@ -1447,6 +1448,79 @@ app.delete('/api/admin/users/:id', authMiddleware, async (c) => {
   if (result.meta.changes === 0) return c.json({ error: 'User not found' }, 404)
 
   return c.json({ ok: true, id: targetId })
+})
+
+// ─── Admin Invite Codes BREAD ─────────────────────────────────────────────────
+
+// GET /api/admin/invites — list all invite codes with computed status (admin only)
+app.get('/api/admin/invites', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const invites = await listInviteCodes(c.env.DB)
+  const now = new Date().toISOString()
+
+  const withStatus = invites.map((invite) => {
+    let status: 'active' | 'revoked' | 'expired' | 'used_up' = 'active'
+    if (invite.revoked_at) status = 'revoked'
+    else if (invite.expires_at <= now) status = 'expired'
+    else if (invite.use_count >= invite.max_uses) status = 'used_up'
+    return { ...invite, status }
+  })
+
+  return c.json({ invites: withStatus })
+})
+
+// POST /api/admin/invites — create a new invite code (admin only)
+// Body: { note?: string, max_uses?: number, expires_in_days?: number }
+app.post('/api/admin/invites', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const currentUser = c.var.user as User
+
+  let body: unknown
+  try { body = await c.req.json() } catch { body = {} }
+  const patch = (typeof body === 'object' && body !== null) ? body as Record<string, unknown> : {}
+
+  const note = typeof patch.note === 'string' && patch.note.trim().length > 0 ? patch.note.trim() : undefined
+
+  let maxUses = 1
+  if ('max_uses' in patch) {
+    const n = Number(patch.max_uses)
+    if (!Number.isInteger(n) || n < 1) return c.json({ error: 'max_uses must be an integer >= 1' }, 400)
+    maxUses = n
+  }
+
+  let expiresInDays = 7
+  if ('expires_in_days' in patch) {
+    const n = Number(patch.expires_in_days)
+    if (!Number.isFinite(n) || n <= 0) return c.json({ error: 'expires_in_days must be a positive number' }, 400)
+    expiresInDays = n
+  }
+
+  const invite = await createInviteCode(c.env.DB, {
+    created_by: currentUser.id,
+    note,
+    max_uses: maxUses,
+    expires_in_days: expiresInDays,
+  })
+
+  return c.json({ invite }, 201)
+})
+
+// PATCH /api/admin/invites/:id/revoke — revoke an invite code (admin only)
+app.patch('/api/admin/invites/:id/revoke', authMiddleware, async (c) => {
+  const deny = requireAdmin(c)
+  if (deny) return deny
+
+  const inviteId = parseInt(c.req.param('id') ?? '', 10)
+  if (!Number.isInteger(inviteId) || inviteId < 1) return c.json({ error: 'Invalid invite id' }, 400)
+
+  const revoked = await revokeInviteCode(c.env.DB, inviteId)
+  if (!revoked) return c.json({ error: 'Invite not found or already revoked' }, 404)
+
+  return c.json({ ok: true, invite: revoked })
 })
 
 // ─── Admin RSS Feeds BREAD ────────────────────────────────────────────────────

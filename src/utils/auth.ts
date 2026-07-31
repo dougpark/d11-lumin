@@ -29,3 +29,36 @@ export function extractBearer(authHeader: string | null | undefined): string | n
     const match = authHeader.match(/^Bearer\s+(.+)$/i)
     return match ? match[1].trim() : null
 }
+
+// ─── Invite endpoint rate limiting ───────────────────────────────────────────
+// Invite codes aren't tied to an email, so the validate/register endpoints are
+// enumerable — throttle by client IP to slow down guessing. This is a
+// per-isolate soft limit (Workers isolates are ephemeral and not shared across
+// the edge), not a hard global guarantee, but it meaningfully raises the cost
+// of scripted brute-forcing.
+const inviteAttemptTimestamps = new Map<string, number[]>()
+const MAX_INVITE_ATTEMPTS_PER_WINDOW = 10
+const INVITE_RATE_LIMIT_WINDOW_MS = 60000
+
+export function checkInviteRateLimit(clientKey: string): boolean {
+    const now = Date.now()
+    const timestamps = inviteAttemptTimestamps.get(clientKey) || []
+    const recent = timestamps.filter((ts) => now - ts < INVITE_RATE_LIMIT_WINDOW_MS)
+
+    if (recent.length >= MAX_INVITE_ATTEMPTS_PER_WINDOW) {
+        inviteAttemptTimestamps.set(clientKey, recent)
+        return false
+    }
+
+    recent.push(now)
+    inviteAttemptTimestamps.set(clientKey, recent)
+
+    // Bound the map's memory footprint for long-lived isolates.
+    for (const [key, ts] of inviteAttemptTimestamps) {
+        if (key !== clientKey && !ts.some((t) => now - t < INVITE_RATE_LIMIT_WINDOW_MS)) {
+            inviteAttemptTimestamps.delete(key)
+        }
+    }
+
+    return true
+}

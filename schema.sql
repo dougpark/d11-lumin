@@ -369,6 +369,43 @@ CREATE INDEX IF NOT EXISTS idx_ai_requests_user_id     ON ai_requests (user_id, 
 CREATE INDEX IF NOT EXISTS idx_ai_requests_message_id  ON ai_requests (message_id);
 CREATE INDEX IF NOT EXISTS idx_ai_requests_channel_id  ON ai_requests (channel_id);
 
+-- ─── Invite Codes (invite-only registration) ─────────────────────────────────
+--
+-- Registration always requires a valid, unrevoked, unexpired, not-fully-used
+-- invite code. Codes are not tied to an email — anyone holding the code (URL
+-- query param) can redeem it up to max_uses times.
+--
+-- Redemption must use an atomic UPDATE ... WHERE ... (see db/invites.ts
+-- redeemInviteCode) rather than a SELECT-then-UPDATE, since D1/Workers has no
+-- interactive multi-statement transactions to guard against a race between
+-- two simultaneous redemptions of the same single-use code.
+CREATE TABLE IF NOT EXISTS invite_codes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  code        TEXT    NOT NULL UNIQUE,          -- 32-byte hex token (crypto-random)
+  created_by  INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  note        TEXT,                             -- optional admin-facing label
+  max_uses    INTEGER NOT NULL DEFAULT 1 CHECK (max_uses >= 1),
+  use_count   INTEGER NOT NULL DEFAULT 0,
+  expires_at  TEXT    NOT NULL,                 -- ISO 8601 UTC, app-computed (default now+7d)
+  revoked_at  TEXT,                             -- nullable; set when an admin revokes it
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invite_codes_code       ON invite_codes (code);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_created_by        ON invite_codes (created_by);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_status_lookup     ON invite_codes (revoked_at, expires_at);
+
+-- ─── Invite Redemptions (audit trail — who registered with which code) ──────
+CREATE TABLE IF NOT EXISTS invite_redemptions (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  invite_code_id   INTEGER NOT NULL REFERENCES invite_codes (id) ON DELETE CASCADE,
+  user_id          INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_redemptions_invite_code_id ON invite_redemptions (invite_code_id);
+CREATE INDEX IF NOT EXISTS idx_invite_redemptions_user_id        ON invite_redemptions (user_id);
+
 -- ─── RSS Feeds (seed rows managed via SQL, admin UI in V2) ───────────────────
 CREATE TABLE IF NOT EXISTS rss_feeds (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
