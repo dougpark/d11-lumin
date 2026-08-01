@@ -3,10 +3,13 @@ import type { Env, Variables } from '../index.ts'
 import {
     createHealthEntry,
     getHealthAnalysis,
+    getHealthProfile,
     listHealthEntries,
     listHealthEntriesForExport,
+    sanitizeHealthProfile,
     softDeleteHealthEntry,
     updateHealthEntry,
+    upsertHealthProfile,
 } from '../db/health.ts'
 
 const health = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -216,6 +219,29 @@ health.delete('/entries/:id', async (c) => {
     const deleted = await softDeleteHealthEntry(c.env.DB, id, user.id)
     if (!deleted) return c.json({ error: 'Health entry not found' }, 404)
     return c.json({ ok: true })
+})
+
+health.get('/profile', async (c) => {
+    const user = c.get('user')
+    const profile = await getHealthProfile(c.env.DB, user.id)
+    return c.json({ data: profile })
+})
+
+health.put('/profile', async (c) => {
+    const user = c.get('user')
+    let body: Record<string, unknown>
+
+    try {
+        body = await c.req.json()
+    } catch {
+        return c.json({ error: 'Invalid JSON body' }, 400)
+    }
+
+    const sanitized = sanitizeHealthProfile(body)
+    if ('error' in sanitized) return c.json({ error: sanitized.error }, 400)
+
+    const saved = await upsertHealthProfile(c.env.DB, user.id, sanitized.profile)
+    return c.json({ data: saved })
 })
 
 health.get('/analysis', async (c) => {

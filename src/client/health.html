@@ -257,6 +257,18 @@
             </section>
 
             <aside class="space-y-6">
+                <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                            <h2 class="text-sm font-semibold text-g-black">Profile</h2>
+                            <p class="text-xs text-g-gray mt-0.5">Personal health details.</p>
+                        </div>
+                        <a href="/settings?section=health-profile" class="text-xs text-g-blue hover:underline">Edit in
+                            Settings</a>
+                    </div>
+                    <dl id="health-profile-summary" class="space-y-2 text-sm"></dl>
+                </article>
+
                 <div id="analysis-panel-content" class="space-y-6">
                     <article class="bg-white border border-g-border rounded-[16px] p-4 sm:p-6">
                         <div class="flex items-center justify-between gap-2 mb-4">
@@ -1039,6 +1051,42 @@
             qs('#btn-export-csv').addEventListener('click', () => exportCsv())
         }
 
+        function renderHealthProfileSummary(profile) {
+            const container = qs('#health-profile-summary')
+            if (!container) return
+            const p = profile || {}
+            const rows = [
+                ['Blood Type', p.blood_type],
+                ['Allergies', p.allergies],
+                ['Medications', p.medications],
+                ['Emergency Contact', p.emergency_contact],
+                ['Primary Care Physician', p.primary_care_physician],
+            ].filter(([, value]) => value)
+
+            if (!rows.length) {
+                container.innerHTML = `<p class="text-xs text-g-gray">No health details yet. Add them in Settings.</p>`
+                return
+            }
+
+            container.innerHTML = rows.map(([label, value]) => `
+                <div>
+                    <dt class="text-xs text-g-gray">${escHtml(label)}</dt>
+                    <dd class="text-sm text-g-black whitespace-pre-line break-words">${escHtml(value)}</dd>
+                </div>
+            `).join('')
+        }
+
+        async function loadHealthProfile() {
+            try {
+                const res = await api('GET', '/api/health/profile')
+                if (!res.ok) return
+                const data = await res.json()
+                renderHealthProfileSummary(data.data)
+            } catch {
+                // Profile is a supplementary panel — ignore load failures silently.
+            }
+        }
+
         async function boot() {
             state.authToken = localStorage.getItem('d11_token') || ''
             if (!state.authToken) {
@@ -1065,6 +1113,7 @@
                 bindEvents()
                 await loadEntries(true)
                 await refreshAnalysis()
+                await loadHealthProfile()
 
                 applyEntryToForm(null)
 

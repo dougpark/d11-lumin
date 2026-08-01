@@ -1,9 +1,11 @@
 import type {
     CreateHealthEntryInput,
     HealthEntry,
+    HealthProfile,
     ListHealthEntriesOptions,
     UpdateHealthEntryInput,
 } from './types.ts'
+import { getUserSettings, upsertUserSettings } from './user_settings.ts'
 
 type HealthPoint = { timestamp: string; value: number }
 type BloodPressurePoint = { timestamp: string; systolic: number; diastolic: number }
@@ -334,4 +336,167 @@ export async function listHealthEntriesForExport(
         .all<HealthEntry>()
 
     return rows.results
+}
+
+// ─── Health profile (static details, stored as JSON in user_settings) ────────
+
+const HEALTH_PROFILE_APP_ID = 'health'
+const GENDER_OPTIONS = ['Male', 'Female', ''] as const
+const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', ''] as const
+
+const HEALTH_PROFILE_DEFAULTS: HealthProfile = {
+    full_name: '',
+    birthday: '',
+    gender: '',
+    emergency_contact: '',
+    medications: '',
+    height_inches: null,
+    target_weight: null,
+    target_bmi: null,
+    health_history: '',
+    vaccinations: '',
+    allergies: '',
+    blood_type: '',
+    primary_care_physician: '',
+    notes: '',
+}
+
+const HEALTH_PROFILE_TEXT_LIMITS = {
+    full_name: 200,
+    birthday: 10,
+    emergency_contact: 2000,
+    medications: 4000,
+    health_history: 4000,
+    vaccinations: 4000,
+    allergies: 4000,
+    primary_care_physician: 300,
+    notes: 4000,
+} as const
+
+function sanitizeHealthProfileText(
+    value: unknown,
+    field: string,
+    maxLen: number,
+): { value: string; error?: string } {
+    if (value === undefined || value === null) return { value: '' }
+    if (typeof value !== 'string') return { value: '', error: `${field} must be a string` }
+    const trimmed = value.trim()
+    if (trimmed.length > maxLen) return { value: trimmed, error: `${field} must be ${maxLen} characters or fewer` }
+    return { value: trimmed }
+}
+
+function sanitizeHealthProfileNumber(
+    value: unknown,
+    field: string,
+    min: number,
+    max: number,
+): { value: number | null; error?: string } {
+    if (value === undefined || value === null || value === '') return { value: null }
+    if (typeof value !== 'number' || !Number.isFinite(value)) return { value: null, error: `${field} must be a number` }
+    if (value < min || value > max) return { value: null, error: `${field} must be between ${min} and ${max}` }
+    return { value }
+}
+
+function isValidBirthday(value: string): boolean {
+    if (!value) return true
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+    const date = new Date(`${value}T00:00:00Z`)
+    if (Number.isNaN(date.getTime())) return false
+    return date.getTime() <= Date.now()
+}
+
+/** Allowlists and validates a raw settings JSON body into a HealthProfile — never trust the shape a client posts. */
+export function sanitizeHealthProfile(body: Record<string, unknown>): { profile: HealthProfile } | { error: string } {
+    const fullName = sanitizeHealthProfileText(body.full_name, 'full_name', HEALTH_PROFILE_TEXT_LIMITS.full_name)
+    if (fullName.error) return { error: fullName.error }
+
+    const birthday = sanitizeHealthProfileText(body.birthday, 'birthday', HEALTH_PROFILE_TEXT_LIMITS.birthday)
+    if (birthday.error) return { error: birthday.error }
+    if (!isValidBirthday(birthday.value)) return { error: 'birthday must be a valid date (yyyy-mm-dd) not in the future' }
+
+    const genderRaw = body.gender
+    if (genderRaw !== undefined && genderRaw !== null) {
+        if (typeof genderRaw !== 'string' || !(GENDER_OPTIONS as readonly string[]).includes(genderRaw)) {
+            return { error: 'gender must be Male, Female, or empty' }
+        }
+    }
+
+    const emergencyContact = sanitizeHealthProfileText(body.emergency_contact, 'emergency_contact', HEALTH_PROFILE_TEXT_LIMITS.emergency_contact)
+    if (emergencyContact.error) return { error: emergencyContact.error }
+
+    const medications = sanitizeHealthProfileText(body.medications, 'medications', HEALTH_PROFILE_TEXT_LIMITS.medications)
+    if (medications.error) return { error: medications.error }
+
+    const heightInches = sanitizeHealthProfileNumber(body.height_inches, 'height_inches', 0, 120)
+    if (heightInches.error) return { error: heightInches.error }
+
+    const targetWeight = sanitizeHealthProfileNumber(body.target_weight, 'target_weight', 0, 2000)
+    if (targetWeight.error) return { error: targetWeight.error }
+
+    const targetBmi = sanitizeHealthProfileNumber(body.target_bmi, 'target_bmi', 0, 100)
+    if (targetBmi.error) return { error: targetBmi.error }
+
+    const healthHistory = sanitizeHealthProfileText(body.health_history, 'health_history', HEALTH_PROFILE_TEXT_LIMITS.health_history)
+    if (healthHistory.error) return { error: healthHistory.error }
+
+    const vaccinations = sanitizeHealthProfileText(body.vaccinations, 'vaccinations', HEALTH_PROFILE_TEXT_LIMITS.vaccinations)
+    if (vaccinations.error) return { error: vaccinations.error }
+
+    const allergies = sanitizeHealthProfileText(body.allergies, 'allergies', HEALTH_PROFILE_TEXT_LIMITS.allergies)
+    if (allergies.error) return { error: allergies.error }
+
+    const bloodTypeRaw = body.blood_type
+    if (bloodTypeRaw !== undefined && bloodTypeRaw !== null) {
+        if (typeof bloodTypeRaw !== 'string' || !(BLOOD_TYPE_OPTIONS as readonly string[]).includes(bloodTypeRaw)) {
+            return { error: 'blood_type must be a valid blood type or empty' }
+        }
+    }
+
+    const primaryCarePhysician = sanitizeHealthProfileText(body.primary_care_physician, 'primary_care_physician', HEALTH_PROFILE_TEXT_LIMITS.primary_care_physician)
+    if (primaryCarePhysician.error) return { error: primaryCarePhysician.error }
+
+    const notes = sanitizeHealthProfileText(body.notes, 'notes', HEALTH_PROFILE_TEXT_LIMITS.notes)
+    if (notes.error) return { error: notes.error }
+
+    return {
+        profile: {
+            full_name: fullName.value,
+            birthday: birthday.value,
+            gender: (typeof genderRaw === 'string' ? genderRaw : '') as HealthProfile['gender'],
+            emergency_contact: emergencyContact.value,
+            medications: medications.value,
+            height_inches: heightInches.value,
+            target_weight: targetWeight.value,
+            target_bmi: targetBmi.value,
+            health_history: healthHistory.value,
+            vaccinations: vaccinations.value,
+            allergies: allergies.value,
+            blood_type: (typeof bloodTypeRaw === 'string' ? bloodTypeRaw : '') as HealthProfile['blood_type'],
+            primary_care_physician: primaryCarePhysician.value,
+            notes: notes.value,
+        },
+    }
+}
+
+export async function getHealthProfile(db: D1Database, userId: number): Promise<HealthProfile> {
+    const row = await getUserSettings(db, userId, HEALTH_PROFILE_APP_ID)
+    if (!row) return { ...HEALTH_PROFILE_DEFAULTS }
+
+    try {
+        const parsed = JSON.parse(row.settings)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...HEALTH_PROFILE_DEFAULTS }
+        const sanitized = sanitizeHealthProfile(parsed as Record<string, unknown>)
+        return 'error' in sanitized ? { ...HEALTH_PROFILE_DEFAULTS } : sanitized.profile
+    } catch {
+        return { ...HEALTH_PROFILE_DEFAULTS }
+    }
+}
+
+export async function upsertHealthProfile(
+    db: D1Database,
+    userId: number,
+    profile: HealthProfile,
+): Promise<HealthProfile> {
+    await upsertUserSettings(db, userId, HEALTH_PROFILE_APP_ID, profile)
+    return profile
 }

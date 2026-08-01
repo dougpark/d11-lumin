@@ -566,6 +566,142 @@
             `
         }
 
+        const GENDER_OPTIONS = ['', 'Male', 'Female']
+        const BLOOD_TYPE_OPTIONS = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+        function healthProfileTextField(id, label, value) {
+            return `
+                <label class="block">
+                    <span class="text-sm font-medium text-g-black">${escHtml(label)}</span>
+                    <input id="${id}" type="text" value="${escHtml(value)}"
+                        class="mt-1.5 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20" />
+                </label>
+            `
+        }
+
+        function healthProfileTextareaField(id, label, value, rows) {
+            return `
+                <label class="block">
+                    <span class="text-sm font-medium text-g-black">${escHtml(label)}</span>
+                    <textarea id="${id}" rows="${rows}"
+                        class="mt-1.5 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20">${escHtml(value)}</textarea>
+                </label>
+            `
+        }
+
+        function healthProfileNumberField(id, label, value, placeholder) {
+            return `
+                <label class="block">
+                    <span class="text-sm font-medium text-g-black">${escHtml(label)}</span>
+                    <input id="${id}" type="number" step="any" value="${value === null || value === undefined ? '' : escHtml(value)}"
+                        placeholder="${escHtml(placeholder || '')}"
+                        class="mt-1.5 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20" />
+                </label>
+            `
+        }
+
+        function healthProfileSelectField(id, label, value, options) {
+            return `
+                <label class="block">
+                    <span class="text-sm font-medium text-g-black">${escHtml(label)}</span>
+                    <select id="${id}"
+                        class="mt-1.5 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20">
+                        ${options.map((opt) => `<option value="${escHtml(opt)}" ${opt === value ? 'selected' : ''}>${opt === '' ? '\u2014' : escHtml(opt)}</option>`).join('')}
+                    </select>
+                </label>
+            `
+        }
+
+        function renderHealthProfileSection(profile) {
+            const p = profile || {}
+            return `
+                <section class="space-y-5">
+                    <div class="rounded-[18px] border border-g-border bg-white p-5 space-y-4">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Health</p>
+                            <h3 class="mt-1 text-base font-semibold text-g-black">Health details</h3>
+                            <p class="mt-2 text-sm text-g-gray">Shown on the Health page. Only you can see this information.</p>
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            ${healthProfileTextField('hp-full-name', 'Full Name', p.full_name)}
+                            <label class="block">
+                                <span class="text-sm font-medium text-g-black">Birthday</span>
+                                <input id="hp-birthday" type="date" value="${escHtml(p.birthday)}"
+                                    class="mt-1.5 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20" />
+                            </label>
+                            ${healthProfileSelectField('hp-gender', 'Gender', p.gender ?? '', GENDER_OPTIONS)}
+                            ${healthProfileSelectField('hp-blood-type', 'Blood Type', p.blood_type ?? '', BLOOD_TYPE_OPTIONS)}
+                            ${healthProfileNumberField('hp-height-inches', 'Height (inches)', p.height_inches, 'e.g. 68')}
+                            ${healthProfileNumberField('hp-target-weight', 'Target Weight', p.target_weight, '')}
+                            ${healthProfileNumberField('hp-target-bmi', 'Target BMI', p.target_bmi, '')}
+                            ${healthProfileTextField('hp-pcp', 'Primary Care Physician', p.primary_care_physician)}
+                        </div>
+
+                        <div class="grid gap-4">
+                            ${healthProfileTextareaField('hp-emergency-contact', 'Emergency Contact', p.emergency_contact, 3)}
+                            ${healthProfileTextareaField('hp-medications', 'Medications', p.medications, 5)}
+                            ${healthProfileTextareaField('hp-allergies', 'Allergies', p.allergies, 5)}
+                            ${healthProfileTextareaField('hp-health-history', 'Health History', p.health_history, 5)}
+                            ${healthProfileTextareaField('hp-vaccinations', 'Vaccinations', p.vaccinations, 5)}
+                            ${healthProfileTextareaField('hp-notes', 'Notes', p.notes, 5)}
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button id="btn-save-health-profile"
+                                class="rounded-[10px] bg-g-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">Save health details</button>
+                            <span id="health-profile-status" class="text-xs text-g-gray"></span>
+                        </div>
+                    </div>
+                </section>
+            `
+        }
+
+        async function doSaveHealthProfile() {
+            const status = qs('#health-profile-status')
+            if (status) {
+                status.textContent = 'Saving...'
+                status.classList.remove('text-red-500', 'text-green-700')
+                status.classList.add('text-g-gray')
+            }
+
+            const profile = {
+                full_name: qs('#hp-full-name')?.value.trim() || '',
+                birthday: qs('#hp-birthday')?.value || '',
+                gender: qs('#hp-gender')?.value || '',
+                emergency_contact: qs('#hp-emergency-contact')?.value.trim() || '',
+                medications: qs('#hp-medications')?.value.trim() || '',
+                height_inches: qs('#hp-height-inches')?.value === '' ? null : Number(qs('#hp-height-inches').value),
+                target_weight: qs('#hp-target-weight')?.value === '' ? null : Number(qs('#hp-target-weight').value),
+                target_bmi: qs('#hp-target-bmi')?.value === '' ? null : Number(qs('#hp-target-bmi').value),
+                health_history: qs('#hp-health-history')?.value.trim() || '',
+                vaccinations: qs('#hp-vaccinations')?.value.trim() || '',
+                allergies: qs('#hp-allergies')?.value.trim() || '',
+                blood_type: qs('#hp-blood-type')?.value || '',
+                primary_care_physician: qs('#hp-pcp')?.value.trim() || '',
+                notes: qs('#hp-notes')?.value.trim() || '',
+            }
+
+            try {
+                const res = await api('PUT', '/api/health/profile', profile)
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.error || 'Could not save health details.')
+                if (status) {
+                    status.textContent = 'Saved.'
+                    status.classList.remove('text-red-500', 'text-g-gray')
+                    status.classList.add('text-green-700')
+                }
+            } catch (error) {
+                if (status) {
+                    status.textContent = error instanceof Error ? error.message : String(error)
+                    status.classList.remove('text-green-700', 'text-g-gray')
+                    status.classList.add('text-red-500')
+                }
+            }
+        }
+
+
+
         function renderSectionSkeleton(sectionId) {
             const def = SECTION_REGISTRY.get(sectionId)
             return renderLoadingPanel(def?.subtitle || 'Loading section…')
@@ -577,6 +713,7 @@
             if (def.kind === 'profile') return renderProfileSection()
             if (def.kind === 'api-tokens') return renderApiTokensSection(data)
             if (def.kind === 'system-notifications') return renderSystemNotificationsSection(data)
+            if (def.kind === 'health-profile') return renderHealthProfileSection(data)
             if (def.kind === 'app-settings') return renderGenericAppSettingsSection(def, data)
             return renderErrorPanel('Unsupported section.', sectionId)
         }
@@ -780,7 +917,25 @@
                 },
             }
 
-            const suiteItems = (window.LuminSuiteMenu?.getItems?.() || []).filter((item) => item.key !== 'settings')
+            const healthProfileSection = {
+                id: 'health-profile',
+                label: 'Health',
+                group: 'Preferences',
+                subtitle: 'Personal health details used across the Health page.',
+                kind: 'health-profile',
+                load: async () => {
+                    const res = await api('GET', '/api/health/profile')
+                    if (!res.ok) throw new Error('Could not load health profile.')
+                    const data = await res.json()
+                    return data.data || {}
+                },
+                bind: () => {
+                    qs('#btn-save-health-profile')?.addEventListener('click', doSaveHealthProfile)
+                },
+            }
+
+            const suiteItems = (window.LuminSuiteMenu?.getItems?.() || [])
+                .filter((item) => item.key !== 'settings' && item.key !== 'health')
             const preferenceSections = suiteItems.map((item) => ({
                 id: `pref-${item.key}`,
                 label: item.label,
@@ -824,7 +979,7 @@
                 },
             }))
 
-            for (const section of [profileSection, apiTokensSection, notificationsSection, ...preferenceSections]) {
+            for (const section of [profileSection, apiTokensSection, notificationsSection, healthProfileSection, ...preferenceSections]) {
                 SECTION_SEQUENCE.push(section.id)
                 SECTION_REGISTRY.set(section.id, section)
             }

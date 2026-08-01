@@ -281,6 +281,24 @@ export type ListHealthEntriesOptions = {
     before?: string
 }
 
+// Static profile fields, stored as JSON in user_settings (app_id = 'health') — not health_entries.
+export type HealthProfile = {
+    full_name: string
+    birthday: string  // ISO yyyy-mm-dd
+    gender: 'Male' | 'Female' | ''
+    emergency_contact: string
+    medications: string
+    height_inches: number | null
+    target_weight: number | null
+    target_bmi: number | null
+    health_history: string
+    vaccinations: string
+    allergies: string
+    blood_type: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | ''
+    primary_care_physician: string
+    notes: string
+}
+
 export type CreateFoodEntryInput = {
     user_id: number
     feel?: 'happy' | 'sad' | null
