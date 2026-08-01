@@ -111,7 +111,7 @@
 </head>
 
 <body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
-    <div class="no-print sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-g-border">
+    <div class="no-print sticky top-0 z-10 bg-white border-b border-g-border">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
             <a href="/health" class="text-sm text-g-blue hover:underline">&larr; Back to Health</a>
             <button id="btn-print"
@@ -388,7 +388,11 @@
             }
         }
 
-        qs('#btn-print').addEventListener('click', () => window.print())
+        qs('#btn-print').addEventListener('click', () => {
+            // Safari can save a blank PDF if print() fires synchronously in the click handler
+            document.activeElement?.blur()
+            setTimeout(() => window.print(), 50)
+        })
 
         boot()
     </script>
