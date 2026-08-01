@@ -241,7 +241,7 @@
             empty.classList.add('hidden')
 
             body.innerHTML = entries.map((entry) => `
-                <tr class="border-b border-g-border/60">
+                <tr>
                     <td class="py-2 pr-3 align-top">${escHtml(formatDateTime(entry.timestamp))}</td>
                     <td class="py-2 pr-3 align-top">${entry.weight !== null ? escHtml(entry.weight) : '—'}</td>
                     <td class="py-2 pr-3 align-top">${entry.glucose_level !== null ? escHtml(entry.glucose_level) : '—'}</td>
@@ -249,7 +249,7 @@
                     <td class="py-2 pr-3 align-top">${entry.heart_rate !== null ? escHtml(entry.heart_rate) : '—'}</td>
                     <td class="py-2 pr-3 align-top">${entry.calculated_bmi !== null ? escHtml(entry.calculated_bmi) : '—'}</td>
                 </tr>
-                <tr class="border-b border-g-border">
+                <tr class="border-b border-g-border/60">
                     <td colspan="6" class="pb-2 pr-3 text-xs text-g-gray whitespace-pre-line">${entry.note ? escHtml(entry.note) : ''}</td>
                 </tr>
             `).join('')
