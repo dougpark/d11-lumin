@@ -59,12 +59,44 @@
 
             body {
                 background: #FFFFFF !important;
+                font-size: 11px;
+            }
+
+            main {
+                max-width: none !important;
+                padding: 0 !important;
             }
 
             .report-card {
                 border: none !important;
                 box-shadow: none !important;
+                border-radius: 0 !important;
                 break-inside: avoid;
+                padding: 8px 0 !important;
+            }
+
+            .trends-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+            }
+
+            .report-chart-wrap {
+                height: 4.5rem !important;
+            }
+
+            table {
+                font-size: 9px;
+                width: 100%;
+            }
+
+            table th,
+            table td {
+                padding: 1px 4px !important;
+            }
+
+            table td:not(.whitespace-pre-line),
+            table th {
+                white-space: nowrap;
             }
 
             table tr {
@@ -72,7 +104,7 @@
             }
 
             @page {
-                margin: 0.5in;
+                margin: 0.4in;
             }
         }
     </style>
@@ -147,7 +179,7 @@
 
         <div class="report-card bg-white border border-g-border rounded-[16px] p-6 sm:p-8">
             <h2 class="text-sm font-semibold text-g-black mb-4">Trends</h2>
-            <div class="grid gap-6 sm:grid-cols-2">
+            <div class="trends-grid grid gap-6 sm:grid-cols-2">
                 <section>
                     <h3 class="text-xs font-semibold text-g-black mb-2">Weight</h3>
                     <div class="report-chart-wrap">
