@@ -276,9 +276,14 @@
                                 <h2 class="text-sm font-semibold text-g-black">Analysis</h2>
                                 <p class="text-xs text-g-gray mt-0.5">Filter date range and inspect trends.</p>
                             </div>
-                            <button id="btn-export-csv"
-                                class="text-xs font-medium text-g-blue border border-g-blue/30 rounded-[10px] px-3 py-1.5 hover:bg-blue-50 transition-colors">Export
-                                CSV</button>
+                            <div class="flex flex-shrink-0 gap-2">
+                                <button id="btn-health-report"
+                                    class="text-xs font-medium text-g-black border border-g-border rounded-[10px] px-3 py-1.5 hover:bg-[#F7F9FC] transition-colors">Create
+                                    Report</button>
+                                <button id="btn-export-csv"
+                                    class="text-xs font-medium text-g-blue border border-g-blue/30 rounded-[10px] px-3 py-1.5 hover:bg-blue-50 transition-colors">Export
+                                    CSV</button>
+                            </div>
                         </div>
 
                         <div id="analysis-range-pills" class="flex flex-wrap gap-2 mb-4">
@@ -1049,6 +1054,10 @@
             })
 
             qs('#btn-export-csv').addEventListener('click', () => exportCsv())
+
+            qs('#btn-health-report').addEventListener('click', () => {
+                window.open('/health/report' + toRangeQuery(), '_blank', 'noopener')
+            })
         }
 
         function renderHealthProfileSummary(profile) {

@@ -59,6 +59,8 @@ import driveHtml from './client/drive.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import healthHtml from './client/health.html'
 // @ts-expect-error — text module loaded by Wrangler rule
+import healthReportHtml from './client/health-report.html'
+// @ts-expect-error — text module loaded by Wrangler rule
 import foodHtml from './client/food.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import startHtml from './client/start.html'
@@ -1770,6 +1772,7 @@ app.get('/chat', (c) => c.html(chatHtml as string))
 app.get('/notes', (c) => c.html(notesHtml as string))
 app.get('/drive', (c) => c.html(driveHtml as string))
 app.get('/health', (c) => c.html(healthHtml as string))
+app.get('/health/report', (c) => c.html(healthReportHtml as string))
 app.get('/food', (c) => c.html(foodHtml as string))
 app.get('/start', (c) => c.html(startHtml as string))
 app.get('/s', (c) => c.html(startHtml as string))

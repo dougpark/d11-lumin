@@ -4,6 +4,7 @@ import {
     createHealthEntry,
     getHealthAnalysis,
     getHealthProfile,
+    getHealthReportData,
     listHealthEntries,
     listHealthEntriesForExport,
     sanitizeHealthProfile,
@@ -252,6 +253,20 @@ health.get('/analysis', async (c) => {
     if (q.before && !isIsoTimestamp(q.before)) return c.json({ error: 'before must be a valid date/time string' }, 400)
 
     const result = await getHealthAnalysis(c.env.DB, user.id, {
+        since: q.since || undefined,
+        before: q.before || undefined,
+    })
+    return c.json(result)
+})
+
+health.get('/report', async (c) => {
+    const user = c.get('user')
+    const q = c.req.query()
+
+    if (q.since && !isIsoTimestamp(q.since)) return c.json({ error: 'since must be a valid date/time string' }, 400)
+    if (q.before && !isIsoTimestamp(q.before)) return c.json({ error: 'before must be a valid date/time string' }, 400)
+
+    const result = await getHealthReportData(c.env.DB, user.id, {
         since: q.since || undefined,
         before: q.before || undefined,
     })

@@ -500,3 +500,42 @@ export async function upsertHealthProfile(
     await upsertUserSettings(db, userId, HEALTH_PROFILE_APP_ID, profile)
     return profile
 }
+
+// ─── Health report (printable summary combining profile + analysis + entries) ─
+
+export type HealthReportEntry = HealthEntry & { calculated_bmi: number | null }
+
+export type HealthReportData = {
+    profile: HealthProfile
+    summary: HealthAnalysisResult['summary']
+    series: HealthAnalysisResult['series']
+    entries: HealthReportEntry[]
+}
+
+// Imperial BMI formula — weight is entered in pounds, height_inches comes from the health profile.
+function calculateBmi(weight: number | null, heightInches: number | null): number | null {
+    if (weight === null || heightInches === null || heightInches <= 0) return null
+    return round2((703 * weight) / (heightInches * heightInches))
+}
+
+export async function getHealthReportData(
+    db: D1Database,
+    userId: number,
+    opts?: { since?: string; before?: string },
+): Promise<HealthReportData> {
+    const [profile, analysis, entries] = await Promise.all([
+        getHealthProfile(db, userId),
+        getHealthAnalysis(db, userId, opts),
+        listHealthEntriesForExport(db, userId, opts),
+    ])
+
+    return {
+        profile,
+        summary: analysis.summary,
+        series: analysis.series,
+        entries: entries.map((entry) => ({
+            ...entry,
+            calculated_bmi: calculateBmi(entry.weight, profile.height_inches),
+        })),
+    }
+}

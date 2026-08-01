@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Report - Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .report-chart-wrap {
+            position: relative;
+            width: 100%;
+            height: 11rem;
+        }
+
+        .report-chart-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            body {
+                background: #FFFFFF !important;
+            }
+
+            .report-card {
+                border: none !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+            }
+
+            table tr {
+                break-inside: avoid;
+            }
+
+            @page {
+                margin: 0.5in;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+    <div class="no-print sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-g-border">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+            <a href="/health" class="text-sm text-g-blue hover:underline">&larr; Back to Health</a>
+            <button id="btn-print"
+                class="rounded-[10px] bg-g-blue px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-600 transition-colors">
+                Print / Save as PDF
+            </button>
+        </div>
+    </div>
+
+    <div id="loading" class="flex items-center justify-center py-40">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="error-state" class="hidden text-center py-40 px-6">
+        <p class="font-semibold text-g-black mb-1">Could not load report</p>
+        <p class="text-sm text-g-gray" id="error-msg">Please check your login and try again.</p>
+    </div>
+
+    <main id="content" class="hidden max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <div class="report-card bg-white border border-g-border rounded-[16px] p-6 sm:p-8">
+            <div class="flex items-center justify-between gap-4 border-b border-g-border pb-4">
+                <img src="/lumin_logo.png" alt="Lumin" class="h-9 w-auto">
+                <div class="text-right">
+                    <h1 class="text-lg font-semibold text-g-black">Health Report</h1>
+                    <p id="report-generated" class="text-xs text-g-gray mt-0.5"></p>
+                </div>
+            </div>
+            <p id="report-range" class="text-sm text-g-gray mt-3"></p>
+
+            <div class="grid gap-6 sm:grid-cols-2 mt-6">
+                <dl class="space-y-3 text-sm">
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Full Name</dt>
+                        <dd id="rp-full-name" class="font-medium text-g-black">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Birthday</dt>
+                        <dd id="rp-birthday" class="font-medium text-g-black">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Gender</dt>
+                        <dd id="rp-gender" class="font-medium text-g-black">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Emergency Contact</dt>
+                        <dd id="rp-emergency-contact" class="font-medium text-g-black whitespace-pre-line">—</dd>
+                    </div>
+                </dl>
+                <dl class="space-y-3 text-sm">
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Height</dt>
+                        <dd id="rp-height" class="font-medium text-g-black">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Target Weight</dt>
+                        <dd id="rp-target-weight" class="font-medium text-g-black">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs uppercase tracking-[0.15em] text-g-gray">Target BMI</dt>
+                        <dd id="rp-target-bmi" class="font-medium text-g-black">—</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="report-card bg-white border border-g-border rounded-[16px] p-6 sm:p-8">
+            <h2 class="text-sm font-semibold text-g-black mb-4">Trends</h2>
+            <div class="grid gap-6 sm:grid-cols-2">
+                <section>
+                    <h3 class="text-xs font-semibold text-g-black mb-2">Weight</h3>
+                    <div class="report-chart-wrap">
+                        <canvas id="chart-weight"></canvas>
+                    </div>
+                </section>
+                <section>
+                    <h3 class="text-xs font-semibold text-g-black mb-2">Glucose</h3>
+                    <div class="report-chart-wrap">
+                        <canvas id="chart-glucose"></canvas>
+                    </div>
+                </section>
+                <section>
+                    <h3 class="text-xs font-semibold text-g-black mb-2">Heart Rate</h3>
+                    <div class="report-chart-wrap">
+                        <canvas id="chart-heart"></canvas>
+                    </div>
+                </section>
+                <section>
+                    <h3 class="text-xs font-semibold text-g-black mb-2">Blood Pressure</h3>
+                    <div class="report-chart-wrap">
+                        <canvas id="chart-bp"></canvas>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <div class="report-card bg-white border border-g-border rounded-[16px] p-6 sm:p-8">
+            <h2 class="text-sm font-semibold text-g-black mb-4">Health Data</h2>
+            <table class="w-full text-sm border-collapse">
+                <thead>
+                    <tr class="text-left text-xs uppercase tracking-[0.1em] text-g-gray border-b border-g-border">
+                        <th class="py-2 pr-3">Date</th>
+                        <th class="py-2 pr-3">Weight</th>
+                        <th class="py-2 pr-3">Glucose</th>
+                        <th class="py-2 pr-3">Blood Pressure</th>
+                        <th class="py-2 pr-3">Heart Rate</th>
+                        <th class="py-2 pr-3">BMI</th>
+                    </tr>
+                </thead>
+                <tbody id="report-table-body"></tbody>
+            </table>
+            <p id="report-table-empty" class="hidden text-sm text-g-gray py-6 text-center">No health entries in this
+                date range.</p>
+        </div>
+    </main>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+        function escHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        }
+
+        function api(method, path) {
+            const token = localStorage.getItem('d11_token') || ''
+            return fetch(path, { method, headers: { 'Authorization': 'Bearer ' + token } })
+        }
+
+        function formatDate(value) {
+            if (!value) return '—'
+            const d = new Date(value)
+            if (Number.isNaN(d.getTime())) return '—'
+            return d.toLocaleDateString()
+        }
+
+        function formatDateTime(value) {
+            const d = new Date(value)
+            if (Number.isNaN(d.getTime())) return value
+            return d.toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        }
+
+        function fillProfile(profile) {
+            const p = profile || {}
+            qs('#rp-full-name').textContent = p.full_name || '—'
+            qs('#rp-birthday').textContent = p.birthday ? formatDate(p.birthday) : '—'
+            qs('#rp-gender').textContent = p.gender || '—'
+            qs('#rp-emergency-contact').textContent = p.emergency_contact || '—'
+            qs('#rp-height').textContent = p.height_inches ? `${p.height_inches} in` : '—'
+            qs('#rp-target-weight').textContent = p.target_weight ? `${p.target_weight} lbs` : '—'
+            qs('#rp-target-bmi').textContent = p.target_bmi ?? '—'
+        }
+
+        function renderTable(entries) {
+            const body = qs('#report-table-body')
+            const empty = qs('#report-table-empty')
+            if (!entries.length) {
+                body.innerHTML = ''
+                empty.classList.remove('hidden')
+                return
+            }
+            empty.classList.add('hidden')
+
+            body.innerHTML = entries.map((entry) => `
+                <tr class="border-b border-g-border/60">
+                    <td class="py-2 pr-3 align-top">${escHtml(formatDateTime(entry.timestamp))}</td>
+                    <td class="py-2 pr-3 align-top">${entry.weight !== null ? escHtml(entry.weight) : '—'}</td>
+                    <td class="py-2 pr-3 align-top">${entry.glucose_level !== null ? escHtml(entry.glucose_level) : '—'}</td>
+                    <td class="py-2 pr-3 align-top">${entry.blood_pressure ? escHtml(entry.blood_pressure) : '—'}</td>
+                    <td class="py-2 pr-3 align-top">${entry.heart_rate !== null ? escHtml(entry.heart_rate) : '—'}</td>
+                    <td class="py-2 pr-3 align-top">${entry.calculated_bmi !== null ? escHtml(entry.calculated_bmi) : '—'}</td>
+                </tr>
+                <tr class="border-b border-g-border">
+                    <td colspan="6" class="pb-2 pr-3 text-xs text-g-gray whitespace-pre-line">${entry.note ? escHtml(entry.note) : ''}</td>
+                </tr>
+            `).join('')
+        }
+
+        function buildLineConfig(labels, values, color, label) {
+            return {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: color + '22',
+                        pointRadius: 2,
+                        tension: 0.25,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 5, color: '#6B7280' }, grid: { color: '#F0F2F5' } },
+                        y: { ticks: { color: '#6B7280' }, grid: { color: '#F0F2F5' }, beginAtZero: false },
+                    }
+                }
+            }
+        }
+
+        function renderCharts(series) {
+            const s = series || {}
+            const weight = s.weight || []
+            const glucose = s.glucose_level || []
+            const heart = s.heart_rate || []
+            const bp = s.blood_pressure || []
+
+            new Chart(qs('#chart-weight'), buildLineConfig(
+                weight.map((p) => formatDate(p.timestamp)), weight.map((p) => p.value), '#4285F4', 'Weight'))
+            new Chart(qs('#chart-glucose'), buildLineConfig(
+                glucose.map((p) => formatDate(p.timestamp)), glucose.map((p) => p.value), '#EA4335', 'Glucose'))
+            new Chart(qs('#chart-heart'), buildLineConfig(
+                heart.map((p) => formatDate(p.timestamp)), heart.map((p) => p.value), '#34A853', 'Heart Rate'))
+
+            new Chart(qs('#chart-bp'), {
+                type: 'line',
+                data: {
+                    labels: bp.map((p) => formatDate(p.timestamp)),
+                    datasets: [
+                        { label: 'Systolic', data: bp.map((p) => p.systolic), borderColor: '#FBBC04', backgroundColor: '#FBBC0422', pointRadius: 2, tension: 0.25, fill: false },
+                        { label: 'Diastolic', data: bp.map((p) => p.diastolic), borderColor: '#4285F4', backgroundColor: '#4285F422', pointRadius: 2, tension: 0.25, fill: false },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10 } } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 5, color: '#6B7280' }, grid: { color: '#F0F2F5' } },
+                        y: { ticks: { color: '#6B7280' }, grid: { color: '#F0F2F5' }, beginAtZero: false },
+                    }
+                }
+            })
+        }
+
+        async function boot() {
+            const token = localStorage.getItem('d11_token') || ''
+            if (!token) {
+                location.href = '/'
+                return
+            }
+
+            const params = new URLSearchParams(location.search)
+            const since = params.get('since') || ''
+            const before = params.get('before') || ''
+
+            const query = new URLSearchParams()
+            if (since) query.set('since', since)
+            if (before) query.set('before', before)
+            const qsString = query.toString()
+
+            try {
+                const res = await api('GET', `/api/health/report${qsString ? '?' + qsString : ''}`)
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                const data = await res.json()
+
+                qs('#report-generated').textContent = `Generated: ${formatDate(new Date().toISOString())}`
+                qs('#report-range').textContent = `Date Range: ${since ? formatDate(since) : 'All time'} - ${before ? formatDate(before) : 'Present'}`
+
+                fillProfile(data.profile)
+                renderTable(data.entries || [])
+                renderCharts(data.series)
+
+                qs('#loading').classList.add('hidden')
+                qs('#content').classList.remove('hidden')
+            } catch (err) {
+                qs('#loading').classList.add('hidden')
+                qs('#error-state').classList.remove('hidden')
+                qs('#error-msg').textContent = err instanceof Error ? err.message : 'Unknown error'
+            }
+        }
+
+        qs('#btn-print').addEventListener('click', () => window.print())
+
+        boot()
+    </script>
+</body>
+
+</html>
