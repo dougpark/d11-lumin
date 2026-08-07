@@ -11,6 +11,7 @@ import {
     isSlugAvailable,
     listTags,
 } from '../db/bookmarks.ts'
+import { listSharedTags, getSharedTag, shareTag, unshareTag } from '../db/sharedTags.ts'
 import { fetchUrlPreview } from '../utils/preview.ts'
 import { parseSearchQuery } from '../utils/search.ts'
 import type { Bookmark, UpdateBookmarkInput } from '../db/types.ts'
@@ -346,6 +347,46 @@ bookmarks.get('/analytics', async (c) => {
         console.error('[analytics]', err)
         return c.json({ error: 'analytics query failed', detail: (err as Error).message }, 500)
     }
+})
+
+// ─── GET /api/bookmarks/share-tag — list this user's shared tags ────────────
+bookmarks.get('/share-tag', async (c) => {
+    const user = c.get('user')
+    const shared = await listSharedTags(c.env.DB, user.id)
+    return c.json({
+        data: shared.map(s => ({ tag: s.tag, view_count: s.view_count, created_at: s.created_at, url: `https://d11.me/${user.slug_prefix}/share/${s.tag}` })),
+    })
+})
+
+// ─── GET /api/bookmarks/share-tag/:tag — sharing status for one tag ─────────
+bookmarks.get('/share-tag/:tag', async (c) => {
+    const user = c.get('user')
+    const tag = c.req.param('tag').toLowerCase()
+    const shared = await getSharedTag(c.env.DB, user.id, tag)
+    return c.json({
+        shared: !!shared,
+        url: shared ? `https://d11.me/${user.slug_prefix}/share/${tag}` : null,
+    })
+})
+
+// ─── POST /api/bookmarks/share-tag — enable sharing for a tag ───────────────
+// Body: { tag: string }
+bookmarks.post('/share-tag', async (c) => {
+    const user = c.get('user')
+    const body = await c.req.json<{ tag?: string }>()
+    const tag = (body.tag ?? '').trim().toLowerCase()
+    if (!tag) return c.json({ error: 'tag is required' }, 400)
+
+    await shareTag(c.env.DB, user.id, tag)
+    return c.json({ shared: true, url: `https://d11.me/${user.slug_prefix}/share/${tag}` })
+})
+
+// ─── DELETE /api/bookmarks/share-tag/:tag — disable sharing for a tag ───────
+bookmarks.delete('/share-tag/:tag', async (c) => {
+    const user = c.get('user')
+    const tag = c.req.param('tag').toLowerCase()
+    await unshareTag(c.env.DB, user.id, tag)
+    return c.json({ shared: false })
 })
 
 // ─── GET /api/bookmarks/:id ───────────────────────────────────────────────────

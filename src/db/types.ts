@@ -84,6 +84,14 @@ export type UserSettings = {
     updated_at: string
 }
 
+export type SharedTag = {
+    id: number
+    user_id: number
+    tag: string
+    view_count: number
+    created_at: string
+}
+
 export type ChatChannel = {
     id: number
     name: string

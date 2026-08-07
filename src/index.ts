@@ -17,6 +17,7 @@ import healthRoutes from './routes/health.ts'
 import foodRoutes from './routes/food.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
+import { getSharedTag, incrementSharedTagViews } from './db/sharedTags.ts'
 import { createInviteCode, listInviteCodes, revokeInviteCode, getInviteRedemptions } from './db/invites.ts'
 import { hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
@@ -34,6 +35,8 @@ import landingHtml from './client/landing.html'
 import stationHtml from './client/station.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import exploreHtml from './client/explore.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import shareTagHtml from './client/share.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import importPinboardHtml from './client/import-pinboard.html'
 // @ts-expect-error — text module loaded by Wrangler rule
@@ -1136,6 +1139,93 @@ app.get('/api/homepage/:bookmarkId', async (c) => {
   })
 })
 
+// ─── Share API: GET /api/share/:handle/:tag ─────────────────────────────────
+// Public (optional auth). Gated by an explicit shared_tags row — no row means
+// 404 regardless of whether the tag's bookmarks are public or not.
+// Owner viewing their own share link → public + private bookmarks with the tag.
+// Everyone else (incl. other logged-in users) → public bookmarks only.
+app.get('/api/share/:handle/:tag', async (c) => {
+  const handle = c.req.param('handle').toLowerCase()
+  const rawTag = c.req.param('tag').toLowerCase()
+
+  if (!/^[a-z0-9_-]{1,64}$/.test(rawTag)) {
+    return c.json({ error: 'Invalid tag name' }, 400)
+  }
+
+  const owner = await getUserBySlugPrefix(c.env.DB, handle)
+  if (!owner) return c.json({ error: 'Not found' }, 404)
+
+  const shared = await getSharedTag(c.env.DB, owner.id, rawTag)
+  if (!shared) return c.json({ error: 'Not found' }, 404)
+
+  // Optional auth — only used to detect whether the viewer IS the owner
+  let viewerId: number | undefined
+  const rawToken = getCookie(c, 'd11_auth')
+  if (rawToken) {
+    const tokenHash = await hashToken(decodeURIComponent(rawToken))
+    const viewer = await getUserByTokenHash(c.env.DB, tokenHash)
+    viewerId = viewer?.id
+  }
+  const isOwner = viewerId === owner.id
+
+  // The LIKE pattern safely bound as a parameter — not interpolated into SQL
+  const likePattern = `%"${rawTag}"%`
+  const columns = `id, url, slug, title, short_description, favicon_url, hit_count, is_public,
+              tag_list, ai_summary, ai_tags, full_text, full_text_status, created_at`
+
+  const result = isOwner
+    ? await c.env.DB.prepare(
+      `SELECT ${columns} FROM bookmarks
+         WHERE user_id = ? AND is_archived = 0 AND tag_list LIKE ?
+         ORDER BY created_at DESC`
+    ).bind(owner.id, likePattern).all()
+    : await c.env.DB.prepare(
+      `SELECT ${columns} FROM bookmarks
+         WHERE user_id = ? AND is_archived = 0 AND is_public = 1 AND tag_list LIKE ?
+         ORDER BY created_at DESC`
+    ).bind(owner.id, likePattern).all()
+
+  // Only tally visits from non-owners — the owner previewing their own link shouldn't inflate it
+  if (!isOwner) {
+    c.executionCtx.waitUntil(incrementSharedTagViews(c.env.DB, shared.id))
+  }
+
+  const parseJsonArray = (raw: unknown): string[] => {
+    try {
+      const parsed = JSON.parse((raw as string) || '[]')
+      return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === 'string') : []
+    } catch {
+      return []
+    }
+  }
+
+  const bookmarks = (result.results as Record<string, unknown>[]).map((row) => ({
+    id: row.id,
+    url: row.url,
+    slug: row.slug,
+    title: row.title,
+    short_description: row.short_description,
+    favicon_url: row.favicon_url,
+    hit_count: row.hit_count,
+    is_public: row.is_public,
+    tag_list: parseJsonArray(row.tag_list),
+    ai_summary: row.ai_summary,
+    ai_tags: parseJsonArray(row.ai_tags),
+    full_text: row.full_text,
+    full_text_status: row.full_text_status,
+    created_at: row.created_at,
+  }))
+
+  return c.json({
+    handle: owner.slug_prefix,
+    tag: rawTag,
+    bookmarks,
+    count: bookmarks.length,
+    authenticated: !!viewerId,
+    isOwner,
+  })
+})
+
 // ─── News API: GET /api/n — top tags from active rss_items ──────────────────
 app.get('/api/n', async (c) => {
   const result = await c.env.DB.prepare(
@@ -1761,6 +1851,7 @@ app.get('/e', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', explor
 app.get('/e/:dashboardTag', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
 app.get('/h/:bookmarkId', (c) => c.html(homepageHtml as string))
 app.get('/m/:bookmarkId', (c) => c.html(mobileHtml as string))
+app.get('/:handle/share/:tag', (c) => c.html(shareTagHtml as string))
 app.get('/n', (c) => c.html((newsHtml as string).replace('%%HEADER%%', newsHeader)))
 app.get('/n/:tag', (c) => c.html((newsHtml as string).replace('%%HEADER%%', newsHeader)))
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))

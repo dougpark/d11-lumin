@@ -357,6 +357,53 @@
         </div>
     </div>
 
+    <!-- Share Tag modal -->
+    <div id="share-tag-modal"
+        class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+        <div class="bg-white rounded-[24px] p-8 max-w-md w-full shadow-soft fade-in">
+            <div class="w-12 h-12 bg-blue-50 rounded-[12px] flex items-center justify-center mb-4">
+                <svg class="w-6 h-6 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-g-black mb-1">Share <span id="share-tag-label"
+                    class="font-mono"></span></h3>
+            <p class="text-g-gray text-sm mb-6 leading-relaxed">Anyone with this link can view your public bookmarks
+                tagged <span id="share-tag-label2" class="font-mono"></span>. You'll see private ones too when
+                signed in as yourself.</p>
+
+            <div id="share-tag-loading" class="py-6 flex justify-center">
+                <div class="spinner"></div>
+            </div>
+
+            <div id="share-tag-off" class="hidden">
+                <button onclick="enableShareTag()"
+                    class="w-full bg-g-blue text-white font-semibold py-2.5 rounded-full hover:bg-blue-600 transition-all text-sm">Create
+                    share link</button>
+            </div>
+
+            <div id="share-tag-on" class="hidden space-y-3">
+                <div class="flex items-center gap-2">
+                    <input id="share-tag-url" readonly
+                        class="flex-1 border border-g-border rounded-[10px] px-3 py-2 text-xs font-mono bg-[#FAFAFA] text-g-black">
+                    <button onclick="copyShareTagUrl()"
+                        class="flex-shrink-0 p-2 border border-g-border rounded-[10px] text-g-gray hover:border-g-blue hover:text-g-blue transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                </div>
+                <button onclick="disableShareTag()"
+                    class="w-full text-red-500 text-sm font-medium py-2 hover:underline">Stop sharing</button>
+            </div>
+
+            <button onclick="closeShareTagModal()"
+                class="w-full border border-g-border text-g-black font-medium py-2.5 rounded-full hover:border-g-blue hover:text-g-blue transition-all text-sm mt-4">Close</button>
+        </div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════════════════════
      DASHBOARD VIEW
 ═══════════════════════════════════════════════════════════════════════════ -->
@@ -1149,6 +1196,85 @@
             hideEl('fulltext-modal')
         }
 
+        // ── Share Tag ─────────────────────────────────────────────────────────────────
+        let shareTagCurrent = null
+
+        function openShareTagModal(tag) {
+            shareTagCurrent = tag
+            qs('#share-tag-label').textContent = '#' + tag
+            qs('#share-tag-label2').textContent = '#' + tag
+            hideEl('share-tag-off')
+            hideEl('share-tag-on')
+            showEl('share-tag-loading')
+            showEl('share-tag-modal')
+            refreshShareTagStatus()
+        }
+
+        function closeShareTagModal() {
+            hideEl('share-tag-modal')
+            shareTagCurrent = null
+        }
+
+        async function refreshShareTagStatus() {
+            try {
+                const res = await api('GET', '/api/bookmarks/share-tag/' + encodeURIComponent(shareTagCurrent))
+                const data = await res.json()
+                hideEl('share-tag-loading')
+                if (data.shared) {
+                    qs('#share-tag-url').value = data.url
+                    showEl('share-tag-on')
+                } else {
+                    showEl('share-tag-off')
+                }
+            } catch {
+                hideEl('share-tag-loading')
+                showEl('share-tag-off')
+            }
+        }
+
+        async function enableShareTag() {
+            if (!shareTagCurrent) return
+            try {
+                const res = await api('POST', '/api/bookmarks/share-tag', { tag: shareTagCurrent })
+                const data = await res.json()
+                if (res.ok) {
+                    qs('#share-tag-url').value = data.url
+                    hideEl('share-tag-off')
+                    showEl('share-tag-on')
+                    toast('Share link created!')
+                } else {
+                    toast(data.error || 'Could not create share link.', 'error')
+                }
+            } catch {
+                toast('Network error. Try again.', 'error')
+            }
+        }
+
+        async function disableShareTag() {
+            if (!shareTagCurrent) return
+            const ok = await confirm('Stop sharing this tag?', 'The share link will stop working immediately.', 'Stop sharing')
+            if (!ok) return
+            try {
+                const res = await api('DELETE', '/api/bookmarks/share-tag/' + encodeURIComponent(shareTagCurrent))
+                if (res.ok) {
+                    hideEl('share-tag-on')
+                    showEl('share-tag-off')
+                    toast('Sharing stopped.')
+                } else {
+                    toast('Failed to stop sharing.', 'error')
+                }
+            } catch {
+                toast('Network error. Try again.', 'error')
+            }
+        }
+
+        function copyShareTagUrl() {
+            const val = qs('#share-tag-url').value
+            if (!val) return
+            navigator.clipboard.writeText(val)
+            toast('Link copied!')
+        }
+
         // ── Rename Tag ────────────────────────────────────────────────────────────────
         function openRenameTagModal() {
             const sel = qs('#rename-from-select')
@@ -1442,13 +1568,22 @@
         <span class="truncate">#${escHtml(t.tag)}</span>
         <span class="text-xs text-g-border flex-shrink-0">${t.count}</span>
       </button>
-      <a href="/e/${encodeURIComponent(t.tag)}?community" title="Explore #${escAttr(t.tag)}"
-        class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity p-1 rounded text-g-gray hover:text-g-blue z-10">
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-        </svg>
-      </a>
+      <div class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-10">
+        <button onclick="openShareTagModal('${escAttr(t.tag)}')" title="Share #${escAttr(t.tag)}"
+          class="p-1 rounded text-g-gray hover:text-g-blue">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+        </button>
+        <a href="/e/${encodeURIComponent(t.tag)}?community" title="Explore #${escAttr(t.tag)}"
+          class="p-1 rounded text-g-gray hover:text-g-blue">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+        </a>
+      </div>
     </div>`
 
             let html = top.map(btn).join('')

@@ -83,6 +83,21 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_ai_processed_at       ON bookmarks (ai_
 CREATE INDEX IF NOT EXISTS idx_bookmarks_full_text_status      ON bookmarks (full_text_status);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_ai_synthesis_at       ON bookmarks (ai_synthesis_processed_at);
 
+-- ─── Shared tags: allow-list gating d11.me/:handle/share/:tag ────────────────
+-- A row must exist for a (user_id, tag) pair for the share page to resolve —
+-- this is the only thing that makes a tag "shareable", independent of is_public.
+CREATE TABLE IF NOT EXISTS shared_tags (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  tag         TEXT    NOT NULL,
+  view_count  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+  UNIQUE (user_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_shared_tags_user_id ON shared_tags (user_id);
+
 -- ─── Click analytics (optional, for per-click referrer / heatmap data) ────────
 CREATE TABLE IF NOT EXISTS click_events (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,

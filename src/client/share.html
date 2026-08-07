@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- share.html — read-only view of a single user's shared tag -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared bookmarks — Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+
+    <!-- ── Header ── -->
+    <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-g-border">
+        <div class="max-w-3xl mx-auto px-6 h-16 flex items-center gap-3">
+            <a href="/" class="flex-shrink-0">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+            </a>
+            <div class="min-w-0 flex-1">
+                <h1 id="page-title" class="text-sm font-semibold text-g-black leading-tight truncate">Shared
+                    bookmarks</h1>
+                <p id="page-subtitle" class="text-xs text-g-gray truncate">Loading…</p>
+            </div>
+            <a href="/" class="flex-shrink-0 text-xs font-semibold text-g-blue hover:underline">Lumin ↗</a>
+        </div>
+    </header>
+
+    <!-- ── Loading ── -->
+    <div id="loading" class="flex items-center justify-center py-40">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- ── Not-found / empty state ── -->
+    <div id="empty" class="hidden text-center py-40 px-6">
+        <div class="w-16 h-16 bg-blue-50 rounded-[16px] flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+        </div>
+        <p id="empty-title" class="font-semibold text-g-black mb-1">Nothing here</p>
+        <p id="empty-desc" class="text-sm text-g-gray">This share link doesn't exist or is no longer active.</p>
+        <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Lumin</a>
+    </div>
+
+    <!-- ── List ── -->
+    <main id="list-wrap" class="hidden max-w-3xl mx-auto px-6 py-8">
+        <div class="mb-4 flex items-center justify-between">
+            <p id="result-count" class="text-xs text-g-gray"></p>
+            <p id="owner-banner"
+                class="hidden text-xs font-medium text-amber-600 bg-amber-50 border border-amber-100 rounded-full px-3 py-1">
+                Viewing as owner — includes private bookmarks
+            </p>
+        </div>
+        <div id="card-list" class="space-y-3"></div>
+    </main>
+
+    <!-- ── Full-text reader modal ── -->
+    <div id="fulltext-modal"
+        class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm items-center justify-center p-4"
+        onclick="if(event.target===this)closeFullTextModal()">
+        <div class="bg-white rounded-[20px] shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-g-border flex-shrink-0">
+                <h2 id="fulltext-modal-title" class="text-base font-semibold text-g-black truncate pr-4">Full Text</h2>
+                <button onclick="closeFullTextModal()"
+                    class="flex-shrink-0 p-1 text-g-gray hover:text-g-black transition-colors rounded">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="fulltext-modal-body" class="p-5 overflow-y-auto text-sm text-g-black leading-relaxed"></div>
+        </div>
+    </div>
+
+    <div id="toast"
+        class="hidden fixed bottom-6 right-6 z-50 text-sm font-medium px-5 py-3 rounded-full shadow-lg max-w-sm bg-g-black text-white">
+    </div>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+        function showEl(id) { qs('#' + id)?.classList.remove('hidden') }
+        function hideEl(id) { qs('#' + id)?.classList.add('hidden') }
+        function decodeHtml(s) {
+            const ta = document.createElement('textarea')
+            ta.innerHTML = String(s ?? '')
+            return ta.value
+        }
+        function escHtml(s) {
+            const d = decodeHtml(s)
+            return d.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        }
+        function escAttr(s) { return String(s ?? '').replace(/"/g, '&quot;').replace(/'/g, '&#39;') }
+        function mdToHtml(str) {
+            if (!str) return ''
+            try { return marked.parse(str, { breaks: true, gfm: true }) }
+            catch { return escHtml(str) }
+        }
+        function fmtDate(iso) {
+            if (!iso) return ''
+            return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        }
+        function shortUrl(url, max = 60) {
+            try {
+                const u = new URL(url)
+                const s = (u.hostname.replace(/^www\./, '') + u.pathname + u.search).replace(/\/$/, '')
+                return s.length > max ? s.slice(0, max) + '…' : s
+            } catch { return String(url).slice(0, max) }
+        }
+
+        function toast(msg, type = 'success') {
+            const t = qs('#toast')
+            t.textContent = msg
+            t.className = `fixed bottom-6 right-6 z-50 text-sm font-medium px-5 py-3 rounded-full shadow-lg max-w-sm ${type === 'error' ? 'bg-red-500 text-white' : 'bg-g-black text-white'}`
+            t.classList.remove('hidden')
+            clearTimeout(window.__toastTimer)
+            window.__toastTimer = setTimeout(() => t.classList.add('hidden'), 3000)
+        }
+
+        // ── Parse /:handle/share/:tag from the URL ─────────────────────────────
+        const [handle, , tag] = location.pathname.replace(/^\/+|\/+$/g, '').split('/')
+
+        let allBookmarks = {}
+
+        // ── Favicon renderer ──────────────────────────────────────────────────
+        function makeFallbackIcon(letter, sizeClass) {
+            const span = document.createElement('span')
+            span.className = sizeClass + ' bg-blue-100 text-g-blue rounded text-[9px] font-bold flex items-center justify-center flex-shrink-0'
+            span.textContent = (letter || '?').toUpperCase()
+            return span
+        }
+        function faviconHtml(b, sizeClass = 'w-5 h-5') {
+            const letter = escHtml(((b.title || b.url) + '?')[0])
+            if (b.favicon_url) {
+                return `<img src="${escHtml(b.favicon_url)}" alt="" loading="lazy"
+                    class="${sizeClass} rounded-[4px] object-contain flex-shrink-0"
+                    onerror="this.replaceWith(makeFallbackIcon('${letter}', '${sizeClass}'))">`
+            }
+            return `<span class="${sizeClass} bg-blue-100 text-g-blue rounded-[4px] text-[9px] font-bold flex items-center justify-center flex-shrink-0">${letter.toUpperCase()}</span>`
+        }
+
+        // ── Clip-to-my-account (mirrors explore.html) ──────────────────────────
+        const CLIP_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m-2-2h4"/>
+        </svg>`
+        const CHECK_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>`
+        const X_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>`
+        const SPIN_SVG = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>`
+
+        function makeSlug(url, suffix = '') {
+            try {
+                const u = new URL(url)
+                const base = (u.hostname + u.pathname)
+                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56)
+                return (base || 'clip') + (suffix ? '-' + suffix : '')
+            } catch { return 'clip' + (suffix ? '-' + suffix : '') }
+        }
+
+        function setClipped(btn) {
+            btn.innerHTML = CHECK_SVG
+            btn.title = 'Already in your bookmarks'
+            btn.className = btn.className.replace('text-g-gray', 'text-green-500')
+            btn.dataset.clipped = '1'
+        }
+
+        async function clipBookmark(btn) {
+            if (btn.dataset.clipping || btn.dataset.clipped) return
+            const token = localStorage.getItem('d11_token')
+            if (!token) {
+                btn.innerHTML = X_SVG
+                btn.title = 'Sign in to save bookmarks'
+                btn.className = btn.className.replace('text-g-gray', 'text-amber-400')
+                setTimeout(() => {
+                    btn.innerHTML = CLIP_SVG
+                    btn.className = btn.className.replace('text-amber-400', 'text-g-gray')
+                    btn.title = 'Save to my bookmarks'
+                }, 2000)
+                return
+            }
+
+            btn.dataset.clipping = '1'
+            btn.innerHTML = SPIN_SVG
+
+            const { url, title, favicon } = btn.dataset
+            const body = {
+                url,
+                title: title || undefined,
+                favicon_url: favicon || undefined,
+                tag_list: [tag],
+                is_public: false,
+                slug: makeSlug(url),
+            }
+            const post = (slug) => fetch('/api/bookmarks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ ...body, slug }),
+            })
+
+            let res = await post(body.slug)
+            if (res.status === 409) {
+                const chk = await fetch('/api/bookmarks/check-url?url=' + encodeURIComponent(url), {
+                    headers: { 'Authorization': 'Bearer ' + token },
+                }).then(r => r.json()).catch(() => ({}))
+                if (chk.exists) {
+                    delete btn.dataset.clipping
+                    setClipped(btn)
+                    return
+                }
+                res = await post(makeSlug(url, Math.random().toString(36).slice(2, 6)))
+            }
+
+            delete btn.dataset.clipping
+            if (res.ok) {
+                setClipped(btn)
+                toast('Saved to your bookmarks!')
+            } else {
+                btn.innerHTML = X_SVG
+                btn.title = res.status === 401 ? 'Sign in to save' : 'Save failed — try again'
+                btn.className = btn.className.replace('text-g-gray', 'text-red-400')
+                setTimeout(() => {
+                    btn.innerHTML = CLIP_SVG
+                    btn.className = btn.className.replace('text-red-400', 'text-g-gray')
+                    btn.title = 'Save to my bookmarks'
+                }, 2500)
+            }
+        }
+
+        // Mark rows already saved by the signed-in viewer
+        async function markAlreadyClipped() {
+            const token = localStorage.getItem('d11_token')
+            if (!token) return
+            const buttons = [...document.querySelectorAll('.clip-btn')]
+            if (!buttons.length) return
+            await Promise.all(buttons.map(async btn => {
+                try {
+                    const res = await fetch('/api/bookmarks/check-url?url=' + encodeURIComponent(btn.dataset.url), {
+                        headers: { 'Authorization': 'Bearer ' + token },
+                    })
+                    if (!res.ok) return
+                    const { exists } = await res.json()
+                    if (exists) setClipped(btn)
+                } catch { /* non-critical */ }
+            }))
+        }
+
+        function toggleSrc(btn) {
+            btn.closest('[data-id]').querySelector('.src-original')?.classList.toggle('hidden')
+        }
+
+        function openFullTextModal(id) {
+            const b = allBookmarks[id]
+            if (!b || !b.full_text) return
+            qs('#fulltext-modal-title').textContent = b.title || b.url || 'Full Text'
+            qs('#fulltext-modal-body').innerHTML = mdToHtml(b.full_text)
+            const modal = qs('#fulltext-modal')
+            modal.classList.remove('hidden')
+            modal.classList.add('flex')
+        }
+        function closeFullTextModal() {
+            const modal = qs('#fulltext-modal')
+            modal.classList.add('hidden')
+            modal.classList.remove('flex')
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFullTextModal() })
+
+        function copyLink(url) {
+            navigator.clipboard.writeText(url)
+            toast('Short link copied!')
+        }
+
+        // ── Row renderer ────────────────────────────────────────────────────────
+        function renderRow(b, isOwner) {
+            allBookmarks[b.id] = b
+            const tags = (Array.isArray(b.tag_list) ? b.tag_list : [])
+                .map(t => `<span class="bg-[#F3F4F6] text-g-gray text-xs px-2 py-0.5 rounded-full">#${escHtml(t)}</span>`)
+                .join('')
+            const aiTags = (Array.isArray(b.ai_tags) ? b.ai_tags : [])
+                .map(t => `<span class="bg-purple-50 text-purple-600 text-xs px-2 py-0.5 rounded-full border border-purple-100">✦ ${escHtml(t)}</span>`)
+                .join('')
+
+            const privateBadge = (isOwner && !b.is_public)
+                ? `<span class="bg-gray-100 text-g-gray text-xs font-medium px-2 py-0.5 rounded-full border border-g-border" title="Only visible to you">Private</span>`
+                : ''
+
+            const ftBtn = b.full_text_status === 'completed'
+                ? `<button onclick="openFullTextModal(${b.id})" class="text-[9px] font-mono text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-colors" title="View full text">ft</button>`
+                : ''
+            const srcBtn = (b.short_description || tags)
+                ? `<button onclick="toggleSrc(this)" class="text-[9px] font-mono text-amber-400 hover:text-amber-600 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.5 rounded transition-colors" title="Show original description">src</button>`
+                : ''
+
+            const shortLink = `${location.origin}/l/${encodeURIComponent(handle)}/${encodeURIComponent(b.slug)}`
+
+            return `
+  <div class="group flex flex-col p-4 bg-white border border-g-border rounded-[12px] hover:border-g-blue transition-colors" data-id="${b.id}">
+    <div class="flex items-start gap-3">
+      <div class="mt-0.5 flex-shrink-0">${faviconHtml(b)}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+          <a href="${escAttr(shortLink)}" target="_blank" rel="noopener noreferrer"
+            class="text-sm font-semibold text-g-black hover:text-g-blue transition-colors truncate max-w-sm">
+            ${escHtml(b.title || b.url)}
+          </a>
+          ${privateBadge}${ftBtn}${srcBtn}
+          ${b.hit_count ? `<span class="text-g-gray text-xs">· ${b.hit_count} click${b.hit_count !== 1 ? 's' : ''}</span>` : ''}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a href="${escAttr(shortLink)}" target="_blank" rel="noopener noreferrer"
+            class="text-g-gray text-xs hover:text-g-blue hover:underline transition-colors truncate max-w-sm" title="${escAttr(b.url)}">${escHtml(shortUrl(b.url))}</a>
+          ${b.created_at ? `<span class="text-g-gray text-xs">· ${escHtml(fmtDate(b.created_at))}</span>` : ''}
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button title="Copy short link" onclick="copyLink('${escAttr(shortLink)}')"
+          class="p-1.5 text-g-gray border border-g-border rounded-[8px] hover:border-g-blue hover:text-g-blue transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+        </button>
+        <button title="Save to my bookmarks" onclick="clipBookmark(this)"
+          class="clip-btn p-1.5 text-g-gray border border-g-border rounded-[8px] hover:border-g-blue hover:text-g-blue transition-colors"
+          data-url="${escAttr(b.url)}" data-title="${escAttr(b.title || '')}" data-favicon="${escAttr(b.favicon_url || '')}">
+          ${CLIP_SVG}
+        </button>
+      </div>
+    </div>
+    ${b.ai_summary ? `<div class="mt-1.5 pl-8"><p class="text-xs text-purple-600 leading-relaxed italic">${escHtml(b.ai_summary)}</p></div>` : ''}
+    ${aiTags ? `<div class="flex flex-wrap gap-1 mt-2 pl-8">${aiTags}</div>` : ''}
+    ${(b.short_description || tags) ? `
+    <div class="src-original hidden mt-1.5 pl-8 pt-1.5 border-t border-dashed border-amber-200/70">
+      <div class="text-[9px] font-semibold text-amber-500 uppercase tracking-wider mb-1">Description</div>
+      ${b.short_description ? `<div class="text-xs text-g-gray leading-relaxed mb-1.5">${mdToHtml(b.short_description)}</div>` : ''}
+      ${tags ? `<div class="flex flex-wrap gap-1">${tags}</div>` : ''}
+    </div>` : ''}
+  </div>`
+        }
+
+        // ── Init ────────────────────────────────────────────────────────────────
+        async function init() {
+            if (!handle || !tag || !/^[a-z0-9_-]{1,64}$/i.test(tag)) {
+                hideEl('loading')
+                showEl('empty')
+                return
+            }
+
+            try {
+                const res = await fetch(`/api/share/${encodeURIComponent(handle)}/${encodeURIComponent(tag)}`)
+                hideEl('loading')
+
+                if (!res.ok) {
+                    qs('#empty-title').textContent = 'Not shared'
+                    qs('#empty-desc').textContent = 'This share link doesn\u2019t exist or is no longer active.'
+                    showEl('empty')
+                    return
+                }
+
+                const data = await res.json()
+                document.title = `#${data.tag} — @${data.handle} — Lumin`
+                qs('#page-title').textContent = `#${data.tag}`
+                qs('#page-subtitle').textContent = `Shared by @${data.handle}`
+
+                if (!data.bookmarks || data.bookmarks.length === 0) {
+                    qs('#empty-title').textContent = 'No bookmarks yet'
+                    qs('#empty-desc').textContent = `@${data.handle} hasn\u2019t added anything to #${data.tag} yet.`
+                    showEl('empty')
+                    return
+                }
+
+                if (data.isOwner) showEl('owner-banner')
+                qs('#result-count').textContent = `${data.count} bookmark${data.count !== 1 ? 's' : ''}`
+                qs('#card-list').innerHTML = data.bookmarks.map(b => renderRow(b, data.isOwner)).join('')
+                showEl('list-wrap')
+                markAlreadyClipped()
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        init()
+    </script>
+
+</body>
+
+</html>
