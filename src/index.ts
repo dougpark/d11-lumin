@@ -19,7 +19,8 @@ import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { getSharedTag, incrementSharedTagViews } from './db/sharedTags.ts'
 import { createInviteCode, listInviteCodes, revokeInviteCode, getInviteRedemptions } from './db/invites.ts'
-import { hashToken } from './utils/auth.ts'
+import { getSetting } from './db/user_settings.ts'
+import { extractBearer, hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
@@ -1867,6 +1868,24 @@ app.get('/health/report', (c) => c.html(healthReportHtml as string))
 app.get('/food', (c) => c.html(foodHtml as string))
 app.get('/start', (c) => c.html(startHtml as string))
 app.get('/s', (c) => c.html(startHtml as string))
+
+// GET /homepage — redirect to the user's configured homepage URL, or /n as a fallback
+app.get('/homepage', async (c) => {
+  const token = extractBearer(c.req.header('Authorization')) ||
+    (getCookie(c, 'd11_auth') ? decodeURIComponent(getCookie(c, 'd11_auth')!) : null)
+
+  if (token) {
+    const user = await getUserByTokenHash(c.env.DB, await hashToken(token))
+    if (user) {
+      const homepageUrl = await getSetting(c.env.DB, user.id, 'system', 'homepage_url')
+      if (typeof homepageUrl === 'string' && homepageUrl.trim()) {
+        return c.redirect(homepageUrl, 302)
+      }
+    }
+  }
+
+  return c.redirect('/n', 302)
+})
 
 // ─── 404 catch-all ────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: 'Not Found' }, 404))

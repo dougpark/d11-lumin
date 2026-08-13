@@ -591,6 +591,31 @@
             `
         }
 
+        function renderSystemHomepageSection(settings) {
+            const homepageUrl = typeof settings.homepage_url === 'string' ? settings.homepage_url : ''
+
+            return `
+                <section class="space-y-5">
+                    <div class="rounded-[18px] border border-g-border bg-white p-5">
+                        <p class="text-xs uppercase tracking-[0.22em] text-g-gray">Homepage</p>
+                        <h3 class="mt-1 text-base font-semibold text-g-black">Browser homepage URL</h3>
+                        <p class="mt-2 text-sm text-g-gray">Set your browser's homepage or new tab to <span class="font-medium text-g-black">/homepage</span> — it redirects here. Leave blank to fall back to <span class="font-medium text-g-black">/n</span>.</p>
+                        <div class="mt-4 max-w-2xl">
+                            <label class="block text-sm font-medium text-g-black">Homepage URL</label>
+                            <input id="system-homepage-url" type="url" value="${escHtml(homepageUrl)}"
+                                placeholder="https://example.com"
+                                class="mt-2 w-full rounded-[10px] border border-g-border px-3 py-2 text-sm outline-none focus:border-g-blue focus:ring-2 focus:ring-g-blue/20" />
+                        </div>
+                        <div class="mt-4 flex items-center gap-2">
+                            <button id="btn-save-system-homepage"
+                                class="rounded-[10px] bg-g-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">Save homepage</button>
+                            <span id="system-homepage-status" class="text-xs text-g-gray"></span>
+                        </div>
+                    </div>
+                </section>
+            `
+        }
+
         function renderGenericAppSettingsSection(section, settings) {
             return `
                 <section class="space-y-5">
@@ -762,6 +787,7 @@
             if (def.kind === 'api-tokens') return renderApiTokensSection(data)
             if (def.kind === 'shared-tags') return renderSharedTagsSection(data)
             if (def.kind === 'system-notifications') return renderSystemNotificationsSection(data)
+            if (def.kind === 'system-homepage') return renderSystemHomepageSection(data)
             if (def.kind === 'health-profile') return renderHealthProfileSection(data)
             if (def.kind === 'app-settings') return renderGenericAppSettingsSection(def, data)
             return renderErrorPanel('Unsupported section.', sectionId)
@@ -1008,8 +1034,58 @@
                 },
             }
 
+            const homepageSection = {
+                id: 'system-homepage',
+                label: 'Homepage',
+                group: 'System',
+                subtitle: 'Set the URL /homepage redirects to.',
+                kind: 'system-homepage',
+                appId: 'system',
+                load: async () => loadScopedSettings('system'),
+                bind: async (data) => {
+                    qs('#btn-save-system-homepage')?.addEventListener('click', async () => {
+                        const status = qs('#system-homepage-status')
+                        if (status) {
+                            status.textContent = 'Saving...'
+                            status.classList.remove('text-red-500', 'text-green-700')
+                            status.classList.add('text-g-gray')
+                        }
+
+                        const homepageUrl = qs('#system-homepage-url')?.value.trim() || ''
+                        if (homepageUrl) {
+                            try {
+                                new URL(homepageUrl)
+                            } catch {
+                                if (status) {
+                                    status.textContent = 'Enter a valid URL (e.g. https://example.com).'
+                                    status.classList.remove('text-g-gray', 'text-green-700')
+                                    status.classList.add('text-red-500')
+                                }
+                                return
+                            }
+                        }
+
+                        try {
+                            const payload = { ...data, homepage_url: homepageUrl }
+                            await saveScopedSettings('system', payload)
+                            if (status) {
+                                status.textContent = 'Saved.'
+                                status.classList.remove('text-red-500', 'text-g-gray')
+                                status.classList.add('text-green-700')
+                            }
+                        } catch (error) {
+                            if (status) {
+                                status.textContent = error instanceof Error ? error.message : String(error)
+                                status.classList.remove('text-green-700', 'text-g-gray')
+                                status.classList.add('text-red-500')
+                            }
+                        }
+                    })
+                },
+            }
+
             const suiteItems = (window.LuminSuiteMenu?.getItems?.() || [])
-                .filter((item) => item.key !== 'settings' && item.key !== 'health')
+                .filter((item) => item.key !== 'settings' && item.key !== 'health' && item.key !== 'homepage')
             const preferenceSections = suiteItems.map((item) => ({
                 id: `pref-${item.key}`,
                 label: item.label,
@@ -1053,7 +1129,7 @@
                 },
             }))
 
-            for (const section of [profileSection, apiTokensSection, sharedTagsSection, notificationsSection, healthProfileSection, ...preferenceSections]) {
+            for (const section of [profileSection, apiTokensSection, sharedTagsSection, notificationsSection, homepageSection, healthProfileSection, ...preferenceSections]) {
                 SECTION_SEQUENCE.push(section.id)
                 SECTION_REGISTRY.set(section.id, section)
             }
