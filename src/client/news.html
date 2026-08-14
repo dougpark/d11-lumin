@@ -460,7 +460,7 @@
             const rows = [{ id: '', name: 'All', count: total }, ...sources]
             const sidebarBtn = (s, active) => `<button class="source-btn text-left text-sm px-3 py-2 rounded-[8px] font-medium transition-colors flex items-center justify-between gap-2 ${active ? 'bg-g-blue text-white' : 'text-g-gray hover:bg-[#F3F4F6]'}" data-source-id="${escHtml(String(s.id))}">
                 <span class="truncate">${escHtml(s.name)}</span>
-                <span class="text-xs flex-shrink-0 tabular-nums ${active ? 'opacity-80' : 'text-g-border'}">${s.count}</span>
+                <span class="text-xs flex-shrink-0 tabular-nums ${active ? 'opacity-80' : 'text-g-gray'}">${s.count}</span>
             </button>`
             const chipBtn = (s, active) => `<button class="source-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'bg-g-blue text-white' : 'text-g-gray bg-white border border-g-border'}" data-source-id="${escHtml(String(s.id))}">${escHtml(s.name)} <span class="opacity-70 tabular-nums">${s.count}</span></button>`
 
