@@ -87,7 +87,16 @@
 
     <!-- ── Card grid ── -->
     <main id="grid" class="hidden max-w-7xl mx-auto px-6 py-8">
-        <div id="card-grid" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
+        <!-- Mobile source chips (feed view only) -->
+        <div id="source-chips" class="hidden gap-2 overflow-x-auto pb-3 -mx-1 px-1"></div>
+        <div class="flex gap-6 items-start">
+            <!-- Desktop source sidebar (feed view only) -->
+            <aside id="source-sidebar" class="hidden flex-col w-48 flex-shrink-0 gap-1 sticky top-24"></aside>
+            <div class="flex-1 min-w-0">
+                <div id="card-grid" class="grid gap-4"
+                    style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
+                </div>
+            </div>
         </div>
     </main>
 
@@ -135,6 +144,9 @@
 
         // 'feed' = chronological article list (default); 'topics' = tag pill/tag view
         let currentView = currentTag ? 'topics' : 'feed'
+        // Selected RSS source (feed_id as string) — only meaningful in the feed view
+        let currentSource = currentView === 'feed' ? (new URLSearchParams(location.search).get('source') || '') : ''
+        let sourcesCache = null // { sources: [{id, name, count}], total }
         let feedItems = []
         let searchDebounceTimer = null
 
@@ -157,12 +169,13 @@
             showEl('loading')
             hideEl('grid')
             try {
-                const res = await fetch('/api/n/search?q=' + encodeURIComponent(q))
+                const sourceParam = currentSource ? '&feed_id=' + encodeURIComponent(currentSource) : ''
+                const res = await fetch('/api/n/search?q=' + encodeURIComponent(q) + sourceParam)
                 hideEl('loading')
                 if (!res.ok) { showEl('grid'); return }
                 const { items, total } = await res.json()
                 const grid = qs('#card-grid')
-                grid.className = 'flex flex-col gap-2 max-w-2xl mx-auto w-full'
+                grid.className = 'flex flex-col gap-2 max-w-2xl mx-auto lg:mx-0 w-full'
                 grid.removeAttribute('style')
                 grid.innerHTML = items.length
                     ? items.map(renderFeedItem).join('')
@@ -180,9 +193,12 @@
         }
 
         function syncUrl(push = false) {
-            const url = currentTag ? '/n/' + encodeURIComponent(currentTag) : '/n'
-            if (push) history.pushState({ tag: currentTag, depth: historyDepth, view: currentView }, '', url)
-            else history.replaceState({ tag: currentTag, depth: historyDepth, view: currentView }, '', url)
+            const base = currentTag ? '/n/' + encodeURIComponent(currentTag) : '/n'
+            const query = (currentView === 'feed' && currentSource) ? '?source=' + encodeURIComponent(currentSource) : ''
+            const url = base + query
+            const state = { tag: currentTag, depth: historyDepth, view: currentView, source: currentSource }
+            if (push) history.pushState(state, '', url)
+            else history.replaceState(state, '', url)
         }
 
         function applyTitle() {
@@ -263,6 +279,7 @@
                 currentTag = e.state.tag ?? ''
                 historyDepth = e.state.depth ?? 0
                 currentView = e.state.view ?? (e.state.tag ? 'topics' : 'feed')
+                currentSource = e.state.source ?? ''
             } else {
                 const path = location.pathname.replace(/\/+$/, '')
                 const parts = path.split('/')
@@ -270,10 +287,12 @@
                 currentTag = last === 'n' ? '' : (last || '')
                 historyDepth = 0
                 currentView = currentTag ? 'topics' : 'feed'
+                currentSource = currentView === 'feed' ? (new URLSearchParams(location.search).get('source') || '') : ''
             }
             applyTitle()
             updateNavButtons()
             updateViewButtons()
+            if (sourcesCache) renderSourceList(sourcesCache.sources, sourcesCache.total)
             init()
         })
 
@@ -415,6 +434,57 @@
             </div>`
         }
 
+        // ── Source filter (left column desktop / chip row mobile, feed view only) ──
+        function showSourceUI() {
+            qs('#source-sidebar').className = 'hidden lg:flex flex-col w-48 flex-shrink-0 gap-1 sticky top-24 bg-white border border-g-border rounded-[20px] shadow-sm p-3'
+            qs('#source-chips').className = 'flex lg:hidden gap-2 overflow-x-auto pb-3 -mx-1 px-1'
+            loadSources()
+        }
+
+        function hideSourceUI() {
+            qs('#source-sidebar').className = 'hidden'
+            qs('#source-chips').className = 'hidden'
+        }
+
+        async function loadSources() {
+            if (sourcesCache) { renderSourceList(sourcesCache.sources, sourcesCache.total); return }
+            try {
+                const res = await fetch('/api/n/sources')
+                if (!res.ok) return
+                sourcesCache = await res.json()
+                renderSourceList(sourcesCache.sources, sourcesCache.total)
+            } catch { /* non-critical */ }
+        }
+
+        function renderSourceList(sources, total) {
+            const rows = [{ id: '', name: 'All', count: total }, ...sources]
+            const sidebarBtn = (s, active) => `<button class="source-btn text-left text-sm px-3 py-2 rounded-[8px] font-medium transition-colors flex items-center justify-between gap-2 ${active ? 'bg-g-blue text-white' : 'text-g-gray hover:bg-[#F3F4F6]'}" data-source-id="${escHtml(String(s.id))}">
+                <span class="truncate">${escHtml(s.name)}</span>
+                <span class="text-xs flex-shrink-0 tabular-nums ${active ? 'opacity-80' : 'text-g-border'}">${s.count}</span>
+            </button>`
+            const chipBtn = (s, active) => `<button class="source-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'bg-g-blue text-white' : 'text-g-gray bg-white border border-g-border'}" data-source-id="${escHtml(String(s.id))}">${escHtml(s.name)} <span class="opacity-70 tabular-nums">${s.count}</span></button>`
+
+            qs('#source-sidebar').innerHTML = rows.map(s => sidebarBtn(s, String(s.id) === currentSource)).join('')
+            qs('#source-chips').innerHTML = rows.map(s => chipBtn(s, String(s.id) === currentSource)).join('')
+        }
+
+        function selectSource(id) {
+            if (id === currentSource) return
+            currentSource = id
+            historyDepth++
+            historyMaxDepth = historyDepth
+            syncUrl(true)
+            if (sourcesCache) renderSourceList(sourcesCache.sources, sourcesCache.total)
+            initFeed()
+        }
+
+        ;['source-sidebar', 'source-chips'].forEach(id => {
+            qs('#' + id).addEventListener('click', e => {
+                const btn = e.target.closest('.source-btn')
+                if (btn) selectSource(btn.dataset.sourceId)
+            })
+        })
+
         // Event delegation
         document.getElementById('card-grid').addEventListener('click', e => {
             const tagBtn = e.target.closest('.tag-nav-btn')
@@ -447,9 +517,14 @@
         }
         // ── Init ──────────────────────────────────────────────────────────────
         async function init() {
-            if (currentView === 'feed') await initFeed()
-            else if (currentTag === '') await initLanding()
-            else await initTag()
+            if (currentView === 'feed') {
+                showSourceUI()
+                await initFeed()
+            } else {
+                hideSourceUI()
+                if (currentTag === '') await initLanding()
+                else await initTag()
+            }
         }
 
         // ── Chronological feed view ───────────────────────────────────────────
@@ -459,12 +534,16 @@
             hideEl('empty')
             showEl('loading')
             try {
-                const res = await fetch('/api/n/recent')
+                const sourceParam = currentSource ? '?feed_id=' + encodeURIComponent(currentSource) : ''
+                const res = await fetch('/api/n/recent' + sourceParam)
                 hideEl('loading')
                 if (!res.ok) { showEl('empty'); return }
                 const { items, total } = await res.json()
                 if (!items || items.length === 0) {
-                    qs('#empty-headline').textContent = 'No news yet'
+                    const srcName = currentSource && sourcesCache
+                        ? sourcesCache.sources.find(s => String(s.id) === currentSource)?.name
+                        : null
+                    qs('#empty-headline').textContent = srcName ? 'No articles from ' + srcName : 'No news yet'
                     qs('#empty-sub').textContent = 'RSS feeds are ingested every 30 minutes — check back soon.'
                     showEl('empty')
                     return
@@ -476,7 +555,7 @@
                     ? displayed + ' of ' + dbTotal + ' articles'
                     : dbTotal + ' article' + (dbTotal !== 1 ? 's' : '')
                 const grid = qs('#card-grid')
-                grid.className = 'flex flex-col gap-2 max-w-2xl mx-auto w-full'
+                grid.className = 'flex flex-col gap-2 max-w-2xl mx-auto lg:mx-0 w-full'
                 grid.removeAttribute('style')
                 applyFeedSort()
                 const si = qs('#search-input')

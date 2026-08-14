@@ -1256,22 +1256,52 @@ app.get('/api/n', async (c) => {
   return c.json({ tags: top })
 })
 
+// ─── News API: GET /api/n/sources — active feeds with live article counts ───
+app.get('/api/n/sources', async (c) => {
+  const now = new Date().toISOString()
+  const result = await c.env.DB.prepare(
+    `SELECT f.id, f.name, COUNT(r.id) AS count
+       FROM rss_feeds f
+       LEFT JOIN rss_items r ON r.feed_id = f.id AND r.expires_at > ?
+      WHERE f.is_active = 1
+      GROUP BY f.id
+      ORDER BY f.name COLLATE NOCASE`
+  ).bind(now).all()
+
+  const sources = result.results as { id: number; name: string; count: number }[]
+  const total = sources.reduce((sum, s) => sum + s.count, 0)
+  return c.json({ sources, total })
+})
+
+// Parse & validate an optional ?feed_id= query param, returns null if absent/invalid.
+function parseFeedId(c: Parameters<typeof authMiddleware>[0]): number | null {
+  const raw = c.req.query('feed_id')
+  if (!raw) return null
+  const id = Number(raw)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
 // ─── News API: GET /api/n/recent — chronological article feed ────────────────
 app.get('/api/n/recent', async (c) => {
   const now = new Date().toISOString()
+  const feedId = parseFeedId(c)
+  const feedFilter = feedId ? ' AND r.feed_id = ?' : ''
+  const itemsBind = feedId ? [now, feedId] : [now]
+  const countBind = feedId ? [now, feedId] : [now]
+
   const [result, countResult] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT r.id, r.url, r.title, r.summary, r.tag_list, r.published_at, r.ai_tags, r.ai_summary,
               f.name AS feed_name
          FROM rss_items r
          JOIN rss_feeds f ON f.id = r.feed_id
-        WHERE r.expires_at > ?
+        WHERE r.expires_at > ?${feedFilter}
         ORDER BY r.published_at DESC
         LIMIT 200`
-    ).bind(now),
+    ).bind(...itemsBind),
     c.env.DB.prepare(
-      `SELECT COUNT(*) AS total FROM rss_items WHERE expires_at > ?`
-    ).bind(now),
+      `SELECT COUNT(*) AS total FROM rss_items r WHERE r.expires_at > ?${feedFilter}`
+    ).bind(...countBind),
   ])
   const total = (countResult.results[0] as { total: number } | undefined)?.total ?? result.results.length
   return c.json({ items: result.results, total })
@@ -1288,6 +1318,11 @@ app.get('/api/n/search', async (c) => {
     .join(' ')
 
   const now = new Date().toISOString()
+  const feedId = parseFeedId(c)
+  const feedFilter = feedId ? ' AND r.feed_id = ?' : ''
+  const itemsBind = feedId ? [ftsQuery, now, feedId] : [ftsQuery, now]
+  const countBind = feedId ? [ftsQuery, now, feedId] : [ftsQuery, now]
+
   const [result, countResult] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT r.id, r.url, r.title, r.summary, r.tag_list, r.published_at, r.ai_tags, r.ai_summary,
@@ -1295,16 +1330,16 @@ app.get('/api/n/search', async (c) => {
          FROM rss_items_fts fts
          JOIN rss_items r ON r.id = fts.rowid
          JOIN rss_feeds f ON f.id = r.feed_id
-        WHERE rss_items_fts MATCH ? AND r.expires_at > ?
+        WHERE rss_items_fts MATCH ? AND r.expires_at > ?${feedFilter}
         ORDER BY r.published_at DESC
         LIMIT 100`
-    ).bind(ftsQuery, now),
+    ).bind(...itemsBind),
     c.env.DB.prepare(
       `SELECT COUNT(*) AS total
          FROM rss_items_fts fts
          JOIN rss_items r ON r.id = fts.rowid
-        WHERE rss_items_fts MATCH ? AND r.expires_at > ?`
-    ).bind(ftsQuery, now),
+        WHERE rss_items_fts MATCH ? AND r.expires_at > ?${feedFilter}`
+    ).bind(...countBind),
   ])
   const total = (countResult.results[0] as { total: number } | undefined)?.total ?? result.results.length
   return c.json({ items: result.results, total })

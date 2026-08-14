@@ -461,6 +461,9 @@ CREATE INDEX IF NOT EXISTS idx_rss_items_expires_at      ON rss_items (expires_a
 CREATE INDEX IF NOT EXISTS idx_rss_items_feed_id         ON rss_items (feed_id);
 CREATE INDEX IF NOT EXISTS idx_rss_items_tag_list        ON rss_items (tag_list);
 CREATE INDEX IF NOT EXISTS idx_rss_items_ai_processed_at ON rss_items (ai_processed_at);
+-- Covering indexes for the news feed's ORDER BY published_at (all + per-source)
+CREATE INDEX IF NOT EXISTS idx_rss_items_feed_published  ON rss_items (feed_id, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rss_items_published_at    ON rss_items (published_at DESC);
 
 -- ─── RSS Items Full-Text Search (FTS5) ───────────────────────────────────────
 -- Content table mirrors rss_items; rowid = rss_items.id.
