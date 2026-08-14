@@ -31,11 +31,14 @@ import {
 } from './utils/attachmentTokens.ts'
 // @ts-expect-error — text module loaded by Wrangler rule
 import appHtml from './client/app.html'
+// @ts-expect-error — text module loaded by Wrangler rule
 import landingHtml from './client/landing.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import stationHtml from './client/station.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import exploreHtml from './client/explore.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import hexploreHtml from './client/hexplore.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import shareTagHtml from './client/share.html'
 // @ts-expect-error — text module loaded by Wrangler rule
@@ -1838,6 +1841,8 @@ app.delete('/api/admin/tokens/:id', authMiddleware, async (c) => {
 const appHeader = renderHeader({ activePage: 'app', pageTitle: 'Bookmarks', searchPlaceholder: 'Search… or “since april 2023”', navTopTitle: 'Clear filters', showAdd: true, dropdownItems: 'full', showMobileFooter: false })
 const exploreNavSlot = `<div class="hidden sm:flex items-center rounded-full border border-g-border bg-[#F8F9FA] p-0.5 gap-0.5 flex-shrink-0"><button id="btn-mine" onclick="setMode('personal')" class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors">Mine</button><button id="btn-all" onclick="setMode('community')" class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors">All</button></div>`
 const exploreHeader = renderHeader({ activePage: 'explore', pageTitle: 'Explore', searchPlaceholder: 'Filter tags', navTopTitle: 'Top tags', showAdd: false, dropdownItems: 'compact', showMobileFooter: true, navSlot: exploreNavSlot })
+const hexploreHeader = renderHeader({ activePage: 'explore', pageTitle: 'HExplore', searchPlaceholder: 'Filter tags', navTopTitle: 'Top tags', showAdd: false, dropdownItems: 'compact', showMobileFooter: true, navSlot: exploreNavSlot })
+
 const newsHeader = renderHeader({ activePage: 'news', pageTitle: 'News', searchPlaceholder: 'Filter topics', navTopTitle: 'All topics', showAdd: false, dropdownItems: 'compact', showMobileFooter: true })
 app.get('/', (c) => {
   const hasAuthCookie = !!getCookie(c, 'd11_auth')
@@ -1850,6 +1855,7 @@ app.get('/add', (c) => c.html((appHtml as string).replace('%%HEADER%%', appHeade
 app.get('/v/:dashboardTag', (c) => c.html(stationHtml as string))
 app.get('/e', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
 app.get('/e/:dashboardTag', (c) => c.html((exploreHtml as string).replace('%%HEADER%%', exploreHeader)))
+app.get('/he/:dashboardTag', (c) => c.html((hexploreHtml as string).replace('%%HEADER%%', hexploreHeader)))
 app.get('/h/:bookmarkId', (c) => c.html(homepageHtml as string))
 app.get('/m/:bookmarkId', (c) => c.html(mobileHtml as string))
 app.get('/:handle/share/:tag', (c) => c.html(shareTagHtml as string))

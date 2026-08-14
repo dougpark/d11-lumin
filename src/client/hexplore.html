@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- explore.html -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HExplore — Lumin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .card-glow {
+            transition: box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .card-glow:hover {
+            box-shadow: 0 0 0 2px #4285F4, 0 8px 28px rgba(66, 133, 244, 0.12);
+            border-color: #4285F4 !important;
+        }
+
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+
+    %%HEADER%%
+
+    <!-- ── Loading ── -->
+    <div id="loading" class="flex items-center justify-center py-40">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- ── Empty state ── -->
+    <div id="empty" class="hidden text-center py-40 px-6">
+        <div class="w-16 h-16 bg-blue-50 rounded-[16px] flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-g-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+        </div>
+        <p class="font-semibold text-g-black mb-1">No bookmarks found</p>
+        <p class="text-sm text-g-gray">No bookmarks tagged <span id="empty-tag"
+                class="font-mono text-g-blue">#explore</span> found.</p>
+        <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Dashboard</a>
+    </div>
+
+    <!-- ── Card grid ── -->
+    <main id="grid" class="hidden max-w-7xl mx-auto px-6 py-8">
+        <div id="card-grid" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))">
+        </div>
+    </main>
+
+    <!-- ── Detail modal ── -->
+    <div id="detail-backdrop"
+        class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm hidden items-center justify-center p-4"
+        onclick="closeDetail()">
+        <div id="detail-modal" class="bg-white rounded-[20px] shadow-2xl w-full max-w-md p-6 flex flex-col gap-4"
+            onclick="event.stopPropagation()">
+            <div class="flex items-start gap-3">
+                <div id="d-favicon" class="flex-shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                    <h2 id="d-title" class="font-semibold text-g-black text-base leading-snug"></h2>
+                    <a id="d-url" href="#" target="_blank" rel="noopener noreferrer"
+                        class="text-xs text-g-blue hover:underline truncate block mt-0.5"></a>
+                </div>
+                <button onclick="closeDetail()"
+                    class="flex-shrink-0 p-1 text-g-gray hover:text-g-black transition-colors rounded">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <p id="d-desc" class="text-sm text-g-gray leading-relaxed hidden"></p>
+            <div id="d-ai-summary-wrap" class="hidden bg-blue-50 rounded-[12px] p-3">
+                <p class="text-[10px] font-semibold text-g-blue uppercase tracking-wider mb-1">AI Summary</p>
+                <p id="d-ai-summary" class="text-xs text-g-black leading-relaxed"></p>
+            </div>
+            <div id="d-tags-wrap" class="hidden flex-wrap gap-1.5 flex"></div>
+            <div class="flex items-center justify-between text-[11px] text-g-gray border-t border-g-border pt-3">
+                <span id="d-saved"></span>
+                <span id="d-hits"></span>
+            </div>
+            <a id="d-open-btn" href="#" target="_blank" rel="noopener noreferrer"
+                class="block text-center text-sm font-semibold text-white bg-g-blue hover:bg-blue-600 transition-colors rounded-[10px] py-2">
+                Open link ↗
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+        function showEl(id) { qs('#' + id)?.classList.remove('hidden') }
+        function hideEl(id) { qs('#' + id)?.classList.add('hidden') }
+        function decodeHtml(s) {
+            const ta = document.createElement('textarea')
+            ta.innerHTML = String(s ?? '')
+            return ta.value
+        }
+        function escHtml(s) {
+            const d = decodeHtml(s)
+            return d.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        }
+
+        // Mutable tag — changes when user clicks a group header; '' = landing/top-tags view
+        let currentTag = (() => {
+            const path = location.pathname.replace(/\/+$/, '')
+            if (path === '/he') return ''
+            const parts = path.split('/')
+            const last = parts[parts.length - 1]
+            return last === 'he' ? '' : (last || '')
+        })()
+
+        // Mutable mode — toggled in-place without a page reload
+        let currentMode = new URLSearchParams(location.search).has('community') ? 'community' : 'personal'
+
+        function headerSearch(value) { filterCards(value) }
+
+        function syncUrl(push = false) {
+            const base = currentTag ? '/he/' + encodeURIComponent(currentTag) : '/he'
+            const url = base + (currentMode === 'community' ? '?community' : '')
+            if (push) history.pushState({ tag: currentTag, mode: currentMode, depth: historyDepth }, '', url)
+            else history.replaceState({ tag: currentTag, mode: currentMode, depth: historyDepth }, '', url)
+        }
+
+        function applyMode() {
+            const isCommunity = currentMode === 'community'
+            const isLanding = currentTag === ''
+            if (isLanding) {
+                document.title = 'Explore' + (isCommunity ? ' · Community' : '') + ' — Lumin'
+                qs('#page-title').textContent = 'Explore'
+            } else {
+                const displayName = currentTag.charAt(0).toUpperCase() + currentTag.slice(1)
+                document.title = displayName + (isCommunity ? ' · Community' : ' · Personal') + ' — Lumin'
+                qs('#page-title').textContent = displayName
+            }
+            qs('#empty-tag').textContent = '#' + (currentTag || 'explore')
+            // Update search placeholder to reflect current state
+            const si = qs('#search-input')
+            if (si) si.placeholder = isLanding ? 'Filter tags' : ('Filter in #' + currentTag)
+            // Top button: dim/disable when already on landing
+            const topBtn = qs('#nav-top')
+            if (topBtn) {
+                topBtn.disabled = isLanding
+                topBtn.className = isLanding
+                    ? 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+                    : 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            }
+
+            // Pill highlight
+            const activeClass = 'flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors bg-white text-g-blue shadow-sm'
+            const inactiveClass = 'flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-colors text-g-gray hover:text-g-black'
+            qs('#btn-mine').className = isCommunity ? inactiveClass : activeClass
+            qs('#btn-all').className = isCommunity ? activeClass : inactiveClass
+        }
+
+        function setMode(mode) {
+            if (mode === currentMode) return
+            currentMode = mode
+            syncUrl(false)
+            applyMode()
+            init()
+        }
+
+        // Navigate to a new tag — pushState so browser back works
+        function navigateToTag(tag) {
+            if (!tag || tag === currentTag) return
+            currentTag = tag
+            historyDepth++
+            historyMaxDepth = historyDepth  // new push truncates any forward entries
+            syncUrl(true)
+            applyMode()
+            updateNavButtons()
+            init()
+        }
+
+        // Navigate to the top-tags landing
+        function navigateToTop() {
+            if (currentTag === '') return
+            currentTag = ''
+            historyDepth++
+            historyMaxDepth = historyDepth
+            syncUrl(true)
+            applyMode()
+            updateNavButtons()
+            init()
+        }
+
+        // Browser back / forward support
+        window.addEventListener('popstate', (e) => {
+            if (e.state) {
+                currentTag = e.state.tag ?? ''
+                currentMode = e.state.mode || 'personal'
+                historyDepth = e.state.depth ?? 0
+            } else {
+                const path = location.pathname.replace(/\/+$/, '')
+                if (path === '/he') {
+                    currentTag = ''
+                } else {
+                    const parts = path.split('/')
+                    const last = parts[parts.length - 1]
+                    currentTag = last === 'e' ? '' : (last || '')
+                }
+                currentMode = new URLSearchParams(location.search).has('community') ? 'community' : 'personal'
+                historyDepth = 0
+            }
+            applyMode()
+            updateNavButtons()
+            init()
+        })
+
+        // Apply initial state and stamp the initial history entry so popstate fires on back
+        applyMode()
+        syncUrl(false)
+        updateNavButtons()
+
+        // ── Bookmark detail modal ─────────────────────────────────────────────
+        let allBookmarks = {}
+
+        function openDetail(id) {
+            const b = allBookmarks[id]
+            if (!b) return
+
+            // Favicon
+            qs('#d-favicon').innerHTML = faviconHtml(b, 'w-8 h-8 rounded-[8px]')
+
+            // Core fields
+            qs('#d-title').textContent = decodeHtml(b.title || b.url)
+            const urlEl = qs('#d-url')
+            urlEl.href = b.url
+            urlEl.textContent = b.url
+
+            // Description
+            const descEl = qs('#d-desc')
+            if (b.short_description) {
+                descEl.textContent = decodeHtml(b.short_description)
+                descEl.classList.remove('hidden')
+            } else {
+                descEl.classList.add('hidden')
+            }
+
+            // AI Summary
+            const aiWrap = qs('#d-ai-summary-wrap')
+            if (b.ai_summary) {
+                qs('#d-ai-summary').textContent = decodeHtml(b.ai_summary)
+                aiWrap.classList.remove('hidden')
+            } else {
+                aiWrap.classList.add('hidden')
+            }
+
+            // Tags
+            const tagsWrap = qs('#d-tags-wrap')
+            let tags = []
+            try { tags = JSON.parse(b.tag_list || '[]') } catch { }
+            let aiTags = []
+            try { aiTags = JSON.parse(b.ai_tags || '[]') } catch { }
+            const userTagsHtml = tags.map(t =>
+                `<span class="bg-[#F3F4F6] text-g-gray text-xs px-2 py-0.5 rounded-full">#${escHtml(t)}</span>`
+            ).join('')
+            const aiTagsHtml = aiTags.map(t =>
+                `<span class="bg-purple-50 text-purple-600 text-xs px-2 py-0.5 rounded-full border border-purple-100">✦ ${escHtml(t)}</span>`
+            ).join('')
+            if (userTagsHtml || aiTagsHtml) {
+                tagsWrap.innerHTML = userTagsHtml + aiTagsHtml
+                tagsWrap.classList.remove('hidden')
+            } else {
+                tagsWrap.classList.add('hidden')
+            }
+
+            // Meta
+            qs('#d-saved').textContent = b.created_at
+                ? 'Saved ' + new Date(b.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                : ''
+            qs('#d-hits').textContent = b.hit_count > 0 ? b.hit_count + ' click' + (b.hit_count !== 1 ? 's' : '') : 'Never opened'
+
+            // Open button
+            qs('#d-open-btn').href = b.url
+
+            // Show
+            const backdrop = qs('#detail-backdrop')
+            backdrop.classList.remove('hidden')
+            backdrop.classList.add('flex')
+            document.body.style.overflow = 'hidden'
+        }
+
+        function closeDetail() {
+            const backdrop = qs('#detail-backdrop')
+            backdrop.classList.add('hidden')
+            backdrop.classList.remove('flex')
+            document.body.style.overflow = ''
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail() })
+
+        // ── Favicon renderer ──────────────────────────────────────────────────
+        function makeFallbackIcon(letter, sizeClass = 'w-4 h-4') {
+            const span = document.createElement('span')
+            span.className = sizeClass + ' bg-blue-100 text-g-blue rounded text-[9px] font-bold flex items-center justify-center flex-shrink-0'
+            span.textContent = (letter || '?').toUpperCase()
+            return span
+        }
+
+        function faviconHtml(b, sizeClass = 'w-4 h-4') {
+            const letter = ((b.title || b.url) + '?')[0]
+            const escapedLetter = escHtml(letter)
+            if (b.favicon_url) {
+                return `<img src="${escHtml(b.favicon_url)}" alt="" loading="lazy"
+                    class="${sizeClass} rounded object-contain flex-shrink-0"
+                    onerror="this.replaceWith(makeFallbackIcon('${escapedLetter}', '${sizeClass}'))">`
+            }
+            return `<span class="${sizeClass} bg-blue-100 text-g-blue rounded text-[9px] font-bold flex items-center justify-center flex-shrink-0">${escapedLetter.toUpperCase()}</span>`
+        }
+
+        // ── Card renderer ─────────────────────────────────────────────────────
+        const CLIP_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m-2-2h4"/>
+        </svg>`
+        const CHECK_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>`
+        const X_SVG = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>`
+        const SPIN_SVG = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>`
+
+        function renderCard(group) {
+            const links = group.bookmarks.map(b => {
+                allBookmarks[b.id] = b
+                const clipBtn = currentMode === 'community'
+                    ? `<button class="clip-btn flex-shrink-0 p-1 opacity-40 group-hover:opacity-100 text-g-gray hover:text-g-blue transition-all rounded"
+                                data-url="${escHtml(b.url)}"
+                                data-title="${escHtml(b.title || '')}"
+                                data-favicon="${escHtml(b.favicon_url || '')}"
+                                title="Clip to mine">${CLIP_SVG}</button>`
+                    : ''
+                return `
+                <div class="link-row flex items-center gap-1 px-2 py-1.5 -mx-2 rounded-[8px] hover:bg-blue-50 group transition-colors">
+                    <button onclick="openDetail(${b.id})" title="View details"
+                        class="relative z-10 flex-shrink-0 p-0.5 -m-0.5 hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-g-blue rounded">
+                        ${faviconHtml(b)}
+                    </button>
+                    <a href="${escHtml(b.url)}" target="_blank" rel="noopener noreferrer"
+                       class="flex-1 text-sm text-g-black group-hover:text-g-blue transition-colors leading-snug truncate min-w-0">
+                        ${escHtml(b.title || b.url)}
+                    </a>
+                    ${b.hit_count > 0 ? `<span class="text-[11px] text-g-gray flex-shrink-0 tabular-nums ml-1">${b.hit_count}</span>` : ''}
+                    ${clipBtn}
+                </div>`
+            }).join('')
+
+            return `
+                <div class="bg-white border border-g-border rounded-[20px] p-5 card-glow">
+                    <button class="tag-nav-btn text-[11px] font-semibold text-g-gray uppercase tracking-widest mb-3 leading-none hover:text-g-blue transition-colors text-left w-full cursor-pointer"
+                        data-tag="${escHtml(group.name.toLowerCase())}">#${escHtml(group.name)}</button>
+                    <div class="space-y-0.5">${links}</div>
+                </div>`
+        }
+
+        // ── Clip a community bookmark into the signed-in user's account ───────
+        function makeSlug(url, suffix = '') {
+            try {
+                const u = new URL(url)
+                const base = (u.hostname + u.pathname)
+                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56)
+                return (base || 'clip') + (suffix ? '-' + suffix : '')
+            } catch { return 'clip' + (suffix ? '-' + suffix : '') }
+        }
+
+        // Mark already-clipped buttons green after grid renders
+        async function markAlreadyClipped() {
+            const token = localStorage.getItem('d11_token')
+            if (!token) return
+            const buttons = [...document.querySelectorAll('.clip-btn')]
+            if (!buttons.length) return
+            await Promise.all(buttons.map(async btn => {
+                try {
+                    const res = await fetch(
+                        '/api/bookmarks/check-url?url=' + encodeURIComponent(btn.dataset.url),
+                        { headers: { 'Authorization': 'Bearer ' + token } }
+                    )
+                    if (!res.ok) return
+                    const { exists } = await res.json()
+                    if (exists) setClipped(btn)
+                } catch { /* non-critical, ignore */ }
+            }))
+        }
+
+        function setClipped(btn) {
+            btn.innerHTML = CHECK_SVG
+            btn.title = 'Already in Mine'
+            btn.className = btn.className
+                .replace('text-g-gray', 'text-green-500')
+                .replace('opacity-40', 'opacity-100')
+                .replace('group-hover:opacity-100', '')
+            btn.dataset.clipped = '1'
+        }
+
+        async function clipBookmark(btn) {
+            if (btn.dataset.clipping || btn.dataset.clipped) return
+            btn.dataset.clipping = '1'
+
+            const token = localStorage.getItem('d11_token')
+            if (!token) {
+                btn.innerHTML = X_SVG
+                btn.title = 'Sign in to clip bookmarks'
+                btn.className = btn.className.replace('text-g-gray', 'text-amber-400')
+                setTimeout(() => {
+                    btn.innerHTML = CLIP_SVG
+                    btn.className = btn.className.replace('text-amber-400', 'text-g-gray')
+                    btn.title = 'Clip to mine'
+                    delete btn.dataset.clipping
+                }, 2000)
+                return
+            }
+
+            btn.innerHTML = SPIN_SVG
+
+            const { url, title, favicon } = btn.dataset
+            const body = {
+                url,
+                title: title || undefined,
+                favicon_url: favicon || undefined,
+                tag_list: [currentTag],
+                is_public: false,
+                slug: makeSlug(url),
+            }
+
+            const post = (slug) => fetch('/api/bookmarks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ ...body, slug }),
+            })
+
+            let res = await post(body.slug)
+            if (res.status === 409) {
+                // Could be a slug clash or the URL already exists — check before retrying
+                const chk = await fetch(
+                    '/api/bookmarks/check-url?url=' + encodeURIComponent(url),
+                    { headers: { 'Authorization': 'Bearer ' + token } }
+                ).then(r => r.json()).catch(() => ({}))
+                if (chk.exists) {
+                    delete btn.dataset.clipping
+                    setClipped(btn)
+                    btn.title = 'Already in Mine'
+                    return
+                }
+                res = await post(makeSlug(url, Math.random().toString(36).slice(2, 6)))
+            }
+
+            delete btn.dataset.clipping
+
+            if (res.ok) {
+                btn.title = 'Clipped!'
+                setClipped(btn)
+            } else {
+                btn.innerHTML = X_SVG
+                btn.title = res.status === 401 ? 'Sign in to clip' : 'Clip failed — try again'
+                btn.className = btn.className.replace('text-g-gray', 'text-red-400')
+                setTimeout(() => {
+                    btn.innerHTML = CLIP_SVG
+                    btn.className = btn.className.replace('text-red-400', 'text-g-gray')
+                    btn.title = 'Clip to mine'
+                }, 2500)
+            }
+        }
+
+        // Event delegation — tag navigation + clip (single listener, no inline handlers)
+        document.getElementById('card-grid').addEventListener('click', e => {
+            const tagBtn = e.target.closest('.tag-nav-btn')
+            if (tagBtn?.dataset.tag) { navigateToTag(tagBtn.dataset.tag); return }
+            const clipBtn = e.target.closest('.clip-btn')
+            if (clipBtn) { e.preventDefault(); clipBookmark(clipBtn) }
+        })
+
+        // ── Init ──────────────────────────────────────────────────────────────
+        async function init() {
+            if (currentTag === '') await initLanding()
+            else await initTag()
+        }
+
+        // ── Landing: show top-30 tags as a pill grid ──────────────────────────
+        async function initLanding() {
+            hideEl('grid')
+            hideEl('empty')
+            showEl('loading')
+            try {
+                const apiUrl = '/api/e' + (currentMode === 'community' ? '?community' : '')
+                const res = await fetch(apiUrl)
+                hideEl('loading')
+                if (!res.ok) { showEl('empty'); return }
+                const { tags } = await res.json()
+                if (!tags || tags.length === 0) { showEl('empty'); return }
+                const grid = qs('#card-grid')
+                grid.className = 'flex flex-wrap gap-2'
+                grid.removeAttribute('style')
+                grid.innerHTML = renderPills(tags)
+                const si = qs('#search-input')
+                if (si) si.value = ''
+                showEl('grid')
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        function renderPills(tags) {
+            return tags.map(({ tag, count }) =>
+                `<button class="tag-nav-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-g-border bg-white hover:border-g-blue hover:text-g-blue text-sm font-medium text-g-gray transition-all"
+                    data-tag="${escHtml(tag)}">
+                    <span class="font-mono text-xs">#${escHtml(tag)}</span>
+                    <span class="text-xs opacity-50 tabular-nums">${count}</span>
+                </button>`
+            ).join('')
+        }
+
+        // ── Tag view: show bookmark cards for a tag ───────────────────────────
+        async function initTag() {
+            hideEl('grid')
+            hideEl('empty')
+            showEl('loading')
+            allBookmarks = {}
+            try {
+                const apiUrl = '/api/e/' + encodeURIComponent(currentTag) + (currentMode === 'community' ? '?community' : '')
+                const res = await fetch(apiUrl)
+                hideEl('loading')
+                if (!res.ok) { showEl('empty'); return }
+                const { groups } = await res.json()
+                if (!groups || groups.length === 0) { showEl('empty'); return }
+                const grid = qs('#card-grid')
+                grid.className = 'grid gap-4'
+                grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(260px, 1fr))'
+                grid.innerHTML = groups.map(renderCard).join('')
+                // Reset search input
+                const si = qs('#search-input')
+                if (si) si.value = ''
+                showEl('grid')
+                if (currentMode === 'community') markAlreadyClipped()
+            } catch {
+                hideEl('loading')
+                showEl('empty')
+            }
+        }
+
+        // ── Client-side filter — pills in landing mode, cards in tag mode ────
+        function filterCards(query) {
+            const q = query.trim().toLowerCase()
+            let noMatch = qs('#search-no-match')
+
+            if (currentTag === '') {
+                // Landing: filter pill buttons by tag name
+                const pills = document.querySelectorAll('#card-grid .tag-nav-btn')
+                let anyVisible = false
+                pills.forEach(pill => {
+                    const tag = (pill.dataset.tag || '').toLowerCase()
+                    const show = !q || tag.includes(q)
+                    pill.style.display = show ? '' : 'none'
+                    if (show) anyVisible = true
+                })
+                if (!anyVisible && q) {
+                    if (!noMatch) {
+                        noMatch = document.createElement('p')
+                        noMatch.id = 'search-no-match'
+                        noMatch.className = 'w-full text-center text-sm text-g-gray py-8'
+                        qs('#card-grid').appendChild(noMatch)
+                    }
+                    noMatch.textContent = 'No tags matching \u201c' + query.trim() + '\u201d'
+                } else if (noMatch) noMatch.remove()
+                return
+            }
+
+            // Tag view: filter individual link rows within each card
+            const cards = document.querySelectorAll('#card-grid > div')
+            let anyVisible = false
+            cards.forEach(card => {
+                if (!q) {
+                    card.style.display = ''
+                    card.querySelectorAll('.link-row').forEach(row => row.style.display = '')
+                    anyVisible = true
+                    return
+                }
+                const terms = q.split(/\s+/)
+                const groupName = (card.querySelector('.tag-nav-btn')?.dataset.tag || '').toLowerCase()
+                const rows = card.querySelectorAll('.link-row')
+                let cardVisible = false
+                rows.forEach(row => {
+                    const link = row.querySelector('a[href]')
+                    const text = ((link?.textContent || '') + ' ' + (link?.getAttribute('href') || '') + ' ' + groupName).toLowerCase()
+                    const match = terms.every(term => text.includes(term))
+                    row.style.display = match ? '' : 'none'
+                    if (match) cardVisible = true
+                })
+                card.style.display = cardVisible ? '' : 'none'
+                if (cardVisible) anyVisible = true
+            })
+            if (!anyVisible && q) {
+                if (!noMatch) {
+                    noMatch = document.createElement('p')
+                    noMatch.id = 'search-no-match'
+                    noMatch.className = 'col-span-full text-center text-sm text-g-gray py-10'
+                    qs('#card-grid').appendChild(noMatch)
+                }
+                noMatch.textContent = 'No results for \u201c' + query.trim() + '\u201d'
+            } else if (noMatch) {
+                noMatch.remove()
+            }
+        }
+
+        init()
+    </script>
+
+</body>
+
+</html>
