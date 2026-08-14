@@ -65,6 +65,34 @@ export function buildTagList(categories: string[], titleKeywords: string[]): str
     return JSON.stringify(tags)
 }
 
+// ─── Decode common HTML entities (named + numeric decimal/hex) ────────────────
+const NAMED_ENTITIES: Record<string, string> = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+    mdash: '—', ndash: '–', hellip: '…',
+    lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201c', rdquo: '\u201d',
+}
+
+function decodeHtmlEntities(str: string): string {
+    return str
+        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+        .replace(/&([a-z]+);/gi, (m, name) => NAMED_ENTITIES[name.toLowerCase()] ?? m)
+}
+
+// ─── Strip matched <tag>...</tag> pairs + decode entities, collapse whitespace
+// Only strips paired open/close markup (e.g. Google Alerts' <b>keyword</b>
+// highlighting) — leaves literal bracket text with no closing tag intact,
+// e.g. a title like "Preventing line breaks in <code> elements".
+export function cleanFeedText(str: string): string {
+    let s = str
+    for (let i = 0; i < 3; i++) {
+        const next = s.replace(/<(\w+)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/gi, '$2')
+        if (next === s) break
+        s = next
+    }
+    return decodeHtmlEntities(s).replace(/\s+/g, ' ').trim()
+}
+
 // ─── RSS item shape returned by the parser ────────────────────────────────────
 export interface RssItem {
     guid: string
@@ -121,7 +149,8 @@ export function parseFeed(xml: string): RssItem[] {
         // GUID: prefer <guid>, fall back to <id> (Atom), then URL
         const guid = tagText(block, 'guid') || tagText(block, 'id') || url
 
-        const title = tagText(block, 'title') || url
+        const rawTitle = tagText(block, 'title')
+        const title = rawTitle ? cleanFeedText(rawTitle) : url
 
         // Summary: prefer <description>, then <summary> (Atom), then <content>
         const rawSummary =
@@ -129,11 +158,8 @@ export function parseFeed(xml: string): RssItem[] {
             tagText(block, 'summary') ||
             tagText(block, 'content')
 
-        // Strip HTML tags
-        const summary = rawSummary
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
+        // Strip HTML tags + decode entities
+        const summary = cleanFeedText(rawSummary)
 
         const categories = allCategories(block)
 
