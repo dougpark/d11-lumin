@@ -76,22 +76,45 @@
     <!-- ── Feed subheading ── -->
     <div id="feed-subheading" class="hidden sticky top-14 z-30 bg-white/90 backdrop-blur-sm border-b border-g-border">
         <div class="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between gap-4">
-            <span id="feed-count" class="text-sm text-g-gray"></span>
+            <div class="flex items-center gap-2 min-w-0">
+                <button id="source-hamburger" type="button"
+                    class="lg:hidden -ml-1.5 p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors flex-shrink-0"
+                    aria-label="Filter by source">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                <span id="feed-count" class="text-sm text-g-gray truncate"></span>
+            </div>
             <select id="feed-sort-select" onchange="applyFeedSort()"
-                class="text-xs border border-g-border rounded-full px-3 py-1.5 text-g-gray focus:outline-none focus:border-g-blue bg-white">
+                class="text-xs border border-g-border rounded-full px-3 py-1.5 text-g-gray focus:outline-none focus:border-g-blue bg-white flex-shrink-0">
                 <option value="newest">Newest first</option>
                 <option value="website">Website</option>
             </select>
         </div>
     </div>
 
+    <!-- Source filter drawer overlay (mobile, feed view only) -->
+    <div id="source-drawer-overlay" class="hidden fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+
     <!-- ── Card grid ── -->
     <main id="grid" class="hidden max-w-7xl mx-auto px-6 py-8">
-        <!-- Mobile source chips (feed view only) -->
-        <div id="source-chips" class="hidden gap-2 overflow-x-auto pb-3 -mx-1 px-1"></div>
         <div class="flex gap-6 items-start">
-            <!-- Desktop source sidebar (feed view only) -->
-            <aside id="source-sidebar" class="hidden flex-col w-48 flex-shrink-0 gap-1 sticky top-24"></aside>
+            <!-- Source filter: mobile slide-in drawer / desktop static sidebar (feed view only) -->
+            <aside id="source-sidebar" class="hidden">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-g-border lg:hidden">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-g-gray">Sources</span>
+                    <button id="source-drawer-close" type="button"
+                        class="p-1.5 rounded-full text-g-gray hover:bg-[#F3F4F6]" aria-label="Close sources">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="source-list" class="flex flex-col gap-1"></div>
+            </aside>
             <div class="flex-1 min-w-0">
                 <div id="card-grid" class="grid gap-4"
                     style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
@@ -434,17 +457,34 @@
             </div>`
         }
 
-        // ── Source filter (left column desktop / chip row mobile, feed view only) ──
+        // ── Source filter (desktop static sidebar / mobile slide-in drawer, feed view only) ──
+        const SOURCE_SIDEBAR_CLASS = 'flex flex-col fixed lg:static inset-y-0 left-0 z-50 lg:z-auto w-[80vw] max-w-[280px] lg:w-48 lg:max-w-none lg:flex-shrink-0 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out bg-white border-r lg:border border-g-border shadow-2xl lg:shadow-sm lg:rounded-[20px] overflow-y-auto lg:overflow-visible p-4 lg:p-3 gap-1 lg:sticky lg:top-24'
+
         function showSourceUI() {
-            qs('#source-sidebar').className = 'hidden lg:flex flex-col w-48 flex-shrink-0 gap-1 sticky top-24 bg-white border border-g-border rounded-[20px] shadow-sm p-3'
-            qs('#source-chips').className = 'flex lg:hidden gap-2 overflow-x-auto pb-3 -mx-1 px-1'
+            qs('#source-sidebar').className = SOURCE_SIDEBAR_CLASS
             loadSources()
         }
 
         function hideSourceUI() {
             qs('#source-sidebar').className = 'hidden'
-            qs('#source-chips').className = 'hidden'
+            closeSourceDrawer()
         }
+
+        function openSourceDrawer() {
+            qs('#source-sidebar').classList.remove('-translate-x-full')
+            qs('#source-sidebar').classList.add('translate-x-0')
+            qs('#source-drawer-overlay').classList.remove('hidden')
+        }
+
+        function closeSourceDrawer() {
+            qs('#source-sidebar').classList.add('-translate-x-full')
+            qs('#source-sidebar').classList.remove('translate-x-0')
+            qs('#source-drawer-overlay').classList.add('hidden')
+        }
+
+        qs('#source-hamburger').addEventListener('click', openSourceDrawer)
+        qs('#source-drawer-close').addEventListener('click', closeSourceDrawer)
+        qs('#source-drawer-overlay').addEventListener('click', closeSourceDrawer)
 
         async function loadSources() {
             if (sourcesCache) { renderSourceList(sourcesCache.sources, sourcesCache.total); return }
@@ -462,13 +502,12 @@
                 <span class="truncate">${escHtml(s.name)}</span>
                 <span class="text-xs flex-shrink-0 tabular-nums ${active ? 'opacity-80' : 'text-g-gray'}">${s.count}</span>
             </button>`
-            const chipBtn = (s, active) => `<button class="source-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${active ? 'bg-g-blue text-white' : 'text-g-gray bg-white border border-g-border'}" data-source-id="${escHtml(String(s.id))}">${escHtml(s.name)} <span class="opacity-70 tabular-nums">${s.count}</span></button>`
 
-            qs('#source-sidebar').innerHTML = rows.map(s => sidebarBtn(s, String(s.id) === currentSource)).join('')
-            qs('#source-chips').innerHTML = rows.map(s => chipBtn(s, String(s.id) === currentSource)).join('')
+            qs('#source-list').innerHTML = rows.map(s => sidebarBtn(s, String(s.id) === currentSource)).join('')
         }
 
         function selectSource(id) {
+            closeSourceDrawer()
             if (id === currentSource) return
             currentSource = id
             historyDepth++
@@ -478,11 +517,9 @@
             initFeed()
         }
 
-        ;['source-sidebar', 'source-chips'].forEach(id => {
-            qs('#' + id).addEventListener('click', e => {
-                const btn = e.target.closest('.source-btn')
-                if (btn) selectSource(btn.dataset.sourceId)
-            })
+        qs('#source-sidebar').addEventListener('click', e => {
+            const btn = e.target.closest('.source-btn')
+            if (btn) selectSource(btn.dataset.sourceId)
         })
 
         // Event delegation
