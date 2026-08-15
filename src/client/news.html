@@ -226,7 +226,7 @@
 
         function applyTitle() {
             const si = qs('#search-input')
-            const topBtn = qs('#nav-top')
+            // const topBtn = qs('#nav-top')
             const inTag = currentView === 'topics' && currentTag !== ''
             if (currentView === 'feed') {
                 document.title = 'News — Lumin'
@@ -241,12 +241,12 @@
                 qs('#page-title').textContent = '#' + currentTag
                 if (si) si.placeholder = 'Filter in #' + currentTag
             }
-            if (topBtn) {
-                topBtn.disabled = !inTag
-                topBtn.className = inTag
-                    ? 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
-                    : 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
-            }
+            // if (topBtn) {
+            //     topBtn.disabled = !inTag
+            //     topBtn.className = inTag
+            //         ? 'p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors'
+            //         : 'p-1.5 rounded-full text-g-gray opacity-30 cursor-not-allowed transition-colors'
+            // }
         }
 
         function navigateToTag(tag) {

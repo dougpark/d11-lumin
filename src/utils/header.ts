@@ -40,6 +40,8 @@ const ICON = {
     forward: 'M9 5l7 7-7 7',
     grid: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
     add: 'M12 4v16m8-8H4',
+    // Funnel with a diagonal slash — "clear filter" (nav-top)
+    clearFilter: 'M4 4h16l-6.5 7.5v6.5l-3 1.5v-8L4 4zM4 4l16 16',
 }
 
 function svg(path: string, cls = 'w-4 h-4'): string {
@@ -289,7 +291,7 @@ export function renderHeader(config: HeaderConfig): string {
                 </button>
                 <button id="nav-top" onclick="navigateToTop()" title="${navTopTitle}"
                     class="hidden sm:block p-1.5 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors">
-                    ${svg(ICON.grid)}
+                    ${svg(ICON.clearFilter)}
                 </button>
             </div>
 
