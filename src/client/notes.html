@@ -1363,6 +1363,17 @@
                                 file.</p>
 
                         </div>
+                        <button id="btn-note-camera" type="button" aria-label="Take photo" title="Take photo"
+                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border hover:border-primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 8a2 2 0 012-2h1.17a2 2 0 001.66-.89l.94-1.41A2 2 0 0111.5 3h1a2 2 0 011.73.99l.94 1.41A2 2 0 0016.83 6H18a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8z">
+                                </path>
+                                <circle cx="12" cy="13" r="3.25" stroke-width="2"></circle>
+                            </svg>
+                        </button>
+                        <input id="note-camera-input" type="file" accept="image/*" capture="environment" class="hidden">
                         <button id="btn-note-attach" type="button" aria-label="Attach file" title="Attach file"
                             class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border hover:border-primary">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -1550,6 +1561,8 @@
             noteUploadProgress: document.getElementById('note-upload-progress'),
             noteAttachmentsList: document.getElementById('note-attachments-list'),
             btnNoteAttach: document.getElementById('btn-note-attach'),
+            btnNoteCamera: document.getElementById('btn-note-camera'),
+            noteCameraInput: document.getElementById('note-camera-input'),
             btnNoteAttachmentsToggle: document.getElementById('btn-note-attachments-toggle'),
             noteAttachmentsToggleOutline: document.getElementById('note-attachments-toggle-outline'),
             noteAttachmentsToggleSolid: document.getElementById('note-attachments-toggle-solid'),
@@ -3366,6 +3379,18 @@
         el.btnNoteAttach.addEventListener('click', () => {
             if (!state.editingNote) return
             openDriveAttachPicker()
+        })
+
+        el.btnNoteCamera.addEventListener('click', () => {
+            if (!state.editingNote) return
+            el.noteCameraInput.click()
+        })
+
+        el.noteCameraInput.addEventListener('change', async () => {
+            const files = Array.from(el.noteCameraInput.files || [])
+            if (!files.length) return
+            await uploadFilesWithProgress(files)
+            el.noteCameraInput.value = ''
         })
 
         if (el.btnDriveAttachPickerCancel) {
