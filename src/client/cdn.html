@@ -484,13 +484,30 @@
         const TEXT_PREVIEW_TYPES = ['application/json', 'text/plain', 'text/csv', 'text/markdown', 'application/xml', 'text/xml']
         const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024
 
+        // Objects put into the bucket outside this admin UI (dashboard, other tools) often have
+        // no/generic R2 httpMetadata.contentType — fall back to file extension so preview still works.
+        const EXTENSION_PREVIEW_TYPES = {
+            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+            svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif', bmp: 'image/bmp',
+            mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+            mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+            json: 'application/json', txt: 'text/plain', csv: 'text/csv', md: 'text/markdown', xml: 'application/xml',
+        }
+
+        function effectivePreviewType(obj) {
+            const ct = obj.content_type || ''
+            if (ct && ct !== 'application/octet-stream') return ct
+            const ext = obj.name.split('.').pop()?.toLowerCase() ?? ''
+            return EXTENSION_PREVIEW_TYPES[ext] ?? ct
+        }
+
         async function openPreview(obj) {
             qs('#preview-title').textContent = obj.name
             const body = qs('#preview-body')
             body.innerHTML = '<div class="flex justify-center py-10"><div class="spinner"></div></div>'
             qs('#preview-modal').classList.remove('hidden')
 
-            const ct = obj.content_type || ''
+            const ct = effectivePreviewType(obj)
             if (ct.startsWith('image/')) {
                 body.innerHTML = `<img src="${escHtml(obj.url)}" class="max-w-full max-h-[65vh] mx-auto rounded-lg">`
             } else if (ct.startsWith('video/')) {
@@ -516,6 +533,27 @@
         // ── Upload ──
         const dropzone = qs('#dropzone')
         const fileInput = qs('#file-input')
+
+        // Drag-and-dropped files often arrive with an empty File.type (the browser doesn't always
+        // run its normal MIME sniffing for drag sources the way it does for the <input type=file>
+        // picker), which would otherwise upload as application/octet-stream — detect from the
+        // extension client-side and send it explicitly so the server doesn't have to guess.
+        const EXTENSION_MIME_TYPES = {
+            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+            svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif', bmp: 'image/bmp',
+            json: 'application/json', js: 'application/javascript', mjs: 'application/javascript',
+            css: 'text/css', html: 'text/html', xml: 'application/xml', txt: 'text/plain', csv: 'text/csv', md: 'text/markdown',
+            woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+            pdf: 'application/pdf', zip: 'application/zip',
+            mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+            mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+        }
+
+        function detectFileContentType(file) {
+            if (file.type) return file.type
+            const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+            return EXTENSION_MIME_TYPES[ext] ?? ''
+        }
 
         qs('#btn-browse').addEventListener('click', () => fileInput.click())
         dropzone.addEventListener('click', (e) => { if (e.target === dropzone) fileInput.click() })
@@ -557,6 +595,7 @@
             form.append('file', file)
             form.append('prefix', prefix)
             form.append('cachePreset', cachePreset)
+            form.append('contentType', detectFileContentType(file))
             if (overwrite) form.append('overwrite', 'true')
 
             const xhr = new XMLHttpRequest()

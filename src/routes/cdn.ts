@@ -142,7 +142,14 @@ cdn.get('/objects', authMiddleware, async (c) => {
     const limitParam = Number.parseInt(c.req.query('limit') ?? '', 10)
     const limit = Number.isInteger(limitParam) ? Math.min(Math.max(limitParam, 1), 1000) : 200
 
-    const listed: R2Objects = await c.env.CDN_BUCKET.list({ prefix, delimiter: '/', cursor, limit })
+    const listed: R2Objects = await c.env.CDN_BUCKET.list({
+        prefix,
+        delimiter: '/',
+        cursor,
+        limit,
+        // R2 list() omits httpMetadata/customMetadata by default — must opt in to get contentType/cacheControl.
+        include: ['httpMetadata', 'customMetadata'],
+    })
 
     const folders = (listed.delimitedPrefixes ?? []).map((full) => ({
         prefix: full,
@@ -205,7 +212,10 @@ cdn.post('/objects', authMiddleware, async (c) => {
         if (existing) return c.json({ error: 'An object with this name already exists', key }, 409)
     }
 
-    const contentType = detectContentType(filename, filePart.type)
+    // Prefer the client's extension-based hint over filePart.type — drag-and-dropped files often
+    // arrive with an empty/generic browser-sniffed type, unlike files picked via <input type=file>.
+    const contentTypeHint = (form.get('contentType') as string | null) ?? ''
+    const contentType = detectContentType(filename, contentTypeHint || filePart.type)
     const cacheControl = resolveCacheControl((form.get('cachePreset') as string | null) ?? null)
 
     await c.env.CDN_BUCKET.put(key, filePart.stream(), {
