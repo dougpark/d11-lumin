@@ -23,6 +23,12 @@ binding = "FOOD_ENTRIES"
 bucket_name = "d11-food-entries"
 preview_bucket_name = "d11-food-entries-dev"
 
+# ─── R2 CDN bucket (public media manager, admin-only) ────────────────────────
+# Bucket already exists in Cloudflare (created via dashboard); binding added here.
+[[r2_buckets]]
+binding = "CDN_BUCKET"
+bucket_name = "cdn-bucket"
+
 # ─── Workers AI binding ─────────────────────────────────────────────────────
 [ai]
 binding = "AI"
@@ -33,12 +39,18 @@ binding = "AI"
 # Set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET with:
 #   wrangler secret put CF_ACCESS_CLIENT_ID
 #   wrangler secret put CF_ACCESS_CLIENT_SECRET
+# Set CF_API_TOKEN with: wrangler secret put CF_API_TOKEN
+# (Cloudflare API token scoped to Zone.Cache Purge — used for CDN admin's purge button)
 [vars]
 ENVIRONMENT = "production"
 # Model used for real-time bookmark enrichment (fast/cheap 1B model)
 AI_BOOKMARK_MODEL = "@cf/meta/llama-3.2-1b-instruct"
 # Ollama remote server URL (accessed via Cloudflare tunnel)
 OLLAMA_URL = "https://ollama.d11.me/api/generate"
+# Public base URL the cdn-bucket is served from (R2 custom domain) — used to build copy-links and cache-purge requests
+CDN_PUBLIC_BASE_URL = "https://cdn.d11cloud.com"
+# Cloudflare zone ID that owns CDN_PUBLIC_BASE_URL — required for the cache purge endpoint
+CF_ZONE_ID = "f999c3f14a411c236fb32583d90d144c"
 
 # ─── Custom domain routing ───────────────────────────────────────────────────
 # Uncomment and fill in after adding d11.me to your Cloudflare account.

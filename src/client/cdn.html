@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDN / Media — Lumin Admin</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        g: { blue: '#4285F4', black: '#1F1F1F', gray: '#474747', border: '#E3E3E3', surface: '#FFFFFF' }
+                    },
+                    fontFamily: { sans: ['Inter', 'Roboto', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/vendor/suite-menu.js"></script>
+    <style>
+        .spinner {
+            border: 2px solid #E3E3E3;
+            border-top-color: #4285F4;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 24px;
+            border: 1px solid #E3E3E3;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        #dropzone.drag-over {
+            border-color: #4285F4;
+            background: #F0F6FF;
+        }
+
+        .cdn-row[data-selected="true"] {
+            background: #F0F6FF;
+        }
+
+        #row-menu {
+            position: fixed;
+            z-index: 80;
+        }
+    </style>
+</head>
+
+<body class="bg-[#F0F2F5] font-sans text-g-black antialiased min-h-screen">
+
+    <!-- ── Header ── -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-g-border w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+            <a href="/admin" class="p-2 -ml-2 text-g-gray hover:text-g-blue transition-colors" title="Back to Admin"
+                aria-label="Back to Admin">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </a>
+            <a href="/start" class="flex-shrink-0">
+                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+            </a>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base font-semibold text-g-black leading-tight truncate">CDN / Media</h1>
+                <p id="header-user-name" class="text-xs text-g-gray truncate">Loading user...</p>
+            </div>
+            <div class="relative flex-shrink-0">
+                <button id="btn-suite-menu"
+                    class="p-2 rounded-full text-g-gray hover:text-g-blue hover:bg-blue-50 transition-colors"
+                    aria-label="Open suite navigation" title="Suite navigation" aria-expanded="false">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </button>
+                <div id="suite-menu"
+                    class="hidden absolute right-0 top-10 bg-white border border-g-border rounded-[12px] shadow-lg w-56 p-2 z-50">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Loading ── -->
+    <div id="loading" class="flex items-center justify-center py-40">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- ── Error ── -->
+    <div id="error-state" class="hidden text-center py-40 px-6">
+        <p class="font-semibold text-g-black mb-1">Could not load CDN admin</p>
+        <p class="text-sm text-g-gray" id="error-msg">Please check your login and try again.</p>
+        <a href="/admin" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Admin</a>
+    </div>
+
+    <!-- ── No Access ── -->
+    <div id="no-access-state" class="hidden text-center py-40 px-6">
+        <p class="font-semibold text-g-black mb-1">Admin access required</p>
+        <p class="text-sm text-g-gray">Your account does not have admin privileges.</p>
+        <a href="/" class="mt-6 inline-block text-sm text-g-blue hover:underline">← Back to Dashboard</a>
+    </div>
+
+    <!-- ── Main Content ── -->
+    <main id="content" class="hidden max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8 space-y-6">
+
+        <!-- Quick stats -->
+        <div class="grid grid-cols-2 sm:grid-cols-2 gap-4">
+            <div class="panel p-5">
+                <p class="text-xs text-g-gray">Objects</p>
+                <p id="stat-count" class="text-2xl font-bold text-g-black mt-1">—</p>
+            </div>
+            <div class="panel p-5">
+                <p class="text-xs text-g-gray">Total size</p>
+                <p id="stat-size" class="text-2xl font-bold text-g-black mt-1">—</p>
+            </div>
+        </div>
+
+        <!-- Upload dropzone -->
+        <div id="dropzone" class="panel p-6 border-2 border-dashed border-g-border transition-colors">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+                <div class="flex-1">
+                    <p class="font-semibold text-g-black">Drag &amp; drop files here</p>
+                    <p class="text-xs text-g-gray mt-1">or click to browse. Max 100MB per file.</p>
+                    <input id="file-input" type="file" multiple class="hidden">
+                </div>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-xs text-g-gray mb-1">Folder / prefix</label>
+                        <input id="upload-prefix" type="text" placeholder="e.g. blog/2026/"
+                            class="text-sm border border-g-border rounded-full px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-g-blue/30">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-g-gray mb-1">Cache-Control</label>
+                        <select id="upload-cache-preset"
+                            class="text-sm border border-g-border rounded-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-g-blue/30">
+                            <option value="immutable">Immutable (1yr)</option>
+                            <option value="revalidate">Revalidate (1hr)</option>
+                            <option value="none">No cache</option>
+                        </select>
+                    </div>
+                    <button id="btn-browse" type="button"
+                        class="rounded-full bg-g-blue text-white text-sm font-medium px-5 py-2 hover:bg-blue-600 transition-colors">
+                        Choose files
+                    </button>
+                </div>
+            </div>
+            <div id="upload-progress-list" class="mt-4 space-y-2"></div>
+        </div>
+
+        <!-- Browser -->
+        <div class="panel">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 border-b border-g-border">
+                <div id="breadcrumb" class="flex flex-wrap items-center gap-1 text-sm text-g-gray min-w-0"></div>
+                <div class="flex items-center gap-2">
+                    <input id="filter-input" type="text" placeholder="Filter by name"
+                        class="text-sm border border-g-border rounded-full px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-g-blue/30">
+                    <button id="btn-bulk-delete"
+                        class="hidden rounded-full bg-red-50 text-red-600 text-sm font-medium px-4 py-2 hover:bg-red-100 transition-colors">
+                        Delete selected (<span id="bulk-delete-count">0</span>)
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs uppercase tracking-wide text-g-gray border-b border-g-border">
+                            <th class="px-4 py-2 w-10"><input id="select-all" type="checkbox"></th>
+                            <th class="px-4 py-2">Object</th>
+                            <th class="px-4 py-2">Type</th>
+                            <th class="px-4 py-2">Size</th>
+                            <th class="px-4 py-2">Modified</th>
+                            <th class="px-4 py-2 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="object-rows"></tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="hidden text-center py-16 text-sm text-g-gray">This folder is empty.</div>
+            <div class="px-4 py-4 sm:px-6 border-t border-g-border">
+                <button id="btn-load-more" class="hidden text-sm text-g-blue hover:underline">Load more</button>
+            </div>
+        </div>
+
+        <!-- Shared row-action menu (fixed positioning avoids clipping by the table's scroll container) -->
+        <div id="row-menu" class="hidden bg-white border border-g-border rounded-[12px] shadow-lg w-44 p-1 text-left">
+        </div>
+    </main>
+
+    <!-- ── Preview drawer ── -->
+    <div id="preview-modal"
+        class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center px-4">
+        <div class="bg-white rounded-[24px] p-6 max-w-2xl w-full max-h-[85vh] flex flex-col shadow-soft">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <h3 id="preview-title" class="text-lg font-semibold text-g-black break-all"></h3>
+                <button id="btn-preview-close"
+                    class="text-g-gray hover:text-g-black text-xl leading-none flex-shrink-0">&times;</button>
+            </div>
+            <div id="preview-body" class="overflow-auto flex-1"></div>
+        </div>
+    </div>
+
+    <script>
+        function qs(sel) { return document.querySelector(sel) }
+        function qsa(sel) { return document.querySelectorAll(sel) }
+        function escHtml(s) {
+            return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        }
+        function fmt(n) { return Number(n).toLocaleString() }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes < 1) return '0 B'
+            const units = ['B', 'KB', 'MB', 'GB', 'TB']
+            const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+            return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+        }
+
+        function authHeaders() {
+            const token = localStorage.getItem('d11_token')
+            return { 'Authorization': 'Bearer ' + token }
+        }
+
+        let currentPrefix = ''
+        let currentCursor = null
+        let allObjects = []
+        let allFolders = []
+        const selectedKeys = new Set()
+
+        // ── Data loading ──
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/admin/cdn/stats', { headers: authHeaders() })
+                if (!res.ok) return
+                const data = await res.json()
+                qs('#stat-count').textContent = fmt(data.count)
+                qs('#stat-size').textContent = formatBytes(data.total_size)
+            } catch { /* non-fatal */ }
+        }
+
+        async function loadObjects(prefix, cursor, append) {
+            const params = new URLSearchParams({ prefix })
+            if (cursor) params.set('cursor', cursor)
+            const res = await fetch(`/api/admin/cdn/objects?${params}`, { headers: authHeaders() })
+            if (!res.ok) throw new Error('Failed to list objects (HTTP ' + res.status + ')')
+            const data = await res.json()
+            allFolders = append ? allFolders : data.folders
+            allObjects = append ? allObjects.concat(data.objects) : data.objects
+            currentCursor = data.cursor
+            renderBreadcrumb(prefix)
+            renderTable()
+            qs('#btn-load-more').classList.toggle('hidden', !currentCursor)
+        }
+
+        function navigateTo(prefix) {
+            currentPrefix = prefix
+            currentCursor = null
+            selectedKeys.clear()
+            updateBulkBar()
+            qs('#upload-prefix').value = prefix
+            loadObjects(prefix, null, false).catch(showError)
+        }
+
+        function renderBreadcrumb(prefix) {
+            const parts = prefix.split('/').filter(Boolean)
+            let acc = ''
+            const crumbs = [{ label: 'root', prefix: '' }]
+            for (const part of parts) {
+                acc += part + '/'
+                crumbs.push({ label: part, prefix: acc })
+            }
+            qs('#breadcrumb').innerHTML = crumbs.map((c, i) => `
+                <button data-prefix="${escHtml(c.prefix)}" class="hover:text-g-blue hover:underline ${i === crumbs.length - 1 ? 'text-g-black font-medium' : ''}">${escHtml(c.label)}</button>
+                ${i < crumbs.length - 1 ? '<span class="text-g-border">/</span>' : ''}
+            `).join('')
+            qsa('#breadcrumb button[data-prefix]').forEach((btn) => {
+                btn.addEventListener('click', () => navigateTo(btn.getAttribute('data-prefix')))
+            })
+        }
+
+        function renderTable() {
+            const filter = qs('#filter-input').value.trim().toLowerCase()
+            const folders = allFolders.filter((f) => !filter || f.name.toLowerCase().includes(filter))
+            const objects = allObjects.filter((o) => !filter || o.name.toLowerCase().includes(filter))
+
+            const folderRows = folders.map((f) => `
+                <tr class="border-b border-g-border hover:bg-[#F7F8FA]">
+                    <td class="px-4 py-3"></td>
+                    <td class="px-4 py-3">
+                        <button data-nav-prefix="${escHtml(f.prefix)}" class="flex items-center gap-2 font-medium text-g-black hover:text-g-blue">
+                            <svg class="w-4 h-4 text-g-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-8l-2-2H5a2 2 0 00-2 2z" /></svg>
+                            ${escHtml(f.name)}/
+                        </button>
+                    </td>
+                    <td class="px-4 py-3 text-g-gray">Folder</td>
+                    <td class="px-4 py-3 text-g-gray">—</td>
+                    <td class="px-4 py-3 text-g-gray">—</td>
+                    <td class="px-4 py-3"></td>
+                </tr>
+            `).join('')
+
+            const objectRows = objects.map((o) => renderObjectRow(o)).join('')
+
+            qs('#object-rows').innerHTML = folderRows + objectRows
+            qs('#empty-state').classList.toggle('hidden', folders.length + objects.length > 0)
+
+            qsa('#object-rows button[data-nav-prefix]').forEach((btn) => {
+                btn.addEventListener('click', () => navigateTo(btn.getAttribute('data-nav-prefix')))
+            })
+            qsa('#object-rows input[data-key]').forEach((cb) => {
+                cb.addEventListener('change', () => {
+                    const key = cb.getAttribute('data-key')
+                    if (cb.checked) selectedKeys.add(key); else selectedKeys.delete(key)
+                    updateBulkBar()
+                    cb.closest('tr').setAttribute('data-selected', cb.checked ? 'true' : 'false')
+                })
+            })
+            qsa('#object-rows [data-action]').forEach((el) => {
+                el.addEventListener('click', () => handleRowAction(el.getAttribute('data-action'), el.getAttribute('data-key')))
+            })
+            qsa('#object-rows [data-menu-toggle]').forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    toggleRowMenu(btn, btn.getAttribute('data-menu-toggle'))
+                })
+            })
+        }
+
+        // ── Row-action menu ──
+        // Fixed positioning (computed from the trigger button's rect) so the menu can never be
+        // clipped by the table's `overflow-x-auto` scroll container, even for the last rows.
+        const rowMenu = qs('#row-menu')
+        let rowMenuKey = null
+
+        function toggleRowMenu(btn, key) {
+            if (rowMenuKey === key && !rowMenu.classList.contains('hidden')) {
+                closeRowMenu()
+                return
+            }
+            rowMenuKey = key
+            rowMenu.innerHTML = `
+                <button data-action="copy-markdown" class="block w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-[#F7F8FA]">Copy Markdown</button>
+                <button data-action="purge" class="block w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-[#F7F8FA]">Purge from cache</button>
+                <button data-action="delete" class="block w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-red-50 text-red-600">Delete</button>
+            `
+            rowMenu.querySelectorAll('[data-action]').forEach((el) => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    handleRowAction(el.getAttribute('data-action'), key)
+                    closeRowMenu()
+                })
+            })
+
+            const rect = btn.getBoundingClientRect()
+            const menuWidth = rowMenu.offsetWidth || 176
+            rowMenu.style.left = Math.max(8, rect.right - menuWidth) + 'px'
+            rowMenu.style.top = Math.min(rect.bottom + 4, window.innerHeight - 8) + 'px'
+            rowMenu.classList.remove('hidden')
+        }
+
+        function closeRowMenu() {
+            rowMenuKey = null
+            rowMenu.classList.add('hidden')
+        }
+
+        document.addEventListener('click', closeRowMenu)
+        window.addEventListener('scroll', closeRowMenu, true)
+        window.addEventListener('resize', closeRowMenu)
+
+        function renderObjectRow(o) {
+            const modified = o.uploaded ? new Date(o.uploaded).toLocaleString() : '—'
+            return `
+                <tr class="cdn-row border-b border-g-border hover:bg-[#F7F8FA]" data-selected="${selectedKeys.has(o.key) ? 'true' : 'false'}">
+                    <td class="px-4 py-3"><input type="checkbox" data-key="${escHtml(o.key)}" ${selectedKeys.has(o.key) ? 'checked' : ''}></td>
+                    <td class="px-4 py-3">
+                        <button data-action="preview" data-key="${escHtml(o.key)}" class="text-g-black hover:text-g-blue font-medium text-left break-all">${escHtml(o.name)}</button>
+                    </td>
+                    <td class="px-4 py-3 text-g-gray">${escHtml(o.content_type)}</td>
+                    <td class="px-4 py-3 text-g-gray">${formatBytes(o.size)}</td>
+                    <td class="px-4 py-3 text-g-gray">${escHtml(modified)}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button data-action="copy-url" data-key="${escHtml(o.key)}" class="text-xs text-g-blue hover:underline mr-3">Copy URL</button>
+                        <button data-menu-toggle="${escHtml(o.key)}" class="p-1 text-g-gray hover:text-g-black">⋮</button>
+                    </td>
+                </tr>
+            `
+        }
+
+        function findObject(key) { return allObjects.find((o) => o.key === key) }
+
+        async function handleRowAction(action, key) {
+            const obj = findObject(key)
+            if (!obj) return
+            if (action === 'preview') return openPreview(obj)
+            if (action === 'copy-url') return copyText(obj.url, 'URL copied')
+            if (action === 'copy-markdown') return copyText(`![${obj.name}](${obj.url})`, 'Markdown copied')
+            if (action === 'purge') return purgeKeys([key])
+            if (action === 'delete') return deleteKeys([key])
+        }
+
+        function copyText(text, message) {
+            navigator.clipboard.writeText(text).then(() => toast(message)).catch(() => toast('Copy failed'))
+        }
+
+        function toast(message) {
+            const el = document.createElement('div')
+            el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-g-black text-white text-sm px-4 py-2 rounded-full shadow-lg z-[70]'
+            el.textContent = message
+            document.body.appendChild(el)
+            setTimeout(() => el.remove(), 2000)
+        }
+
+        // ── Bulk selection ──
+        function updateBulkBar() {
+            const count = selectedKeys.size
+            qs('#btn-bulk-delete').classList.toggle('hidden', count === 0)
+            qs('#bulk-delete-count').textContent = count
+            qs('#select-all').checked = count > 0 && count === allObjects.length
+        }
+
+        qs('#select-all').addEventListener('change', (e) => {
+            selectedKeys.clear()
+            if (e.target.checked) allObjects.forEach((o) => selectedKeys.add(o.key))
+            renderTable()
+            updateBulkBar()
+        })
+
+        qs('#btn-bulk-delete').addEventListener('click', () => deleteKeys([...selectedKeys]))
+
+        qs('#filter-input').addEventListener('input', renderTable)
+
+        qs('#btn-load-more').addEventListener('click', () => loadObjects(currentPrefix, currentCursor, true).catch(showError))
+
+        // ── Delete / purge ──
+        async function deleteKeys(keys) {
+            if (keys.length === 0) return
+            if (!confirm(`Delete ${keys.length} object${keys.length > 1 ? 's' : ''}? This cannot be undone.`)) return
+            try {
+                const res = await fetch('/api/admin/cdn/objects', {
+                    method: 'DELETE',
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys }),
+                })
+                if (!res.ok) throw new Error('Delete failed')
+                keys.forEach((k) => selectedKeys.delete(k))
+                toast('Deleted')
+                navigateTo(currentPrefix)
+                loadStats()
+            } catch (e) {
+                toast(String(e.message || e))
+            }
+        }
+
+        async function purgeKeys(keys) {
+            try {
+                const res = await fetch('/api/admin/cdn/purge', {
+                    method: 'POST',
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys }),
+                })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(data.error || 'Purge failed')
+                toast('Cache purge requested')
+            } catch (e) {
+                toast(String(e.message || e))
+            }
+        }
+
+        // ── Preview drawer ──
+        const TEXT_PREVIEW_TYPES = ['application/json', 'text/plain', 'text/csv', 'text/markdown', 'application/xml', 'text/xml']
+        const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024
+
+        async function openPreview(obj) {
+            qs('#preview-title').textContent = obj.name
+            const body = qs('#preview-body')
+            body.innerHTML = '<div class="flex justify-center py-10"><div class="spinner"></div></div>'
+            qs('#preview-modal').classList.remove('hidden')
+
+            const ct = obj.content_type || ''
+            if (ct.startsWith('image/')) {
+                body.innerHTML = `<img src="${escHtml(obj.url)}" class="max-w-full max-h-[65vh] mx-auto rounded-lg">`
+            } else if (ct.startsWith('video/')) {
+                body.innerHTML = `<video src="${escHtml(obj.url)}" controls class="max-w-full max-h-[65vh] mx-auto rounded-lg"></video>`
+            } else if (ct.startsWith('audio/')) {
+                body.innerHTML = `<audio src="${escHtml(obj.url)}" controls class="w-full"></audio>`
+            } else if (TEXT_PREVIEW_TYPES.includes(ct) && obj.size <= MAX_TEXT_PREVIEW_BYTES) {
+                try {
+                    const res = await fetch(obj.url)
+                    const text = await res.text()
+                    body.innerHTML = `<pre class="text-xs bg-[#F7F8FA] rounded-lg p-4 overflow-auto whitespace-pre-wrap break-all">${escHtml(text)}</pre>`
+                } catch {
+                    body.innerHTML = '<p class="text-sm text-g-gray">Could not load preview.</p>'
+                }
+            } else {
+                body.innerHTML = `<p class="text-sm text-g-gray">No inline preview available for this type.</p><a href="${escHtml(obj.url)}" target="_blank" class="text-g-blue text-sm hover:underline">Open / download →</a>`
+            }
+        }
+
+        qs('#btn-preview-close').addEventListener('click', () => qs('#preview-modal').classList.add('hidden'))
+        qs('#preview-modal').addEventListener('click', (e) => { if (e.target.id === 'preview-modal') qs('#preview-modal').classList.add('hidden') })
+
+        // ── Upload ──
+        const dropzone = qs('#dropzone')
+        const fileInput = qs('#file-input')
+
+        qs('#btn-browse').addEventListener('click', () => fileInput.click())
+        dropzone.addEventListener('click', (e) => { if (e.target === dropzone) fileInput.click() })
+        fileInput.addEventListener('change', () => { uploadFiles([...fileInput.files]); fileInput.value = '' })
+
+            ;['dragenter', 'dragover'].forEach((evt) => dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-over') }))
+            ;['dragleave', 'drop'].forEach((evt) => dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-over') }))
+        dropzone.addEventListener('drop', (e) => {
+            const files = [...(e.dataTransfer?.files || [])]
+            if (files.length) uploadFiles(files)
+        })
+
+        function uploadFiles(files, overwriteKeys) {
+            const prefix = qs('#upload-prefix').value
+            const cachePreset = qs('#upload-cache-preset').value
+            for (const file of files) {
+                uploadOne(file, prefix, cachePreset, (overwriteKeys || new Set()).has(file.name))
+            }
+        }
+
+        function uploadOne(file, prefix, cachePreset, overwrite) {
+            const rowId = 'up-' + Math.random().toString(36).slice(2)
+            const list = qs('#upload-progress-list')
+            const row = document.createElement('div')
+            row.id = rowId
+            row.className = 'text-sm'
+            row.innerHTML = `
+                <div class="flex items-center justify-between text-xs text-g-gray mb-1">
+                    <span class="truncate">${escHtml(file.name)}</span>
+                    <span data-pct>0%</span>
+                </div>
+                <div class="h-1.5 bg-[#E3E3E3] rounded-full overflow-hidden">
+                    <div data-bar class="h-full bg-g-blue transition-all" style="width:0%"></div>
+                </div>
+            `
+            list.appendChild(row)
+
+            const form = new FormData()
+            form.append('file', file)
+            form.append('prefix', prefix)
+            form.append('cachePreset', cachePreset)
+            if (overwrite) form.append('overwrite', 'true')
+
+            const xhr = new XMLHttpRequest()
+            xhr.open('POST', '/api/admin/cdn/objects')
+            xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('d11_token'))
+            xhr.upload.addEventListener('progress', (e) => {
+                if (!e.lengthComputable) return
+                const pct = Math.round((e.loaded / e.total) * 100)
+                row.querySelector('[data-bar]').style.width = pct + '%'
+                row.querySelector('[data-pct]').textContent = pct + '%'
+            })
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 201) {
+                    row.querySelector('[data-pct]').textContent = 'Done'
+                    setTimeout(() => row.remove(), 1500)
+                    navigateTo(currentPrefix)
+                    loadStats()
+                    return
+                }
+                if (xhr.status === 409) {
+                    row.remove()
+                    if (confirm(`"${file.name}" already exists. Overwrite it?`)) {
+                        uploadFiles([file], new Set([file.name]))
+                    }
+                    return
+                }
+                row.querySelector('[data-pct]').textContent = 'Failed'
+                row.querySelector('[data-bar]').classList.replace('bg-g-blue', 'bg-red-500')
+            })
+            xhr.addEventListener('error', () => {
+                row.querySelector('[data-pct]').textContent = 'Failed'
+                row.querySelector('[data-bar]').classList.replace('bg-g-blue', 'bg-red-500')
+            })
+            xhr.send(form)
+        }
+
+        function showError(e) {
+            toast(String(e.message || e))
+        }
+
+        // ── Boot ──
+        async function boot() {
+            const token = localStorage.getItem('d11_token')
+            if (!token) { location.href = '/'; return }
+
+            let me
+            try {
+                const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+                if (!meRes.ok) { location.href = '/'; return }
+                me = await meRes.json()
+                qs('#header-user-name').textContent = me.full_name || me.slug_prefix || 'User'
+                window.LuminSuiteMenu.setAdminAccess(me.is_admin === 1)
+            } catch { location.href = '/'; return }
+
+            try {
+                await loadObjects('', null, false)
+                loadStats()
+            } catch (e) {
+                if (String(e.message || e).includes('403')) {
+                    qs('#loading').classList.add('hidden')
+                    qs('#no-access-state').classList.remove('hidden')
+                    return
+                }
+                qs('#loading').classList.add('hidden')
+                qs('#error-state').classList.remove('hidden')
+                qs('#error-msg').textContent = String(e.message || e)
+                return
+            }
+
+            qs('#loading').classList.add('hidden')
+            qs('#content').classList.remove('hidden')
+        }
+
+        window.LuminSuiteMenu.initMenu({
+            buttonId: 'btn-suite-menu',
+            menuId: 'suite-menu',
+            activePage: 'admin',
+            mode: 'light',
+        })
+
+        boot()
+    </script>
+</body>
+
+</html>

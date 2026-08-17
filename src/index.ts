@@ -15,6 +15,7 @@ import notesRoutes from './routes/notes.ts'
 import driveRoutes from './routes/drive.ts'
 import healthRoutes from './routes/health.ts'
 import foodRoutes from './routes/food.ts'
+import cdnRoutes from './routes/cdn.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { getSharedTag, incrementSharedTagViews } from './db/sharedTags.ts'
@@ -71,12 +72,15 @@ import healthReportHtml from './client/health-report.html'
 import foodHtml from './client/food.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import startHtml from './client/start.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import cdnHtml from './client/cdn.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
   DB: D1Database
   ATTACHMENTS: R2Bucket
   FOOD_ENTRIES: R2Bucket
+  CDN_BUCKET: R2Bucket
   TOKEN_SECRET: string
   ENVIRONMENT: string
   AI: Ai
@@ -84,6 +88,9 @@ export type Env = {
   OLLAMA_URL: string
   CF_ACCESS_CLIENT_ID: string
   CF_ACCESS_CLIENT_SECRET: string
+  CDN_PUBLIC_BASE_URL: string
+  CF_ZONE_ID: string
+  CF_API_TOKEN: string
 }
 
 // ─── Context variables set by middleware ──────────────────────────────────────
@@ -250,6 +257,7 @@ app.route('/api/notes', notesRoutes)
 app.route('/api/drive', driveRoutes)
 app.route('/api/health', healthRoutes)
 app.route('/api/food', foodRoutes)
+app.route('/api/admin/cdn', cdnRoutes)
 app.route('/api/v1/settings', settingsRoutes)
 app.route('/api/notifications', notificationsRoutes)
 
@@ -1899,6 +1907,7 @@ app.get('/n/:tag', (c) => c.html((newsHtml as string).replace('%%HEADER%%', news
 app.get('/import/pinboard', (c) => c.html(importPinboardHtml as string))
 app.get('/import/browser', (c) => c.html(importBrowserHtml as string))
 app.get('/admin', (c) => c.html(adminHtml as string))
+app.get('/admin/cdn', (c) => c.html(cdnHtml as string))
 app.get('/analytics', (c) => c.html(analyticsHtml as string))
 app.get('/settings', (c) => c.html(settingsHtml as string))
 app.get('/chat', (c) => c.html(chatHtml as string))

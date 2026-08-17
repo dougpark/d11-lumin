@@ -358,6 +358,14 @@
                 group.items.push({ sectionId, label: def.label })
             }
 
+            // CDN / Media is a standalone page (not an in-page section) — link out to it.
+            const adminGroup = groups.find((entry) => entry.groupName === 'Admin')
+            if (adminGroup) {
+                adminGroup.items.push({ label: 'CDN / Media', href: '/admin/cdn' })
+            } else {
+                groups.push({ groupName: 'Admin', items: [{ label: 'CDN / Media', href: '/admin/cdn' }] })
+            }
+
             // Build the navigation with close button on mobile
             nav.innerHTML = `
                 <div class="flex items-center justify-between lg:hidden mb-4 pb-2 border-b border-g-border">
@@ -377,7 +385,13 @@
                             <h3 class="text-xs font-semibold uppercase tracking-[0.22em] text-g-gray">${escHtml(group.groupName)}</h3>
                         </div>
                         <div class="space-y-2">
-                            ${group.items.map((item) => `
+                            ${group.items.map((item) => item.href
+                ? `
+                                <a href="${escHtml(item.href)}" class="admin-nav-button block">
+                                    <span class="font-medium">${escHtml(item.label)}</span>
+                                </a>
+                            `
+                : `
                                 <button type="button" data-section-id="${escHtml(item.sectionId)}" class="admin-nav-button">
                                     <span class="font-medium">${escHtml(item.label)}</span>
                                 </button>
