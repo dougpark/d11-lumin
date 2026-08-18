@@ -233,14 +233,13 @@
             return res.json()
         }
 
-        function renderTagChips(tags, activeTag) {
-            if (!tags.length) return ''
-            return `<div class="flex flex-wrap gap-2 mt-3 mb-8">${tags.map((tag) => `
+        function renderPostTags(tags, activeTag) {
+            return tags.map((tag) => `
                 <button type="button" data-tag="${esc(tag)}"
-                    class="text-xs px-3 py-1 rounded-full border ${tag === activeTag ? 'bg-g-blue text-white border-g-blue' : 'border-g-border text-g-gray hover:border-g-blue'}">
+                    class="text-xs px-2 py-0.5 rounded-full border ${tag === activeTag ? 'bg-g-blue text-white border-g-blue' : 'border-g-border text-g-gray hover:border-g-blue'}">
                     ${esc(tag)}
                 </button>
-            `).join('')}</div>`
+            `).join('')
         }
 
         async function renderList() {
@@ -253,7 +252,6 @@
                         <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
                             class="search-input">
                     </div>
-                    <div id="blog-tags"></div>
                     <div id="blog-results"><p class="text-sm text-g-gray">Loading…</p></div>
                 `
 
@@ -263,18 +261,19 @@
                 }, 300))
             }
 
-            const [{ data: posts }, { data: tags }] = await Promise.all([
-                fetchJson(`/api/blog.json${state.q ? `?q=${encodeURIComponent(state.q)}` : ''}${state.tag ? `${state.q ? '&' : '?'}tag=${encodeURIComponent(state.tag)}` : ''}`),
-                fetchJson('/api/blog/tags'),
-            ])
+            const { data: posts } = await fetchJson(`/api/blog.json${state.q ? `?q=${encodeURIComponent(state.q)}` : ''}${state.tag ? `${state.q ? '&' : '?'}tag=${encodeURIComponent(state.tag)}` : ''}`)
 
-            document.getElementById('blog-tags').innerHTML = renderTagChips(tags, state.tag)
             document.getElementById('blog-results').innerHTML = `
                 ${posts.length ? posts.map((post) => `
                     <article class="blog-post-card mb-5">
                         <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
                             <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
-                            <p class="post-date">${formatDate(post.published_at)}</p>
+                        </a>
+                        <div class="post-date flex items-center gap-2 flex-wrap">
+                            <span>${formatDate(post.published_at)}</span>
+                            ${renderPostTags(post.tags, state.tag)}
+                        </div>
+                        <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
                             <p class="post-excerpt">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
                         </a>
                     </article>
