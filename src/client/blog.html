@@ -73,10 +73,11 @@
 
         .blog-post-card {
             background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 1.5rem;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
         }
 
         .blog-post-card:hover {
@@ -84,21 +85,76 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             border-color: #4285F4;
         }
+
+        .post-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2563eb;
+            line-height: 1.3;
+            margin: 0;
+        }
+
+        .post-date {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin: 0.2rem 0 0.85rem;
+        }
+
+        .post-excerpt {
+            font-size: 0.95rem;
+            color: #334155;
+            line-height: 1.65;
+            letter-spacing: -0.01em;
+            margin: 0;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.95rem;
+            background-color: #f8fafc;
+            outline: none;
+            transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .search-input:focus {
+            background-color: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .post-nav-prev,
+        .post-nav-next {
+            display: inline-block;
+            transition: transform 0.15s ease;
+        }
+
+        .post-nav-prev:hover {
+            transform: translateX(-3px);
+        }
+
+        .post-nav-next:hover {
+            transform: translateX(3px);
+        }
     </style>
 </head>
 
 <body class="bg-white text-g-black">
 
-    <header class="border-b border-g-blue">
-        <nav class="max-w-3xl mx-auto px-4 py-4 grid grid-cols-[auto_1fr_auto] items-center gap-3">
-            <a href="/start" class="flex-shrink-0">
-                <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
-            </a>
-            <a href="/blog" class="leading-tight text-center" data-internal-link>
-                <span class="block font-semibold text-2xl">Lumin</span>
-                <span class="block text-sm text-g-gray">Tech is way, WAY interesting</span>
-            </a>
-            <div class="flex items-center gap-4 text-sm text-g-gray justify-self-end">
+    <header class="border-b-2 border-g-blue">
+        <nav class="max-w-3xl mx-auto px-4 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/start" class="flex-shrink-0">
+                    <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+                </a>
+                <a href="/blog" class="leading-tight" data-internal-link>
+                    <span class="block font-bold text-lg text-g-black">Lumin</span>
+                    <span class="block text-sm text-g-gray">Tech is way, WAY interesting</span>
+                </a>
+            </div>
+            <div class="flex items-center gap-4 text-sm text-g-gray">
                 <a href="/blog" data-internal-link class="hover:text-g-blue">Blog</a>
                 <a href="/rss.xml" class="hover:text-g-blue">RSS</a>
             </div>
@@ -178,7 +234,7 @@
 
         function renderTagChips(tags, activeTag) {
             if (!tags.length) return ''
-            return `<div class="flex flex-wrap gap-2 mb-6">${tags.map((tag) => `
+            return `<div class="flex flex-wrap gap-2 mt-3 mb-8">${tags.map((tag) => `
                 <button type="button" data-tag="${esc(tag)}"
                     class="text-xs px-3 py-1 rounded-full border ${tag === activeTag ? 'bg-g-blue text-white border-g-blue' : 'border-g-border text-g-gray hover:border-g-blue'}">
                     ${esc(tag)}
@@ -195,18 +251,18 @@
             ])
 
             app.innerHTML = `
-                <div class="mb-6">
+                <div class="mb-3">
                     <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
-                        class="w-full text-sm px-4 py-2.5 rounded-full border border-g-border focus:outline-none focus:ring-2 focus:ring-g-blue/20 focus:border-g-blue">
+                        class="search-input">
                 </div>
                 ${renderTagChips(tags, state.tag)}
-                <div class="space-y-6">
+                <div>
                     ${posts.length ? posts.map((post) => `
-                        <article class="blog-post-card">
+                        <article class="blog-post-card mb-5">
                             <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
-                                <h2 class="text-xl font-semibold text-g-blue transition-colors">${esc(post.title || 'Untitled')}</h2>
-                                <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
-                                <p class="text-sm text-g-gray mt-2">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
+                                <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
+                                <p class="post-date">${formatDate(post.published_at)}</p>
+                                <p class="post-excerpt">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
                             </a>
                         </article>
                     `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
@@ -242,8 +298,8 @@
                         <div class="blog-body mt-6">${renderMarkdown(post.content || '')}</div>
                     </article>
                     <nav class="flex items-center justify-between mt-10 pt-6 border-t border-g-border text-sm">
-                        ${meta.prev ? `<a href="/blog/${esc(meta.prev.slug)}" data-post-link class="text-g-blue hover:underline">&larr; ${esc(meta.prev.title)}</a>` : '<span></span>'}
-                        ${meta.next ? `<a href="/blog/${esc(meta.next.slug)}" data-post-link class="text-g-blue hover:underline">${esc(meta.next.title)} &rarr;</a>` : '<span></span>'}
+                        ${meta.prev ? `<a href="/blog/${esc(meta.prev.slug)}" data-post-link class="post-nav-prev text-g-blue hover:underline">&larr; ${esc(meta.prev.title)}</a>` : '<span></span>'}
+                        ${meta.next ? `<a href="/blog/${esc(meta.next.slug)}" data-post-link class="post-nav-next text-g-blue hover:underline">${esc(meta.next.title)} &rarr;</a>` : '<span></span>'}
                     </nav>
                 `
 
