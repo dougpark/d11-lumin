@@ -58,6 +58,17 @@ export async function purgeCache(env: Env, keys: string[]): Promise<void> {
     }
 }
 
+// Purges the cached blog list/feed pages plus, if given, specific post page(s) — needed
+// whenever a note's publish state or published metadata changes, since blog.json/rss.xml
+// are edge-cached (5min/1hr) and would otherwise keep serving stale data until they expire.
+export async function purgeBlogCaches(env: Env, siteUrl: string, slugs: string[] = []): Promise<void> {
+    const urls = [`${siteUrl}/rss.xml`, `${siteUrl}/api/blog.json`, `${siteUrl}/api/blog/tags`, `${siteUrl}/blog`]
+    for (const slug of slugs) {
+        if (slug) urls.push(`${siteUrl}/blog/${slug}`, `${siteUrl}/api/blog/${slug}`)
+    }
+    await purgeUrls(env, urls)
+}
+
 // Purges arbitrary public URLs that aren't necessarily CDN_BUCKET keys (e.g. blog.json, rss.xml).
 export async function purgeUrls(env: Env, urls: string[]): Promise<void> {
     if (!env.CF_API_TOKEN || !env.CF_ZONE_ID || urls.length === 0) return

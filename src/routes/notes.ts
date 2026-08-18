@@ -26,7 +26,7 @@ import {
     updateNoteMetadata,
 } from '../db/notes.ts'
 import { generateExcerpt } from '../utils/slug.ts'
-import { buildPublicUrl, detectContentType, purgeCache } from '../utils/cdn.ts'
+import { buildPublicUrl, detectContentType, purgeBlogCaches, purgeCache } from '../utils/cdn.ts'
 
 const notes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -430,8 +430,14 @@ notes.patch('/:id/metadata', async (c) => {
         : undefined
 
     try {
+        const before = await getNoteById(c.env.DB, user.id, id)
         const updated = await updateNoteMetadata(c.env.DB, { user_id: user.id, note_id: id, title, excerpt, slug, tag_list })
         if (!updated) return c.json({ error: 'Note not found' }, 404)
+        if (before?.is_blog === 1 && before.is_published === 1) {
+            const siteUrl = new URL(c.req.url).origin
+            const slugs = [before.slug, updated.slug].filter((s): s is string => !!s)
+            c.executionCtx.waitUntil(purgeBlogCaches(c.env, siteUrl, slugs))
+        }
         return c.json({ data: updated })
     } catch (err) {
         return c.json({ error: (err as Error).message }, 400)
@@ -500,6 +506,13 @@ notes.patch('/:id/blog', async (c) => {
 
         const updated = await setNoteBlogFlags(c.env.DB, { user_id: user.id, note_id: id, is_blog, is_published })
         if (!updated) return c.json({ error: 'Note not found' }, 404)
+
+        if (wasPublic || willBePublic) {
+            const siteUrl = new URL(c.req.url).origin
+            const slugs = [before.slug, updated.slug].filter((s): s is string => !!s)
+            c.executionCtx.waitUntil(purgeBlogCaches(c.env, siteUrl, slugs))
+        }
+
         return c.json({ data: updated })
     } catch (err) {
         return c.json({ error: (err as Error).message }, 400)
