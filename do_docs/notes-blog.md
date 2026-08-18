@@ -136,7 +136,7 @@ if (url.pathname === '/rss.xml') {
   const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2000/svg">
   <channel>
-    <title>d11.me Blog</title>
+    <title>Lumin Blog</title>
     <link>https://d11.me/blog.html</link>
     <description>Notes and thoughts from d11.me</description>
     <language>en-us</language>
@@ -156,7 +156,7 @@ if (url.pathname === '/rss.xml') {
 }
 
 Best Practices for Your Feed
-• Feed Discovery: Add a <link> tag inside the <head> of your blog.html (and index) so feed readers (NetNewsWire, Feedly, etc.) auto-detect it: <link rel="alternate" type="application/rss+xml" title="d11.me Blog Feed" href="/rss.xml" />
+• Feed Discovery: Add a <link> tag inside the <head> of your blog.html (and index) so feed readers (NetNewsWire, Feedly, etc.) auto-detect it: <link rel="alternate" type="application/rss+xml" title="Lumin Blog Feed" href="/rss.xml" />
 • Include CDN Images in Feed: Because your publishing workflow automatically rewrites attachment URLs to [https://cdn.d11cloud.com/](https://cdn.d11cloud.com/)..., any images embedded in your Markdown body will render directly inside external RSS readers without broken links.
 • Cache Purging: When you check or uncheck "Publish to Blog" in notes.html, trigger a cache purge for /rss.xml alongside blog.json via the Cloudflare Cache API.
 

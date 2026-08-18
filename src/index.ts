@@ -1919,7 +1919,7 @@ app.get('/settings', (c) => c.html(settingsHtml as string))
 
 // ─── Public blog pages ───────────────────────────────────────────────────────
 const BLOG_OG_DEFAULTS = {
-  title: 'd11.me Blog',
+  title: 'Lumin Blog',
   desc: 'Notes and thoughts from d11.me',
   image: '',
 }
@@ -1975,7 +1975,7 @@ app.get('/rss.xml', async (c) => {
   const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>d11.me Blog</title>
+    <title>Lumin Blog</title>
     <link>${siteUrl}/blog</link>
     <description>Notes and thoughts from d11.me</description>
     <language>en-us</language>

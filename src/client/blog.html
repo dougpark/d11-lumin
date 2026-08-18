@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%%OG_TITLE%% — d11.me Blog</title>
+    <title>%%OG_TITLE%% — Lumin Blog</title>
     <meta name="description" content="%%OG_DESC%%">
     <link rel="canonical" href="%%OG_URL%%">
     <meta property="og:type" content="article">
@@ -13,7 +13,7 @@
     <meta property="og:url" content="%%OG_URL%%">
     <meta property="og:image" content="%%OG_IMAGE%%">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="alternate" type="application/rss+xml" title="d11.me Blog Feed" href="/rss.xml">
+    <link rel="alternate" type="application/rss+xml" title="Lumin Blog Feed" href="/rss.xml">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -81,7 +81,8 @@
                 <a href="/start" class="flex-shrink-0">
                     <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
                 </a>
-                <a href="/blog" class="font-semibold text-lg" data-internal-link>Lumin Blog</a>
+                <a href="/blog" class="font-semibold text-lg" data-internal-link>Lumin - Tech is way, WAY
+                    interesting</a>
             </div>
             <div class="flex items-center gap-4 text-sm text-g-gray">
                 <a href="/blog" data-internal-link class="hover:text-g-blue">Blog</a>
@@ -207,7 +208,7 @@
             app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
             try {
                 const { data: post, meta } = await fetchJson(`/api/blog/${encodeURIComponent(slug)}`)
-                document.title = `${post.title} — d11.me Blog`
+                document.title = `${post.title} — Lumin Blog`
 
                 app.innerHTML = `
                     <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
