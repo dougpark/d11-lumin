@@ -209,7 +209,7 @@
                     <article class="mt-4">
                         <h1 class="text-2xl font-bold">${esc(post.title || 'Untitled')}</h1>
                         <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
-                        ${post.tags.length ? `<div class="flex flex-wrap gap-2 mt-3">${post.tags.map((t) => `<span class="text-xs px-3 py-1 rounded-full border border-g-border text-g-gray">${esc(t)}</span>`).join('')}</div>` : ''}
+                        ${post.tags.length ? `<div class="flex flex-wrap gap-2 mt-3">${post.tags.map((t) => `<button type="button" data-post-tag="${esc(t)}" class="text-xs px-3 py-1 rounded-full border border-g-border text-g-gray hover:border-g-blue">${esc(t)}</button>`).join('')}</div>` : ''}
                         <div class="blog-body mt-6">${renderMarkdown(post.content || '')}</div>
                     </article>
                     <nav class="flex items-center justify-between mt-10 pt-6 border-t border-g-border text-sm">
@@ -217,6 +217,13 @@
                         ${meta.next ? `<a href="/blog/${esc(meta.next.slug)}" data-post-link class="text-g-blue hover:underline">${esc(meta.next.title)} &rarr;</a>` : '<span></span>'}
                     </nav>
                 `
+
+                app.querySelectorAll('[data-post-tag]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        state.tag = btn.getAttribute('data-post-tag')
+                        navigate('/blog')
+                    })
+                })
             } catch {
                 app.innerHTML = `<p class="text-sm text-g-gray">Post not found. <a href="/blog" data-internal-link class="text-g-blue hover:underline">Back to all posts</a></p>`
             }
