@@ -1402,7 +1402,7 @@
                         <div class="flex items-center gap-2">
                             <button id="btn-note-blog-toggle" type="button" hidden
                                 class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
-                                aria-pressed="false" aria-label="Toggle blog publishing panel">Blog</button>
+                                aria-pressed="false" aria-label="Toggle blog publishing panel">Blog Settings</button>
                             <button id="btn-note-preview" type="button"
                                 class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
                                 aria-pressed="false" aria-label="Toggle markdown preview">Preview</button>
@@ -1411,12 +1411,46 @@
                                 aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
                         </div>
                     </div>
+
+                    <div id="note-blog-panel" class="note-attachments-panel" hidden>
+                        <div
+                            class="note-attachments-panel-inner space-y-3 p-3 rounded-xl border border-border bg-muted/60">
+                            <div class="flex items-center gap-2">
+                                <button id="note-blog-is-blog" type="button" aria-pressed="false"
+                                    class="note-blog-pill note-blog-pill-off">Blog Post</button>
+                                <button id="note-blog-is-published" type="button" aria-pressed="false" hidden
+                                    class="note-blog-pill note-blog-pill-draft">Draft</button>
+                            </div>
+                            <div id="note-blog-published-fields" class="space-y-3" hidden>
+                                <div>
+                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Excerpt</label>
+                                    <textarea id="note-blog-excerpt" rows="2"
+                                        placeholder="Short summary shown in the post list"
+                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"></textarea>
+                                </div>
+                                <div>
+                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Slug</label>
+                                    <input id="note-blog-slug" type="text" placeholder="custom-url-slug"
+                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                </div>
+                                <a id="note-blog-view-link" href="#" target="_blank" rel="noopener noreferrer"
+                                    class="text-xs text-primary hover:underline" hidden>View published post &rarr;</a>
+                            </div>
+                            <p id="note-blog-error" class="text-xs text-red-600" hidden></p>
+                        </div>
+
+                    </div>
+
                     <input id="note-blog-title" type="text" placeholder="Title"
                         class="w-full mb-2 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <textarea id="note-editor-input" rows="12"
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
                     <div id="note-editor-preview" class="note-markdown-preview markdown-body" hidden></div>
+                    <input id="note-blog-tags" type="text" placeholder="comma, separated, tags"
+                        list="note-blog-tag-options"
+                        class="w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <datalist id="note-blog-tag-options"></datalist>
                     <div id="note-attachment-container" class="flex items-center gap-2">
                         <div id="note-attachment-dropzone" class="attachment-dropzone mb-0 flex-1 min-w-0">
                             <p class="text-xs text-muted-fg">Drag and drop files here, or paste an image
@@ -1478,39 +1512,7 @@
                         </div>
                     </div>
 
-                    <div id="note-blog-panel" class="note-attachments-panel" hidden>
-                        <div class="note-attachments-panel-inner space-y-3 pt-3 border-t border-border">
-                            <div class="flex items-center gap-2">
-                                <button id="note-blog-is-blog" type="button" aria-pressed="false"
-                                    class="note-blog-pill note-blog-pill-off">Blog</button>
-                                <button id="note-blog-is-published" type="button" aria-pressed="false" hidden
-                                    class="note-blog-pill note-blog-pill-draft">Draft</button>
-                            </div>
-                            <div>
-                                <label class="text-xs uppercase tracking-wide text-muted-fg">Tags</label>
-                                <input id="note-blog-tags" type="text" placeholder="comma, separated, tags"
-                                    list="note-blog-tag-options"
-                                    class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
-                                <datalist id="note-blog-tag-options"></datalist>
-                            </div>
-                            <div id="note-blog-published-fields" class="space-y-3" hidden>
-                                <div>
-                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Excerpt</label>
-                                    <textarea id="note-blog-excerpt" rows="2"
-                                        placeholder="Short summary shown in the post list"
-                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"></textarea>
-                                </div>
-                                <div>
-                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Slug</label>
-                                    <input id="note-blog-slug" type="text" placeholder="custom-url-slug"
-                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
-                                </div>
-                                <a id="note-blog-view-link" href="#" target="_blank" rel="noopener noreferrer"
-                                    class="text-xs text-primary hover:underline" hidden>View published post &rarr;</a>
-                            </div>
-                            <p id="note-blog-error" class="text-xs text-red-600" hidden></p>
-                        </div>
-                    </div>
+
 
                 </div>
             </div>
@@ -2893,6 +2895,7 @@
             window.D11NotesEditorShortcuts?.refresh?.()
             hydrateNotePreviewForSelection(note.note_id).catch(() => null)
             renderNoteBlogPanel()
+            loadNoteTagOptions().catch(() => null)
         }
 
         function stopNoteAutosave() {
@@ -2989,12 +2992,14 @@
 
         function renderNoteBlogPanel() {
             el.btnNoteBlogToggle.hidden = !isNoteBlogAdmin()
-            if (!state.editingNote || !isNoteBlogAdmin()) return
+            if (!state.editingNote) return
 
             const note = state.editingNote
-            setNoteBlogError('')
             setNoteBlogFieldValue(el.noteBlogTitle, note.title || '')
             setNoteBlogFieldValue(el.noteBlogTags, parseJsonArray(note.tag_list).join(', '))
+            if (!isNoteBlogAdmin()) return
+
+            setNoteBlogError('')
             setNoteBlogIsBlogPill(note.is_blog === 1)
             el.noteBlogIsPublished.hidden = note.is_blog !== 1
             el.noteBlogPublishedFields.hidden = note.is_blog !== 1
