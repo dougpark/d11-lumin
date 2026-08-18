@@ -129,6 +129,12 @@ export type Note = {
     share_url: string
     share_expires_at: string | null
     attachment_count: number
+    title: string
+    excerpt: string
+    slug: string | null
+    is_blog: number
+    is_published: number
+    published_at: string | null
 }
 
 export type Attachment = {
@@ -150,6 +156,8 @@ export type Attachment = {
     ai_summary: string
     ai_processed_at: string | null
     created_at: string
+    cdn_key: string | null
+    cdn_url: string | null
 }
 
 export type DriveItem = {

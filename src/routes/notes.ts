@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../index.ts'
+import type { User } from '../db/types.ts'
 import { authMiddleware } from '../middleware/authMiddleware.ts'
 import {
     addNoteAttachment,
@@ -14,12 +15,18 @@ import {
     listNoteAttachments,
     listNoteChannels,
     listNotes,
+    listNoteTags,
     moveNote,
     removeNoteAttachment,
+    setAttachmentCdnInfo,
     setNoteArchived,
+    setNoteBlogFlags,
     setNotePinned,
     updateNote,
+    updateNoteMetadata,
 } from '../db/notes.ts'
+import { generateExcerpt } from '../utils/slug.ts'
+import { buildPublicUrl, detectContentType, purgeCache } from '../utils/cdn.ts'
 
 const notes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -275,6 +282,12 @@ notes.post('/channels', async (c) => {
     }
 })
 
+notes.get('/tags', async (c) => {
+    const user = c.get('user')
+    const tags = await listNoteTags(c.env.DB, user.id)
+    return c.json({ data: tags })
+})
+
 notes.get('/', async (c) => {
     const user = c.get('user')
     const rawChannelId = c.req.query('channel_id')?.trim() ?? ''
@@ -383,6 +396,109 @@ notes.patch('/:id', async (c) => {
 
     try {
         const updated = await updateNote(c.env.DB, { user_id: user.id, note_id: id, content })
+        if (!updated) return c.json({ error: 'Note not found' }, 404)
+        return c.json({ data: updated })
+    } catch (err) {
+        return c.json({ error: (err as Error).message }, 400)
+    }
+})
+
+// Only admins can toggle the blog publish state — the blog is a single global feed, not per-user.
+function requireAdminForBlog(c: { get: (key: 'user') => User }): Response | null {
+    const user = c.get('user')
+    if (!user || user.is_admin !== 1) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    return null
+}
+
+notes.patch('/:id/metadata', async (c) => {
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id') ?? '', 10)
+    if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid note id' }, 400)
+
+    let body: unknown
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+    if (typeof body !== 'object' || body === null) return c.json({ error: 'Invalid body' }, 400)
+    const payload = body as Record<string, unknown>
+
+    const title = typeof payload.title === 'string' ? payload.title : undefined
+    const excerpt = typeof payload.excerpt === 'string' ? payload.excerpt : undefined
+    const slug = typeof payload.slug === 'string' ? payload.slug : undefined
+    const tag_list = Array.isArray(payload.tag_list)
+        ? payload.tag_list.filter((t): t is string => typeof t === 'string').slice(0, 20)
+        : undefined
+
+    try {
+        const updated = await updateNoteMetadata(c.env.DB, { user_id: user.id, note_id: id, title, excerpt, slug, tag_list })
+        if (!updated) return c.json({ error: 'Note not found' }, 404)
+        return c.json({ data: updated })
+    } catch (err) {
+        return c.json({ error: (err as Error).message }, 400)
+    }
+})
+
+notes.patch('/:id/blog', async (c) => {
+    const deny = requireAdminForBlog(c)
+    if (deny) return deny
+
+    const user = c.get('user')
+    const id = parseInt(c.req.param('id') ?? '', 10)
+    if (!Number.isInteger(id) || id < 1) return c.json({ error: 'Invalid note id' }, 400)
+
+    let body: unknown
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+    if (typeof body !== 'object' || body === null) return c.json({ error: 'Invalid body' }, 400)
+    const payload = body as Record<string, unknown>
+    const is_blog = payload.is_blog === true
+    const is_published = payload.is_published === true
+
+    const before = await getNoteById(c.env.DB, user.id, id)
+    if (!before) return c.json({ error: 'Note not found' }, 404)
+
+    const wasPublic = before.is_blog === 1 && before.is_published === 1
+    const willBePublic = is_blog && is_published
+
+    try {
+        // Auto-generate excerpt from content on first publish if the author hasn't set one.
+        if (willBePublic && !wasPublic && !before.excerpt.trim()) {
+            await updateNoteMetadata(c.env.DB, { user_id: user.id, note_id: id, excerpt: generateExcerpt(before.content) })
+        }
+
+        if (willBePublic && !wasPublic) {
+            if (!c.env.ATTACHMENTS || !c.env.CDN_BUCKET) {
+                return c.json({ error: 'CDN storage is not configured' }, 500)
+            }
+            const attachments = await listNoteAttachments(c.env.DB, user.id, id)
+            const purgeKeys: string[] = []
+            await Promise.all(attachments.map(async (attachment) => {
+                const object = await c.env.ATTACHMENTS.get(attachment.url)
+                if (!object || !object.body) return
+                const cdnKey = `blog/${id}/${attachment.filename}`
+                const contentType = detectContentType(attachment.filename, attachment.content_type)
+                await c.env.CDN_BUCKET.put(cdnKey, object.body, {
+                    httpMetadata: { contentType, cacheControl: 'public, max-age=31536000, immutable' },
+                })
+                const cdnUrl = buildPublicUrl(c.env, cdnKey)
+                await setAttachmentCdnInfo(c.env.DB, attachment.attachment_id, { cdn_key: cdnKey, cdn_url: cdnUrl })
+                purgeKeys.push(cdnKey)
+            }))
+            if (purgeKeys.length) c.executionCtx.waitUntil(purgeCache(c.env, purgeKeys))
+        } else if (!willBePublic && wasPublic) {
+            if (c.env.CDN_BUCKET) {
+                const attachments = await listNoteAttachments(c.env.DB, user.id, id)
+                const cdnKeys = attachments.map((a) => a.cdn_key).filter((k): k is string => !!k)
+                if (cdnKeys.length) {
+                    await c.env.CDN_BUCKET.delete(cdnKeys)
+                    c.executionCtx.waitUntil(purgeCache(c.env, cdnKeys))
+                }
+                await Promise.all(attachments
+                    .filter((a) => a.cdn_key)
+                    .map((a) => setAttachmentCdnInfo(c.env.DB, a.attachment_id, { cdn_key: null, cdn_url: null })))
+            }
+        }
+
+        const updated = await setNoteBlogFlags(c.env.DB, { user_id: user.id, note_id: id, is_blog, is_published })
         if (!updated) return c.json({ error: 'Note not found' }, 404)
         return c.json({ data: updated })
     } catch (err) {

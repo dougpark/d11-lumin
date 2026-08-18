@@ -205,12 +205,22 @@ CREATE TABLE IF NOT EXISTS notes (
   is_archived       INTEGER NOT NULL DEFAULT 0 CHECK (is_archived IN (0, 1)),
   share_url         TEXT    NOT NULL DEFAULT '',
   share_expires_at  TEXT,
-  attachment_count  INTEGER NOT NULL DEFAULT 0
+  attachment_count  INTEGER NOT NULL DEFAULT 0,
+
+  -- Notes → Blog (global, admin-only publishing — see do_docs/notes-blog-plan.md)
+  title             TEXT    NOT NULL DEFAULT '',
+  excerpt           TEXT    NOT NULL DEFAULT '',
+  slug              TEXT,
+  is_blog           INTEGER NOT NULL DEFAULT 0 CHECK (is_blog IN (0, 1)),
+  is_published      INTEGER NOT NULL DEFAULT 0 CHECK (is_published IN (0, 1)),
+  published_at      TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_notes_user_channel_sort ON notes (user_id, channel_id, pinned DESC, last_modified_at DESC, note_id DESC);
 CREATE INDEX IF NOT EXISTS idx_notes_user_archived     ON notes (user_id, is_archived);
 CREATE INDEX IF NOT EXISTS idx_notes_user_modified     ON notes (user_id, last_modified_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_slug        ON notes (slug) WHERE slug IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_notes_blog_feed          ON notes (is_blog, is_published, published_at DESC);
 
 -- ─── Health Entries (V1) ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS health_entries (
@@ -289,7 +299,11 @@ CREATE TABLE IF NOT EXISTS attachments (
   ai_tags          TEXT    NOT NULL DEFAULT '[]',
   ai_summary       TEXT    NOT NULL DEFAULT '',
   ai_processed_at  TEXT    DEFAULT NULL,
-  created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+  -- Notes → Blog: per-attachment copy in CDN_BUCKET, set on publish, cleared on unpublish
+  cdn_key          TEXT    DEFAULT NULL,
+  cdn_url          TEXT    DEFAULT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attachments_attachment_slug ON attachments (attachment_slug);
@@ -297,6 +311,7 @@ CREATE INDEX IF NOT EXISTS idx_attachments_owner_user_id ON attachments (owner_u
 CREATE INDEX IF NOT EXISTS idx_attachments_deleted_at ON attachments (deleted_at);
 CREATE INDEX IF NOT EXISTS idx_attachments_ai_processed_at ON attachments (ai_processed_at);
 CREATE INDEX IF NOT EXISTS idx_attachments_queue_pending ON attachments (deleted_at, ai_processed_at, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_attachments_cdn_key ON attachments (cdn_key);
 
 CREATE TABLE IF NOT EXISTS attachment_list (
   note_id        INTEGER NOT NULL REFERENCES notes (note_id) ON DELETE CASCADE,

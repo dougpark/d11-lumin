@@ -1,4 +1,5 @@
 import { toFtsQuery } from '../utils/search.ts'
+import { slugify } from '../utils/slug.ts'
 import { countAttachmentReferences } from './drive.ts'
 import type { Attachment, Note, NoteChannel } from './types.ts'
 
@@ -214,6 +215,117 @@ export async function updateNote(db: D1Database, input: { user_id: number; note_
         .first<Note>()
 
     return updated ?? null
+}
+
+// ─── Blog metadata (title/tags/excerpt/slug) ───────────────────────────────
+
+async function isSlugAvailable(db: D1Database, slug: string, excludeNoteId: number): Promise<boolean> {
+    const row = await db
+        .prepare('SELECT note_id FROM notes WHERE slug = ? AND note_id != ? LIMIT 1')
+        .bind(slug, excludeNoteId)
+        .first<{ note_id: number }>()
+    return !row
+}
+
+// Slugs are global (blog is a single shared feed, not per-user) — appends -2, -3, ... on collision.
+export async function generateUniqueSlug(db: D1Database, title: string, noteId: number): Promise<string> {
+    const base = slugify(title)
+    let candidate = base
+    let attempt = 1
+    while (!(await isSlugAvailable(db, candidate, noteId))) {
+        attempt += 1
+        candidate = `${base}-${attempt}`
+    }
+    return candidate
+}
+
+export async function listNoteTags(db: D1Database, userId: number): Promise<string[]> {
+    const result = await db
+        .prepare(
+            `SELECT DISTINCT value AS tag
+             FROM notes, json_each(notes.tag_list)
+             WHERE notes.user_id = ? AND TRIM(value) != ''
+             ORDER BY tag ASC`,
+        )
+        .bind(userId)
+        .all<{ tag: string }>()
+    return result.results.map((row) => row.tag)
+}
+
+export async function updateNoteMetadata(
+    db: D1Database,
+    input: { user_id: number; note_id: number; title?: string; tag_list?: string[]; excerpt?: string; slug?: string },
+): Promise<Note | null> {
+    const note = await getNoteById(db, input.user_id, input.note_id)
+    if (!note) return null
+
+    const title = input.title !== undefined ? input.title.trim().slice(0, 200) : note.title
+    const excerpt = input.excerpt !== undefined ? input.excerpt.trim().slice(0, 300) : note.excerpt
+    const tagList = input.tag_list !== undefined ? JSON.stringify(input.tag_list) : note.tag_list
+
+    let slug = note.slug
+    if (input.slug !== undefined) {
+        const requested = slugify(input.slug.trim() || title || 'post')
+        if (!(await isSlugAvailable(db, requested, input.note_id))) {
+            throw new Error(`Slug "${requested}" is already in use`)
+        }
+        slug = requested
+    }
+
+    const updated = await db
+        .prepare(
+            `UPDATE notes
+             SET title = ?, excerpt = ?, tag_list = ?, slug = ?, last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE note_id = ? AND user_id = ?
+             RETURNING *`,
+        )
+        .bind(title, excerpt, tagList, slug, input.note_id, input.user_id)
+        .first<Note>()
+
+    return updated ?? null
+}
+
+// Pure DB state transition for the blog publish toggle — R2 sync + cache purge is
+// orchestrated by the route handler (src/routes/notes.ts), which calls this after/before I/O.
+export async function setNoteBlogFlags(
+    db: D1Database,
+    input: { user_id: number; note_id: number; is_blog: boolean; is_published: boolean },
+): Promise<Note | null> {
+    const note = await getNoteById(db, input.user_id, input.note_id)
+    if (!note) return null
+
+    let slug = note.slug
+    if (input.is_blog && !slug) {
+        slug = await generateUniqueSlug(db, note.title || `note-${input.note_id}`, input.note_id)
+    }
+
+    // published_at is set once on first publish and preserved afterwards (represents "first published").
+    const shouldStampPublishedAt = input.is_blog && input.is_published && !note.published_at
+
+    const updated = await db
+        .prepare(
+            `UPDATE notes
+             SET is_blog = ?, is_published = ?, slug = ?,
+                 published_at = CASE WHEN ? THEN strftime('%Y-%m-%dT%H:%M:%SZ', 'now') ELSE published_at END,
+                 last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             WHERE note_id = ? AND user_id = ?
+             RETURNING *`,
+        )
+        .bind(input.is_blog ? 1 : 0, input.is_published ? 1 : 0, slug, shouldStampPublishedAt ? 1 : 0, input.note_id, input.user_id)
+        .first<Note>()
+
+    return updated ?? null
+}
+
+export async function setAttachmentCdnInfo(
+    db: D1Database,
+    attachmentId: number,
+    info: { cdn_key: string | null; cdn_url: string | null },
+): Promise<void> {
+    await db
+        .prepare('UPDATE attachments SET cdn_key = ?, cdn_url = ? WHERE attachment_id = ?')
+        .bind(info.cdn_key, info.cdn_url, attachmentId)
+        .run()
 }
 
 export async function moveNote(db: D1Database, input: { user_id: number; note_id: number; channel_id: number }): Promise<Note | null> {

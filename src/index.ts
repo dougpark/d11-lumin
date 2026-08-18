@@ -16,6 +16,7 @@ import driveRoutes from './routes/drive.ts'
 import healthRoutes from './routes/health.ts'
 import foodRoutes from './routes/food.ts'
 import cdnRoutes from './routes/cdn.ts'
+import blogRoutes from './routes/blog.ts'
 import { getBookmarkBySlug, recordClick } from './db/bookmarks.ts'
 import { getUserBySlugPrefix, getUserByTokenHash } from './db/users.ts'
 import { getSharedTag, incrementSharedTagViews } from './db/sharedTags.ts'
@@ -25,6 +26,7 @@ import { extractBearer, hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
+import { getBlogPostBySlug, listBlogAttachments, listBlogPostsForRss } from './db/blog.ts'
 import {
   createAttachmentDownloadToken,
   getTokenSecret,
@@ -74,6 +76,8 @@ import foodHtml from './client/food.html'
 import startHtml from './client/start.html'
 // @ts-expect-error — text module loaded by Wrangler rule
 import cdnHtml from './client/cdn.html'
+// @ts-expect-error — text module loaded by Wrangler rule
+import blogHtml from './client/blog.html'
 
 // ─── Environment bindings (declared in wrangler.toml) ─────────────────────────
 export type Env = {
@@ -260,6 +264,7 @@ app.route('/api/food', foodRoutes)
 app.route('/api/admin/cdn', cdnRoutes)
 app.route('/api/v1/settings', settingsRoutes)
 app.route('/api/notifications', notificationsRoutes)
+app.route('/api', blogRoutes)
 
 // Convenience top-level aliases
 app.get('/api/tags', authMiddleware, async (c) => {
@@ -1910,6 +1915,79 @@ app.get('/admin', (c) => c.html(adminHtml as string))
 app.get('/admin/cdn', (c) => c.html(cdnHtml as string))
 app.get('/analytics', (c) => c.html(analyticsHtml as string))
 app.get('/settings', (c) => c.html(settingsHtml as string))
+
+// ─── Public blog pages ───────────────────────────────────────────────────────
+const BLOG_OG_DEFAULTS = {
+  title: 'd11.me Blog',
+  desc: 'Notes and thoughts from d11.me',
+  image: '',
+}
+
+function injectBlogOg(html: string, baseUrl: string, og: { title: string; desc: string; image: string }): string {
+  return html
+    .replace(/%%OG_TITLE%%/g, escapeHtmlAttr(og.title))
+    .replace(/%%OG_DESC%%/g, escapeHtmlAttr(og.desc))
+    .replace(/%%OG_URL%%/g, escapeHtmlAttr(baseUrl))
+    .replace(/%%OG_IMAGE%%/g, escapeHtmlAttr(og.image))
+}
+
+function escapeHtmlAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+app.get('/blog', (c) => {
+  const url = new URL('/blog', c.req.url).toString()
+  return c.html(injectBlogOg(blogHtml as string, url, { title: BLOG_OG_DEFAULTS.title, desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULTS.image }))
+})
+
+app.get('/blog/:slug', async (c) => {
+  const slug = c.req.param('slug')
+  const url = new URL(`/blog/${slug}`, c.req.url).toString()
+  const post = await getBlogPostBySlug(c.env.DB, slug)
+  if (!post) {
+    return c.html(injectBlogOg(blogHtml as string, url, BLOG_OG_DEFAULTS), 404)
+  }
+  const attachments = await listBlogAttachments(c.env.DB, post.note_id)
+  const image = attachments.find((a) => a.content_type.startsWith('image/'))?.cdn_url || ''
+  return c.html(injectBlogOg(blogHtml as string, url, {
+    title: post.title || 'Untitled',
+    desc: post.excerpt || BLOG_OG_DEFAULTS.desc,
+    image,
+  }))
+})
+
+// GET /rss.xml — top-level (not under /api) per spec, same query shape as blog.json but full content.
+app.get('/rss.xml', async (c) => {
+  const posts = await listBlogPostsForRss(c.env.DB, 20)
+  const siteUrl = new URL('/', c.req.url).origin
+
+  const rssItems = posts.map((post) => `
+    <item>
+      <title><![CDATA[${post.title}]]></title>
+      <link>${siteUrl}/blog/${post.slug}</link>
+      <guid isPermaLink="true">${siteUrl}/blog/${post.slug}</guid>
+      <pubDate>${new Date(post.published_at as string).toUTCString()}</pubDate>
+      <description><![CDATA[${post.excerpt || post.content.slice(0, 250)}]]></description>
+    </item>
+  `).join('')
+
+  const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>d11.me Blog</title>
+    <link>${siteUrl}/blog</link>
+    <description>Notes and thoughts from d11.me</description>
+    <language>en-us</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
+    ${rssItems}
+  </channel>
+</rss>`
+
+  c.header('Content-Type', 'application/xml; charset=utf-8')
+  c.header('Cache-Control', 'public, max-age=3600, s-maxage=3600')
+  return c.body(rssXml)
+})
 app.get('/chat', (c) => c.html(chatHtml as string))
 app.get('/notes', (c) => c.html(notesHtml as string))
 app.get('/drive', (c) => c.html(driveHtml as string))

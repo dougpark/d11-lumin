@@ -1345,6 +1345,9 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
+                            <button id="btn-note-blog-toggle" type="button" hidden
+                                class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
+                                aria-pressed="false" aria-label="Toggle blog publishing panel">Blog</button>
                             <button id="btn-note-preview" type="button"
                                 class="text-xs font-semibold px-3 py-1.5 rounded-full border border-border hover:border-primary text-[#1a1a2e]"
                                 aria-pressed="false" aria-label="Toggle markdown preview">Preview</button>
@@ -1415,6 +1418,51 @@
                                 <div id="note-upload-progress" class="space-y-2 mb-2"></div>
                                 <div id="note-attachments-list" class="space-y-2"></div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div id="note-blog-panel" class="note-attachments-panel" hidden>
+                        <div class="note-attachments-panel-inner space-y-3 pt-3 border-t border-border">
+                            <div>
+                                <label class="text-xs uppercase tracking-wide text-muted-fg">Title</label>
+                                <input id="note-blog-title" type="text" placeholder="Post title"
+                                    class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            </div>
+                            <div>
+                                <label class="text-xs uppercase tracking-wide text-muted-fg">Tags</label>
+                                <input id="note-blog-tags" type="text" placeholder="comma, separated, tags"
+                                    list="note-blog-tag-options"
+                                    class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                <datalist id="note-blog-tag-options"></datalist>
+                            </div>
+                            <label class="flex items-center gap-2 text-sm text-[#1a1a2e]">
+                                <input id="note-blog-is-blog" type="checkbox">
+                                Publish to blog
+                            </label>
+                            <div id="note-blog-published-fields" class="space-y-3" hidden>
+                                <div>
+                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Status</label>
+                                    <select id="note-blog-is-published"
+                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                        <option value="0">Draft</option>
+                                        <option value="1">Published</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Excerpt</label>
+                                    <textarea id="note-blog-excerpt" rows="2"
+                                        placeholder="Short summary shown in the post list"
+                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"></textarea>
+                                </div>
+                                <div>
+                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Slug</label>
+                                    <input id="note-blog-slug" type="text" placeholder="custom-url-slug"
+                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                </div>
+                                <a id="note-blog-view-link" href="#" target="_blank" rel="noopener noreferrer"
+                                    class="text-xs text-primary hover:underline" hidden>View published post &rarr;</a>
+                            </div>
+                            <p id="note-blog-error" class="text-xs text-red-600" hidden></p>
                         </div>
                     </div>
 
@@ -1499,6 +1547,8 @@
             noteUploadQueue: [],
             notePreviewOpen: false,
             noteAttachmentsPanelOpen: false,
+            noteBlogPanelOpen: false,
+            noteTagOptions: [],
             noteLastSavedContent: '',
             noteSaveInFlight: false,
             editingNote: null,
@@ -1569,6 +1619,18 @@
             btnNoteSave: document.getElementById('btn-note-save'),
             btnNotePreview: document.getElementById('btn-note-preview'),
             btnNoteMenu: document.getElementById('btn-note-menu'),
+            btnNoteBlogToggle: document.getElementById('btn-note-blog-toggle'),
+            noteBlogPanel: document.getElementById('note-blog-panel'),
+            noteBlogTitle: document.getElementById('note-blog-title'),
+            noteBlogTags: document.getElementById('note-blog-tags'),
+            noteBlogTagOptions: document.getElementById('note-blog-tag-options'),
+            noteBlogIsBlog: document.getElementById('note-blog-is-blog'),
+            noteBlogPublishedFields: document.getElementById('note-blog-published-fields'),
+            noteBlogIsPublished: document.getElementById('note-blog-is-published'),
+            noteBlogExcerpt: document.getElementById('note-blog-excerpt'),
+            noteBlogSlug: document.getElementById('note-blog-slug'),
+            noteBlogViewLink: document.getElementById('note-blog-view-link'),
+            noteBlogError: document.getElementById('note-blog-error'),
             noteEditorMenuScrim: document.getElementById('note-editor-menu-scrim'),
             noteEditorMenu: document.getElementById('note-editor-menu'),
             noteEditorMenuPin: document.getElementById('note-editor-menu-pin'),
@@ -2779,6 +2841,7 @@
             startNoteAutosave()
             window.D11NotesEditorShortcuts?.refresh?.()
             hydrateNotePreviewForSelection(note.note_id).catch(() => null)
+            renderNoteBlogPanel()
         }
 
         function stopNoteAutosave() {
@@ -2826,6 +2889,94 @@
                 return false
             } finally {
                 state.noteSaveInFlight = false
+            }
+        }
+
+        // ─── Blog publishing panel ──────────────────────────────────────────────
+
+        function isNoteBlogAdmin() {
+            return state.user?.is_admin === 1
+        }
+
+        function toggleNoteBlogPanel() {
+            state.noteBlogPanelOpen = !state.noteBlogPanelOpen
+            el.noteBlogPanel.hidden = !state.noteBlogPanelOpen
+            el.btnNoteBlogToggle.setAttribute('aria-pressed', String(state.noteBlogPanelOpen))
+            if (state.noteBlogPanelOpen) loadNoteTagOptions().catch(() => null)
+        }
+
+        async function loadNoteTagOptions() {
+            if (state.noteTagOptions.length) return
+            const res = await api('/api/notes/tags')
+            state.noteTagOptions = res?.data || []
+            el.noteBlogTagOptions.innerHTML = state.noteTagOptions.map((tag) => `<option value="${esc(tag)}"></option>`).join('')
+        }
+
+        function setNoteBlogError(message) {
+            el.noteBlogError.hidden = !message
+            el.noteBlogError.textContent = message || ''
+        }
+
+        function renderNoteBlogPanel() {
+            el.btnNoteBlogToggle.hidden = !isNoteBlogAdmin()
+            if (!state.editingNote || !isNoteBlogAdmin()) return
+
+            const note = state.editingNote
+            setNoteBlogError('')
+            el.noteBlogTitle.value = note.title || ''
+            el.noteBlogTags.value = parseJsonArray(note.tag_list).join(', ')
+            el.noteBlogIsBlog.checked = note.is_blog === 1
+            el.noteBlogPublishedFields.hidden = note.is_blog !== 1
+            el.noteBlogIsPublished.value = note.is_published === 1 ? '1' : '0'
+            el.noteBlogExcerpt.value = note.excerpt || ''
+            el.noteBlogSlug.value = note.slug || ''
+
+            const canView = note.is_blog === 1 && note.is_published === 1 && note.slug
+            el.noteBlogViewLink.hidden = !canView
+            if (canView) el.noteBlogViewLink.href = `/blog/${note.slug}`
+        }
+
+        const saveNoteBlogMetadata = debounce(async () => {
+            if (!state.editingNote) return
+            const tagList = el.noteBlogTags.value.split(',').map((t) => t.trim()).filter(Boolean)
+            try {
+                const res = await api(`/api/notes/${state.editingNote.note_id}/metadata`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        title: el.noteBlogTitle.value,
+                        tag_list: tagList,
+                        excerpt: el.noteBlogExcerpt.value,
+                        slug: el.noteBlogSlug.value,
+                    }),
+                })
+                if (res?.data) {
+                    state.editingNote = res.data
+                    renderNoteBlogPanel()
+                    await loadNotes({ silent: true })
+                }
+            } catch (err) {
+                setNoteBlogError(err?.message || 'Failed to save blog metadata')
+            }
+        }, 500)
+
+        async function toggleNoteBlogState() {
+            if (!state.editingNote) return
+            const isBlog = el.noteBlogIsBlog.checked
+            const isPublished = isBlog && el.noteBlogIsPublished.value === '1'
+            setNoteBlogError('')
+            try {
+                const res = await api(`/api/notes/${state.editingNote.note_id}/blog`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ is_blog: isBlog, is_published: isPublished }),
+                })
+                if (res?.data) {
+                    state.editingNote = res.data
+                    renderNoteBlogPanel()
+                    await loadNotes({ silent: true })
+                }
+            } catch (err) {
+                el.noteBlogIsBlog.checked = state.editingNote.is_blog === 1
+                setNoteBlogError(err?.message || 'Failed to update blog status')
             }
         }
 
@@ -3507,6 +3658,19 @@
         })
 
         el.btnNotePreview.addEventListener('click', () => setNotePreviewOpen(!state.notePreviewOpen))
+
+        el.btnNoteBlogToggle.addEventListener('click', toggleNoteBlogPanel)
+
+        el.noteBlogTitle.addEventListener('input', saveNoteBlogMetadata)
+        el.noteBlogTags.addEventListener('change', saveNoteBlogMetadata)
+        el.noteBlogExcerpt.addEventListener('input', saveNoteBlogMetadata)
+        el.noteBlogSlug.addEventListener('change', saveNoteBlogMetadata)
+
+        el.noteBlogIsBlog.addEventListener('change', () => {
+            el.noteBlogPublishedFields.hidden = !el.noteBlogIsBlog.checked
+            toggleNoteBlogState()
+        })
+        el.noteBlogIsPublished.addEventListener('change', toggleNoteBlogState)
 
         el.btnNoteMenu.addEventListener('click', (event) => {
             event.stopPropagation()
