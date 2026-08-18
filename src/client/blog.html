@@ -70,6 +70,20 @@
             padding: 0.1rem 0.35rem;
             border-radius: 6px;
         }
+
+        .blog-post-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .blog-post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border-color: #cbd5e1;
+        }
     </style>
 </head>
 
@@ -109,6 +123,15 @@
         function formatDate(iso) {
             if (!iso) return ''
             return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        }
+
+        // Strip a leading markdown header and any repeated title text from the excerpt.
+        function getCleanExcerpt(title, excerpt) {
+            let clean = String(excerpt ?? '').replace(/^#+\s+.*/, '').trim()
+            if (clean.toLowerCase().startsWith(String(title ?? '').toLowerCase())) {
+                clean = clean.slice(title.length).trim()
+            }
+            return clean
         }
 
         // Minimal Markdown -> HTML (images/links/headings/code/bold/italic/paragraphs).
@@ -179,11 +202,11 @@
                 ${renderTagChips(tags, state.tag)}
                 <div class="space-y-6">
                     ${posts.length ? posts.map((post) => `
-                        <article class="pb-6 border-b border-g-blue last:border-0">
+                        <article class="blog-post-card">
                             <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
                                 <h2 class="text-xl font-semibold group-hover:text-g-blue transition-colors">${esc(post.title || 'Untitled')}</h2>
                                 <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
-                                <p class="text-sm text-g-gray mt-2">${esc(post.excerpt)}</p>
+                                <p class="text-sm text-g-gray mt-2">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
                             </a>
                         </article>
                     `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
