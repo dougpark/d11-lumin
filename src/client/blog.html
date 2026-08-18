@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%%OG_TITLE%% — Lumin Blog</title>
+    <title>%%OG_TITLE%% — Lumin</title>
     <meta name="description" content="%%OG_DESC%%">
     <link rel="canonical" href="%%OG_URL%%">
     <meta property="og:type" content="article">
@@ -171,6 +171,7 @@
     <script>
         const app = document.getElementById('app')
         const state = { posts: null, tag: '', q: '' }
+        const defaultTitle = document.title
 
         function esc(s) {
             return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -243,36 +244,42 @@
         }
 
         async function renderList() {
-            app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
+            document.title = defaultTitle
+
+            const isFirstRender = !document.getElementById('blog-search')
+            if (isFirstRender) {
+                app.innerHTML = `
+                    <div class="mb-3">
+                        <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
+                            class="search-input">
+                    </div>
+                    <div id="blog-tags"></div>
+                    <div id="blog-results"><p class="text-sm text-g-gray">Loading…</p></div>
+                `
+
+                document.getElementById('blog-search').addEventListener('input', debounce((event) => {
+                    state.q = event.target.value.trim()
+                    renderList()
+                }, 300))
+            }
 
             const [{ data: posts }, { data: tags }] = await Promise.all([
                 fetchJson(`/api/blog.json${state.q ? `?q=${encodeURIComponent(state.q)}` : ''}${state.tag ? `${state.q ? '&' : '?'}tag=${encodeURIComponent(state.tag)}` : ''}`),
                 fetchJson('/api/blog/tags'),
             ])
 
-            app.innerHTML = `
-                <div class="mb-3">
-                    <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
-                        class="search-input">
-                </div>
-                ${renderTagChips(tags, state.tag)}
-                <div>
-                    ${posts.length ? posts.map((post) => `
-                        <article class="blog-post-card mb-5">
-                            <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
-                                <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
-                                <p class="post-date">${formatDate(post.published_at)}</p>
-                                <p class="post-excerpt">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
-                            </a>
-                        </article>
-                    `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
-                </div>
+            document.getElementById('blog-tags').innerHTML = renderTagChips(tags, state.tag)
+            document.getElementById('blog-results').innerHTML = `
+                ${posts.length ? posts.map((post) => `
+                    <article class="blog-post-card mb-5">
+                        <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
+                            <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
+                            <p class="post-date">${formatDate(post.published_at)}</p>
+                            <p class="post-excerpt">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
+                        </a>
+                    </article>
+                `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
             `
-
-            document.getElementById('blog-search').addEventListener('input', debounce((event) => {
-                state.q = event.target.value.trim()
-                renderList()
-            }, 300))
 
             app.querySelectorAll('[data-tag]').forEach((btn) => {
                 btn.addEventListener('click', () => {
@@ -283,11 +290,12 @@
             })
         }
 
+
         async function renderPost(slug) {
             app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
             try {
                 const { data: post, meta } = await fetchJson(`/api/blog/${encodeURIComponent(slug)}`)
-                document.title = `${post.title} — Lumin Blog`
+                document.title = `${post.title} — Lumin`
 
                 app.innerHTML = `
                     <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
