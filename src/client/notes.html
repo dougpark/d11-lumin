@@ -1002,6 +1002,41 @@
             margin: 0.5rem 0;
         }
 
+        .note-blog-pill {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.375rem 0.9rem;
+            border-radius: 9999px;
+            border: 1px solid transparent;
+            transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+
+        .note-blog-pill-off {
+            background: #ffffff;
+            color: #546e7a;
+            border-color: rgba(0, 0, 0, 0.12);
+        }
+
+        .note-blog-pill-glow {
+            background: rgba(21, 101, 192, 0.12);
+            color: rgb(21, 101, 192);
+            border-color: rgba(21, 101, 192, 0.5);
+            box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.18);
+        }
+
+        .note-blog-pill-draft {
+            background: rgba(245, 158, 11, 0.14);
+            color: rgb(146, 64, 14);
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        .note-blog-pill-published {
+            background: rgba(16, 185, 129, 0.16);
+            color: rgb(4, 120, 87);
+            border-color: rgba(16, 185, 129, 0.55);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+        }
+
         .note-search-bubble {
             position: sticky;
             top: 0;
@@ -1445,6 +1480,12 @@
 
                     <div id="note-blog-panel" class="note-attachments-panel" hidden>
                         <div class="note-attachments-panel-inner space-y-3 pt-3 border-t border-border">
+                            <div class="flex items-center gap-2">
+                                <button id="note-blog-is-blog" type="button" aria-pressed="false"
+                                    class="note-blog-pill note-blog-pill-off">Blog</button>
+                                <button id="note-blog-is-published" type="button" aria-pressed="false" hidden
+                                    class="note-blog-pill note-blog-pill-draft">Draft</button>
+                            </div>
                             <div>
                                 <label class="text-xs uppercase tracking-wide text-muted-fg">Tags</label>
                                 <input id="note-blog-tags" type="text" placeholder="comma, separated, tags"
@@ -1452,19 +1493,7 @@
                                     class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
                                 <datalist id="note-blog-tag-options"></datalist>
                             </div>
-                            <label class="flex items-center gap-2 text-sm text-[#1a1a2e]">
-                                <input id="note-blog-is-blog" type="checkbox">
-                                Publish to blog
-                            </label>
                             <div id="note-blog-published-fields" class="space-y-3" hidden>
-                                <div>
-                                    <label class="text-xs uppercase tracking-wide text-muted-fg">Status</label>
-                                    <select id="note-blog-is-published"
-                                        class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
-                                        <option value="0">Draft</option>
-                                        <option value="1">Published</option>
-                                    </select>
-                                </div>
                                 <div>
                                     <label class="text-xs uppercase tracking-wide text-muted-fg">Excerpt</label>
                                     <textarea id="note-blog-excerpt" rows="2"
@@ -2939,6 +2968,19 @@
             el.noteBlogError.textContent = message || ''
         }
 
+        function setNoteBlogIsBlogPill(isActive) {
+            el.noteBlogIsBlog.setAttribute('aria-pressed', String(isActive))
+            el.noteBlogIsBlog.classList.toggle('note-blog-pill-glow', isActive)
+            el.noteBlogIsBlog.classList.toggle('note-blog-pill-off', !isActive)
+        }
+
+        function setNoteBlogIsPublishedPill(isPublished) {
+            el.noteBlogIsPublished.setAttribute('aria-pressed', String(isPublished))
+            el.noteBlogIsPublished.textContent = isPublished ? 'Published' : 'Draft'
+            el.noteBlogIsPublished.classList.toggle('note-blog-pill-published', isPublished)
+            el.noteBlogIsPublished.classList.toggle('note-blog-pill-draft', !isPublished)
+        }
+
         // Avoid clobbering an input the user is actively typing into when a background save resolves.
         function setNoteBlogFieldValue(inputEl, value) {
             if (document.activeElement === inputEl) return
@@ -2953,9 +2995,10 @@
             setNoteBlogError('')
             setNoteBlogFieldValue(el.noteBlogTitle, note.title || '')
             setNoteBlogFieldValue(el.noteBlogTags, parseJsonArray(note.tag_list).join(', '))
-            el.noteBlogIsBlog.checked = note.is_blog === 1
+            setNoteBlogIsBlogPill(note.is_blog === 1)
+            el.noteBlogIsPublished.hidden = note.is_blog !== 1
             el.noteBlogPublishedFields.hidden = note.is_blog !== 1
-            el.noteBlogIsPublished.value = note.is_published === 1 ? '1' : '0'
+            setNoteBlogIsPublishedPill(note.is_published === 1)
             setNoteBlogFieldValue(el.noteBlogExcerpt, note.excerpt || '')
             setNoteBlogFieldValue(el.noteBlogSlug, note.slug || '')
 
@@ -2989,8 +3032,8 @@
 
         async function toggleNoteBlogState() {
             if (!state.editingNote) return
-            const isBlog = el.noteBlogIsBlog.checked
-            const isPublished = isBlog && el.noteBlogIsPublished.value === '1'
+            const isBlog = el.noteBlogIsBlog.getAttribute('aria-pressed') === 'true'
+            const isPublished = isBlog && el.noteBlogIsPublished.getAttribute('aria-pressed') === 'true'
             setNoteBlogError('')
             try {
                 const res = await api(`/api/notes/${state.editingNote.note_id}/blog`, {
@@ -3003,7 +3046,7 @@
                     await loadNotes({ silent: true })
                 }
             } catch (err) {
-                el.noteBlogIsBlog.checked = state.editingNote.is_blog === 1
+                setNoteBlogIsBlogPill(state.editingNote.is_blog === 1)
                 setNoteBlogError(err?.message || 'Failed to update blog status')
             }
         }
@@ -3694,11 +3737,17 @@
         el.noteBlogExcerpt.addEventListener('input', saveNoteBlogMetadata)
         el.noteBlogSlug.addEventListener('change', saveNoteBlogMetadata)
 
-        el.noteBlogIsBlog.addEventListener('change', () => {
-            el.noteBlogPublishedFields.hidden = !el.noteBlogIsBlog.checked
+        el.noteBlogIsBlog.addEventListener('click', () => {
+            const nextIsBlog = el.noteBlogIsBlog.getAttribute('aria-pressed') !== 'true'
+            setNoteBlogIsBlogPill(nextIsBlog)
+            el.noteBlogIsPublished.hidden = !nextIsBlog
+            el.noteBlogPublishedFields.hidden = !nextIsBlog
             toggleNoteBlogState()
         })
-        el.noteBlogIsPublished.addEventListener('change', toggleNoteBlogState)
+        el.noteBlogIsPublished.addEventListener('click', () => {
+            setNoteBlogIsPublishedPill(el.noteBlogIsPublished.getAttribute('aria-pressed') !== 'true')
+            toggleNoteBlogState()
+        })
 
         el.btnNoteMenu.addEventListener('click', (event) => {
             event.stopPropagation()
