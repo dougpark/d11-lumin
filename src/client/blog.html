@@ -75,7 +75,7 @@
 
 <body class="bg-white text-g-black">
 
-    <header class="border-b border-g-border">
+    <header class="border-b border-g-blue">
         <nav class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <a href="/start" class="flex-shrink-0">
@@ -179,7 +179,7 @@
                 ${renderTagChips(tags, state.tag)}
                 <div class="space-y-6">
                     ${posts.length ? posts.map((post) => `
-                        <article class="pb-6 border-b border-g-border last:border-0">
+                        <article class="pb-6 border-b border-g-blue last:border-0">
                             <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
                                 <h2 class="text-xl font-semibold group-hover:text-g-blue transition-colors">${esc(post.title || 'Untitled')}</h2>
                                 <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
