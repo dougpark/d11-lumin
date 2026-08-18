@@ -1376,6 +1376,8 @@
                                 aria-haspopup="menu" aria-expanded="false" aria-label="Note actions">⋮</button>
                         </div>
                     </div>
+                    <input id="note-blog-title" type="text" placeholder="Title"
+                        class="w-full mb-2 text-sm font-semibold px-3 py-2 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <textarea id="note-editor-input" rows="12"
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
@@ -1443,11 +1445,6 @@
 
                     <div id="note-blog-panel" class="note-attachments-panel" hidden>
                         <div class="note-attachments-panel-inner space-y-3 pt-3 border-t border-border">
-                            <div>
-                                <label class="text-xs uppercase tracking-wide text-muted-fg">Title</label>
-                                <input id="note-blog-title" type="text" placeholder="Post title"
-                                    class="mt-1 w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
-                            </div>
                             <div>
                                 <label class="text-xs uppercase tracking-wide text-muted-fg">Tags</label>
                                 <input id="note-blog-tags" type="text" placeholder="comma, separated, tags"
@@ -3767,6 +3764,7 @@
             window.D11NotesEditorShortcuts.init({
                 state,
                 input: el.noteEditorInput,
+                titleInput: el.noteBlogTitle,
                 onEditorPaste: (event) => {
                     handleNoteEditorPaste(event).catch((err) => {
                         alert(err.message || 'Clipboard image upload failed')

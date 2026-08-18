@@ -52,9 +52,15 @@
         if (fallbackInput) {
             fallbackInput.hidden = !visible
         }
+        const cm = activeEasyMDE?.codemirror
         const container = getEasyMDEContainer()
         if (container) {
-            container.classList.toggle('hidden', !visible)
+            // Toggle the toolbar/body only, so a reparented title input (a sibling
+            // inside the container) stays visible while previewing.
+            const toolbar = container.querySelector(':scope > .editor-toolbar')
+            const wrapperEl = cm?.getWrapperElement()
+            toolbar?.classList.toggle('hidden', !visible)
+            wrapperEl?.classList.toggle('hidden', !visible)
             if (visible) {
                 requestAnimationFrame(() => {
                     refreshEditorLayout()
@@ -111,6 +117,11 @@
         input.dataset.easyMdeBound = 'true'
 
         const cm = easyMDE.codemirror
+        if (cm && options?.titleInput) {
+            // Reparent the title field so it renders inside the editor card, below the toolbar.
+            const wrapperEl = cm.getWrapperElement()
+            wrapperEl?.parentElement?.insertBefore(options.titleInput, wrapperEl)
+        }
         if (cm) {
             cm.addKeyMap({
                 'Shift-Cmd-L': (instance) => {
@@ -569,6 +580,7 @@
         const helpModalApi = wireHelpModal()
         initEasyMDE({
             input,
+            titleInput: options?.titleInput,
             onEditorPaste: options?.onEditorPaste,
             onEditorInput: options?.onEditorInput,
             onEditorBlur: options?.onEditorBlur,
