@@ -786,6 +786,9 @@
         #note-editor-page .CodeMirror-wrap {
             border: 0;
             background: transparent;
+            /* Contain the title's own margin so it doesn't collapse into the next
+               sibling's spacing when the toolbar/CodeMirror are hidden (preview mode). */
+            display: flow-root;
         }
 
         #note-editor-page .EasyMDEContainer .editor-toolbar,
