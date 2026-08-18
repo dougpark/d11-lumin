@@ -390,6 +390,28 @@
             min-width: 0;
         }
 
+        .note-card-blog-status {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+        }
+
+        .note-card-blog-status.is-published {
+            color: #1b7a3d;
+            background: rgba(27, 122, 61, 0.12);
+        }
+
+        .note-card-blog-status.is-draft {
+            color: #8a6d1f;
+            background: rgba(138, 109, 31, 0.12);
+        }
+
         .note-card-date-wrap {
             display: inline-flex;
             align-items: center;
@@ -2294,6 +2316,8 @@
                 note.attachment_count,
                 note.channel_id,
                 note.content,
+                note.is_blog,
+                note.is_published,
                 selected,
             ].join('|')
         }
@@ -2308,6 +2332,9 @@
                 <article class="note-card note-card-preview-layout ${note.pinned === 1 ? 'pinned' : ''} ${selected ? 'is-active' : ''} mb-3" data-note-open="${note.note_id}">
                     <div class="note-card-preview-body min-w-0">
                         <div class="note-card-preview-main">
+                            ${note.is_blog === 1 ? `
+                                <div class="note-card-blog-status ${note.is_published === 1 ? 'is-published' : 'is-draft'}">${note.is_published === 1 ? 'Published' : 'Draft'}</div>
+                            ` : ''}
                             <div class="note-card-meta-row">
                                 <div class="note-card-date-wrap min-w-0">
                                     <div class="text-xs text-muted-fg whitespace-nowrap">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
