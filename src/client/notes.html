@@ -796,8 +796,14 @@
         #note-editor-page .CodeMirror-wrap {
             border: 0;
             background: transparent;
-            /* Contain the title's own margin so it doesn't collapse into the next
-               sibling's spacing when the toolbar/CodeMirror are hidden (preview mode). */
+        }
+
+        /* Contain the title's own margin so it doesn't collapse into the next
+           sibling's spacing when the toolbar/CodeMirror are hidden (preview mode).
+           Scoped to .EasyMDEContainer only: .CodeMirror-wrap is the same element as
+           .CodeMirror (line-wrapping is on by default), so setting this there would
+           out-specificity the plain .hidden class used to hide it in preview mode. */
+        #note-editor-page .EasyMDEContainer {
             display: flow-root;
         }
 
