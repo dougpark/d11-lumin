@@ -27,6 +27,7 @@ import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
 import { getBlogPostBySlug, listBlogAttachments, listBlogPostsForRss } from './db/blog.ts'
+import { generateExcerpt } from './utils/slug.ts'
 import {
   createAttachmentDownloadToken,
   getTokenSecret,
@@ -1967,7 +1968,7 @@ app.get('/rss.xml', async (c) => {
       <link>${siteUrl}/blog/${post.slug}</link>
       <guid isPermaLink="true">${siteUrl}/blog/${post.slug}</guid>
       <pubDate>${new Date(post.published_at as string).toUTCString()}</pubDate>
-      <description><![CDATA[${post.excerpt || post.content.slice(0, 250)}]]></description>
+      <description><![CDATA[${post.excerpt.trim() || generateExcerpt(post.content, 500)}]]></description>
     </item>
   `).join('')
 

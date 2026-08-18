@@ -5,10 +5,16 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../index.ts'
 import type { Attachment } from '../db/types.ts'
 import { getAdjacentBlogPosts, getBlogPostBySlug, listAllBlogTags, listBlogAttachments, listBlogPosts } from '../db/blog.ts'
+import { generateExcerpt } from '../utils/slug.ts'
 
 const blog = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 const LIST_CACHE_CONTROL = 'public, max-age=300, s-maxage=300'
+
+// Falls back to the first 500 chars of the (markdown-stripped) post body when no excerpt is set.
+function resolveExcerpt(excerpt: string, content: string): string {
+    return excerpt.trim() || generateExcerpt(content, 500)
+}
 
 blog.get('/blog.json', async (c) => {
     const tag = c.req.query('tag')?.trim() || undefined
@@ -23,7 +29,7 @@ blog.get('/blog.json', async (c) => {
             id: post.note_id,
             title: post.title,
             slug: post.slug,
-            excerpt: post.excerpt,
+            excerpt: resolveExcerpt(post.excerpt, post.content),
             tags: JSON.parse(post.tag_list || '[]'),
             published_at: post.published_at,
         })),
@@ -67,7 +73,7 @@ blog.get('/blog/:slug', async (c) => {
             id: post.note_id,
             title: post.title,
             slug: post.slug,
-            excerpt: post.excerpt,
+            excerpt: resolveExcerpt(post.excerpt, post.content),
             content: rewriteContentToCdnUrls(post.content, attachments),
             tags: JSON.parse(post.tag_list || '[]'),
             published_at: post.published_at,

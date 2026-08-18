@@ -4,7 +4,7 @@
 
 import type { Attachment, Note } from './types.ts'
 
-export type BlogPostSummary = Pick<Note, 'note_id' | 'title' | 'slug' | 'excerpt' | 'tag_list' | 'published_at'>
+export type BlogPostSummary = Pick<Note, 'note_id' | 'title' | 'slug' | 'excerpt' | 'tag_list' | 'published_at' | 'content'>
 
 export async function listBlogPosts(
     db: D1Database,
@@ -27,7 +27,7 @@ export async function listBlogPosts(
 
     const result = await db
         .prepare(
-            `SELECT note_id, title, slug, excerpt, tag_list, published_at
+            `SELECT note_id, title, slug, excerpt, tag_list, published_at, content
              FROM notes
              WHERE ${filters.join(' AND ')}
              ORDER BY published_at DESC
