@@ -2917,19 +2917,25 @@
             el.noteBlogError.textContent = message || ''
         }
 
+        // Avoid clobbering an input the user is actively typing into when a background save resolves.
+        function setNoteBlogFieldValue(inputEl, value) {
+            if (document.activeElement === inputEl) return
+            inputEl.value = value
+        }
+
         function renderNoteBlogPanel() {
             el.btnNoteBlogToggle.hidden = !isNoteBlogAdmin()
             if (!state.editingNote || !isNoteBlogAdmin()) return
 
             const note = state.editingNote
             setNoteBlogError('')
-            el.noteBlogTitle.value = note.title || ''
-            el.noteBlogTags.value = parseJsonArray(note.tag_list).join(', ')
+            setNoteBlogFieldValue(el.noteBlogTitle, note.title || '')
+            setNoteBlogFieldValue(el.noteBlogTags, parseJsonArray(note.tag_list).join(', '))
             el.noteBlogIsBlog.checked = note.is_blog === 1
             el.noteBlogPublishedFields.hidden = note.is_blog !== 1
             el.noteBlogIsPublished.value = note.is_published === 1 ? '1' : '0'
-            el.noteBlogExcerpt.value = note.excerpt || ''
-            el.noteBlogSlug.value = note.slug || ''
+            setNoteBlogFieldValue(el.noteBlogExcerpt, note.excerpt || '')
+            setNoteBlogFieldValue(el.noteBlogSlug, note.slug || '')
 
             const canView = note.is_blog === 1 && note.is_published === 1 && note.slug
             el.noteBlogViewLink.hidden = !canView
