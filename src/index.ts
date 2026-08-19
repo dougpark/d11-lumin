@@ -1942,6 +1942,12 @@ app.get('/blog', (c) => {
   return c.html(injectBlogOg(blogHtml as string, url, { title: BLOG_OG_DEFAULTS.title, desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULTS.image }))
 })
 
+// Static route registered before the /:slug param route below so "archive" isn't treated as a post slug.
+app.get('/blog/archive', (c) => {
+  const url = new URL('/blog/archive', c.req.url).toString()
+  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — Lumin Blog', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULTS.image }))
+})
+
 app.get('/blog/:slug', async (c) => {
   const slug = c.req.param('slug')
   const url = new URL(`/blog/${slug}`, c.req.url).toString()

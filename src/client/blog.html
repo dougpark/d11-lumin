@@ -165,6 +165,7 @@
                         d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
                 </svg>
             </button>
+            <a href="/blog/archive" data-internal-link class="hover:text-g-blue">Archive</a>
             <a href="/rss.xml" class="hover:text-g-blue">RSS</a>
         </nav>
         <div class="max-w-3xl mx-auto px-4 pt-4 pb-8">
@@ -194,10 +195,10 @@
 
         document.getElementById('search-toggle').addEventListener('click', () => {
             state.searchOpen = !state.searchOpen
-            const wrap = document.getElementById('blog-search-wrap')
+            const wrap = document.getElementById('blog-search-wrap') || document.getElementById('archive-search-wrap')
             if (!wrap) return
             wrap.classList.toggle('hidden', !state.searchOpen)
-            if (state.searchOpen) document.getElementById('blog-search')?.focus()
+            if (state.searchOpen) (document.getElementById('blog-search') || document.getElementById('archive-search'))?.focus()
         })
 
         function esc(s) {
@@ -293,6 +294,53 @@
             })
         }
 
+        // Same data/search/tag-filter as renderList(), minus the article body — title/date/tags only.
+        async function renderArchive() {
+            document.title = `Archive — ${defaultTitle}`
+
+            const isFirstRender = !document.getElementById('archive-search')
+            if (isFirstRender) {
+                app.innerHTML = `
+                    <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
+                    <h1 class="text-2xl font-bold mt-4 mb-4">Archive</h1>
+                    <div id="archive-search-wrap" class="mb-3 ${state.searchOpen ? '' : 'hidden'}">
+                        <input id="archive-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
+                            class="search-input">
+                    </div>
+                    <div id="archive-results"><p class="text-sm text-g-gray">Loading…</p></div>
+                `
+
+                document.getElementById('archive-search').addEventListener('input', debounce((event) => {
+                    state.q = event.target.value.trim()
+                    renderArchive()
+                }, 300))
+            }
+
+            const { data: posts } = await fetchJson(`/api/blog.json${state.q ? `?q=${encodeURIComponent(state.q)}` : ''}${state.tag ? `${state.q ? '&' : '?'}tag=${encodeURIComponent(state.tag)}` : ''}`)
+
+            document.getElementById('archive-results').innerHTML = `
+                ${posts.length ? posts.map((post) => `
+                    <article class="blog-post-card mb-3">
+                        <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
+                            <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
+                        </a>
+                        <div class="post-date flex items-center gap-2 flex-wrap mb-0">
+                            <span>${formatDate(post.published_at)}</span>
+                            ${renderPostTags(post.tags, state.tag)}
+                        </div>
+                    </article>
+                `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
+            `
+
+            app.querySelectorAll('[data-tag]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const tag = btn.getAttribute('data-tag')
+                    state.tag = state.tag === tag ? '' : tag
+                    renderArchive()
+                })
+            })
+        }
+
 
         async function renderPost(slug) {
             app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
@@ -334,10 +382,12 @@
         }
 
         function route() {
-            const path = window.location.pathname
-            const match = path.match(/^\/blog\/([^/]+)\/?$/)
+            const path = window.location.pathname.replace(/\/$/, '') || '/'
+            const match = path.match(/^\/blog\/([^/]+)$/)
             const queryPost = new URLSearchParams(window.location.search).get('post')
-            if (match) {
+            if (path === '/blog/archive') {
+                renderArchive()
+            } else if (match) {
                 renderPost(decodeURIComponent(match[1]))
             } else if (queryPost) {
                 renderPost(queryPost)
