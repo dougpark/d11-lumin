@@ -15,6 +15,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <link rel="alternate" type="application/rss+xml" title="Lumin Blog Feed" href="/rss.xml">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/vendor/marked.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -69,6 +70,26 @@
             background: #F3F4F6;
             padding: 0.1rem 0.35rem;
             border-radius: 6px;
+        }
+
+        .blog-body blockquote {
+            border-left: 4px solid #0066cc;
+            margin: 1.5em 0;
+            padding: 0.5em 1em;
+            background-color: #f9f9f9;
+            font-style: italic;
+        }
+
+        .blog-body blockquote p {
+            margin: 0.5em 0;
+        }
+
+        .blog-body blockquote p:first-child {
+            margin-top: 0;
+        }
+
+        .blog-body blockquote p:last-child {
+            margin-bottom: 0;
         }
 
         .blog-post-card {
@@ -188,25 +209,13 @@
             return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
         }
 
-        // Minimal Markdown -> HTML (images/links/headings/code/bold/italic/paragraphs).
+        // Markdown -> HTML via the shared `marked` renderer (gfm + blockquotes/lists/etc.).
         // Attachment URLs in post content are already rewritten to CDN URLs at publish time.
         function renderMarkdown(md) {
-            const escaped = esc(md)
-            let html = escaped
-                .replace(/^###\s+(.*)$/gm, '<h3>$1</h3>')
-                .replace(/^##\s+(.*)$/gm, '<h2>$1</h2>')
-                .replace(/^#\s+(.*)$/gm, '<h1>$1</h1>')
-                .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy">')
-                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-                .replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`)
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-
-            return html
-                .split(/\n{2,}/)
-                .map((block) => (/^<(h1|h2|h3|pre|img)/.test(block.trim()) ? block : `<p>${block.trim()}</p>`))
-                .join('\n')
+            if (!md) return ''
+            if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return `<p>${esc(md)}</p>`
+            try { return marked.parse(md, { breaks: true, gfm: true }) }
+            catch { return `<p>${esc(md)}</p>` }
         }
 
         function navigate(path, { replace = false } = {}) {
