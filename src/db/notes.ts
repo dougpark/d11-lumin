@@ -92,6 +92,17 @@ export async function createNoteChannel(db: D1Database, userId: number, name: st
     return created
 }
 
+// Get-or-create by name — used for feature-specific channels (e.g. "Blog Link-List").
+export async function ensureNoteChannelByName(db: D1Database, userId: number, name: string): Promise<NoteChannel> {
+    const existing = await db
+        .prepare('SELECT * FROM note_channels WHERE user_id = ? AND name = ? LIMIT 1')
+        .bind(userId, name)
+        .first<NoteChannel>()
+
+    if (existing) return existing
+    return createNoteChannel(db, userId, name)
+}
+
 async function assertChannelOwnership(db: D1Database, userId: number, channelId: number): Promise<void> {
     const row = await db
         .prepare('SELECT id FROM note_channels WHERE id = ? AND user_id = ? LIMIT 1')
@@ -175,18 +186,28 @@ export async function getNoteById(db: D1Database, userId: number, noteId: number
     return note ?? null
 }
 
-export async function createNote(db: D1Database, input: { user_id: number; channel_id: number; content: string }): Promise<Note> {
+export async function createNote(
+    db: D1Database,
+    input: { user_id: number; channel_id: number; content: string; created_at?: string },
+): Promise<Note> {
     const content = input.content.trim()
     if (!content) throw new Error('Note content is required')
     await assertChannelOwnership(db, input.user_id, input.channel_id)
 
+    // created_at override lets copied content (e.g. bookmark → blog draft) preserve its original date.
     const created = await db
         .prepare(
-            `INSERT INTO notes (user_id, channel_id, content)
-             VALUES (?, ?, ?)
-             RETURNING *`,
+            input.created_at
+                ? `INSERT INTO notes (user_id, channel_id, content, created_at)
+                   VALUES (?, ?, ?, ?)
+                   RETURNING *`
+                : `INSERT INTO notes (user_id, channel_id, content)
+                   VALUES (?, ?, ?)
+                   RETURNING *`,
         )
-        .bind(input.user_id, input.channel_id, content)
+        .bind(...(input.created_at
+            ? [input.user_id, input.channel_id, content, input.created_at]
+            : [input.user_id, input.channel_id, content]))
         .first<Note>()
 
     if (!created) throw new Error('Failed to create note')

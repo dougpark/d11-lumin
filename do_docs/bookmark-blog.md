@@ -1,5 +1,5 @@
 # Copy Bookmark to Blog Feature
-
+- check for is admin before showing the "create blog post" button
 - add a button to the bookmark list card menu to "create blog post"
 - between the edit and "make private" buttons
 - this copies the bookmark info into a new note 

@@ -12,8 +12,17 @@ import {
     listTags,
 } from '../db/bookmarks.ts'
 import { listSharedTags, getSharedTag, shareTag, unshareTag } from '../db/sharedTags.ts'
+import {
+    createNote,
+    ensureNoteChannelByName,
+    generateUniqueSlug,
+    setNoteBlogFlags,
+    updateNoteMetadata,
+} from '../db/notes.ts'
 import { fetchUrlPreview } from '../utils/preview.ts'
 import { parseSearchQuery } from '../utils/search.ts'
+import { generateExcerpt } from '../utils/slug.ts'
+import { buildBookmarkBlogContent } from '../utils/blogPost.ts'
 import type { Bookmark, UpdateBookmarkInput } from '../db/types.ts'
 
 const bookmarks = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -442,6 +451,55 @@ bookmarks.delete('/:id', async (c) => {
     if (!deleted) return c.json({ error: 'Not Found' }, 404)
 
     return c.json({ message: 'deleted' })
+})
+
+// ─── POST /api/bookmarks/:id/blog-post ────────────────────────────────────────
+// Copies a bookmark into a draft blog note (admin-only, since blog publishing is global — see
+// setNoteBlogFlags in db/notes.ts). One blog post per bookmark, tracked via the "blog" tag.
+bookmarks.post('/:id/blog-post', async (c) => {
+    const user = c.get('user')
+    if (user.is_admin !== 1) return c.json({ error: 'Forbidden' }, 403)
+
+    const id = parseInt(c.req.param('id'), 10)
+    if (isNaN(id)) return c.json({ error: 'invalid id' }, 400)
+
+    const bookmark = await getBookmark(c.env.DB, id, user.id)
+    if (!bookmark) return c.json({ error: 'Not Found' }, 404)
+
+    const tagList: string[] = (() => { try { return JSON.parse(bookmark.tag_list) } catch { return [] } })()
+    if (tagList.includes('blog')) return c.json({ error: 'Bookmark already copied to a blog post' }, 409)
+
+    const title = bookmark.title || bookmark.url
+    const excerpt = generateExcerpt(bookmark.short_description || bookmark.ai_summary || '', 250)
+    const content = buildBookmarkBlogContent({ description: bookmark.short_description || bookmark.ai_summary, url: bookmark.url })
+
+    const channel = await ensureNoteChannelByName(c.env.DB, user.id, 'Blog Link-List')
+    const note = await createNote(c.env.DB, {
+        user_id: user.id,
+        channel_id: channel.id,
+        content,
+        created_at: bookmark.created_at,
+    })
+
+    const slug = await generateUniqueSlug(c.env.DB, title, note.note_id)
+    const updated = await updateNoteMetadata(c.env.DB, {
+        user_id: user.id,
+        note_id: note.note_id,
+        title,
+        excerpt,
+        tag_list: tagList,
+        slug,
+    })
+    const blogged = await setNoteBlogFlags(c.env.DB, {
+        user_id: user.id,
+        note_id: note.note_id,
+        is_blog: true,
+        is_published: false,
+    })
+
+    await updateBookmark(c.env.DB, id, user.id, { tag_list: [...tagList, 'blog'] })
+
+    return c.json({ data: blogged ?? updated }, 201)
 })
 
 // ─── GET /api/tags ────────────────────────────────────────────────────────────
