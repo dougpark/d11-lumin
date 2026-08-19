@@ -135,21 +135,28 @@
 
 <body class="bg-white text-g-black">
 
-    <header class="border-b-2 border-g-blue">
-        <nav class="max-w-3xl mx-auto px-4 py-5 flex items-center justify-between">
-            <div class="flex items-center gap-3">
+    <header>
+        <nav class="max-w-3xl mx-auto px-4 pt-4 flex items-center justify-end gap-4 text-sm text-g-gray">
+            <button type="button" id="search-toggle" aria-label="Toggle search" class="hover:text-g-blue">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+            </button>
+            <a href="/rss.xml" class="hover:text-g-blue">RSS</a>
+        </nav>
+        <div class="max-w-3xl mx-auto px-4 pt-4 pb-8">
+            <div class="flex items-center gap-5">
                 <a href="/start" class="flex-shrink-0">
-                    <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-8 w-auto">
+                    <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-20 w-auto">
                 </a>
                 <a href="/blog" class="leading-tight" data-internal-link>
-                    <span class="block font-bold text-lg text-g-black">Lumin</span>
-                    <span class="block text-sm text-g-gray">Tech is way, WAY interesting</span>
+                    <span class="block font-bold text-4xl text-g-black">Lumin</span>
+                    <span class="block text-lg text-g-gray">Tech is way, WAY interesting</span>
                 </a>
             </div>
-            <div class="flex items-center gap-4 text-sm text-g-gray">
-                <a href="/rss.xml" class="hover:text-g-blue">RSS</a>
-            </div>
-        </nav>
+        </div>
     </header>
 
     <main id="app" class="max-w-3xl mx-auto px-4 py-8 min-h-[60vh]"></main>
@@ -161,8 +168,16 @@
 
     <script>
         const app = document.getElementById('app')
-        const state = { posts: null, tag: '', q: '' }
+        const state = { posts: null, tag: '', q: '', searchOpen: false }
         const defaultTitle = document.title
+
+        document.getElementById('search-toggle').addEventListener('click', () => {
+            state.searchOpen = !state.searchOpen
+            const wrap = document.getElementById('blog-search-wrap')
+            if (!wrap) return
+            wrap.classList.toggle('hidden', !state.searchOpen)
+            if (state.searchOpen) document.getElementById('blog-search')?.focus()
+        })
 
         function esc(s) {
             return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -230,7 +245,7 @@
             const isFirstRender = !document.getElementById('blog-search')
             if (isFirstRender) {
                 app.innerHTML = `
-                    <div class="mb-3">
+                    <div id="blog-search-wrap" class="mb-3 ${state.searchOpen ? '' : 'hidden'}">
                         <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
                             class="search-input">
                     </div>
