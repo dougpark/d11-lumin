@@ -255,9 +255,7 @@
                             <span>${formatDate(post.published_at)}</span>
                             ${renderPostTags(post.tags, state.tag)}
                         </div>
-                        <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
-                            <div class="blog-body mt-2">${renderMarkdown(post.content || '')}</div>
-                        </a>
+                        <div class="blog-body mt-2">${renderMarkdown(post.content || '')}</div>
                     </article>
                 `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
             `
