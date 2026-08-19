@@ -156,6 +156,27 @@ app.use('*', async (c, next) => {
   c.header('Content-Security-Policy-Report-Only', CSP_POLICY)
 })
 
+// ─── blog.d11cloud.com isolation ──────────────────────────────────────────────
+// blog.d11cloud.com is a public-facing domain dedicated to the blog. All blog
+// routes already live at /blog, /api/blog*, and /rss.xml (shared with d11.me),
+// so no route changes are needed there — this just blocks every other route
+// (auth, bookmark app, notes, drive, admin, etc.) from being reachable on that
+// host, and sends bare "/" to "/blog".
+const BLOG_HOST = 'blog.d11cloud.com'
+const BLOG_ALLOWED_PATH = /^\/(blog(\/.*)?|rss\.xml|api\/blog(\.json|\/.*)?)$/
+
+app.use('*', async (c, next) => {
+  const host = (c.req.header('host') || '').toLowerCase().split(':')[0]
+  if (host !== BLOG_HOST) return next()
+
+  const path = new URL(c.req.url).pathname
+  // "/" and "/start" (the logo link, borrowed from the personal site's header) both land on the blog home.
+  if (path === '/' || path === '/start' || path === '/s') return c.redirect('/blog', 302)
+  if (!BLOG_ALLOWED_PATH.test(path)) return c.notFound()
+
+  return next()
+})
+
 // ─── Public routes ────────────────────────────────────────────────────────────
 
 // Auth (register / me)

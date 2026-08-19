@@ -58,6 +58,10 @@ CF_ZONE_ID = "f999c3f14a411c236fb32583d90d144c"
 pattern = "d11.me/*"
 zone_name = "d11.me"
 
+[[routes]]
+pattern = "blog.d11cloud.com"
+custom_domain = true
+
 # ─── Module rules: import HTML files as raw text strings ─────────────────────
 [[rules]]
 type = "Text"
