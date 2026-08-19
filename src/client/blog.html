@@ -100,14 +100,6 @@
             margin: 0.2rem 0 0.85rem;
         }
 
-        .post-excerpt {
-            font-size: 0.95rem;
-            color: #334155;
-            line-height: 1.65;
-            letter-spacing: -0.01em;
-            margin: 0;
-        }
-
         .search-input {
             width: 100%;
             padding: 0.65rem 1rem;
@@ -155,7 +147,6 @@
                 </a>
             </div>
             <div class="flex items-center gap-4 text-sm text-g-gray">
-                <a href="/blog" data-internal-link class="hover:text-g-blue">Blog</a>
                 <a href="/rss.xml" class="hover:text-g-blue">RSS</a>
             </div>
         </nav>
@@ -180,15 +171,6 @@
         function formatDate(iso) {
             if (!iso) return ''
             return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-        }
-
-        // Strip a leading markdown header and any repeated title text from the excerpt.
-        function getCleanExcerpt(title, excerpt) {
-            let clean = String(excerpt ?? '').replace(/^#+\s+.*/, '').trim()
-            if (clean.toLowerCase().startsWith(String(title ?? '').toLowerCase())) {
-                clean = clean.slice(title.length).trim()
-            }
-            return clean
         }
 
         // Minimal Markdown -> HTML (images/links/headings/code/bold/italic/paragraphs).
@@ -274,7 +256,7 @@
                             ${renderPostTags(post.tags, state.tag)}
                         </div>
                         <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
-                            <p class="post-excerpt">${esc(getCleanExcerpt(post.title, post.excerpt))}</p>
+                            <div class="blog-body mt-2">${renderMarkdown(post.content || '')}</div>
                         </a>
                     </article>
                 `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}

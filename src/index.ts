@@ -26,8 +26,9 @@ import { extractBearer, hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
-import { getBlogPostBySlug, listBlogAttachments, listBlogPostsForRss } from './db/blog.ts'
-import { generateExcerpt } from './utils/slug.ts'
+import { getBlogPostBySlug, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPostsForRss } from './db/blog.ts'
+import { rewriteContentToCdnUrls } from './routes/blog.ts'
+import { renderMarkdownToHtml } from './utils/markdown.ts'
 import {
   createAttachmentDownloadToken,
   getTokenSecret,
@@ -1960,17 +1961,21 @@ app.get('/blog/:slug', async (c) => {
 // GET /rss.xml — top-level (not under /api) per spec, same query shape as blog.json but full content.
 app.get('/rss.xml', async (c) => {
   const posts = await listBlogPostsForRss(c.env.DB, 20)
+  const attachmentsByNoteId = await listBlogAttachmentsForNotes(c.env.DB, posts.map((post) => post.note_id))
   const siteUrl = new URL('/', c.req.url).origin
 
-  const rssItems = posts.map((post) => `
+  const rssItems = posts.map((post) => {
+    const content = rewriteContentToCdnUrls(post.content, attachmentsByNoteId.get(post.note_id) ?? [])
+    return `
     <item>
       <title><![CDATA[${post.title}]]></title>
       <link>${siteUrl}/blog/${post.slug}</link>
       <guid isPermaLink="true">${siteUrl}/blog/${post.slug}</guid>
       <pubDate>${new Date(post.published_at as string).toUTCString()}</pubDate>
-      <description><![CDATA[${post.excerpt.trim() || generateExcerpt(post.content, 500)}]]></description>
+      <description><![CDATA[${renderMarkdownToHtml(content)}]]></description>
     </item>
-  `).join('')
+  `
+  }).join('')
 
   const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">

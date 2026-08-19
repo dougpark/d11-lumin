@@ -4,7 +4,7 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../index.ts'
 import type { Attachment } from '../db/types.ts'
-import { getAdjacentBlogPosts, getBlogPostBySlug, listAllBlogTags, listBlogAttachments, listBlogPosts } from '../db/blog.ts'
+import { getAdjacentBlogPosts, getBlogPostBySlug, listAllBlogTags, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPosts } from '../db/blog.ts'
 import { generateExcerpt } from '../utils/slug.ts'
 
 const blog = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -23,6 +23,7 @@ blog.get('/blog.json', async (c) => {
     const limit = Number.isInteger(limitParam) ? limitParam : undefined
 
     const posts = await listBlogPosts(c.env.DB, { tag, q, limit })
+    const attachmentsByNoteId = await listBlogAttachmentsForNotes(c.env.DB, posts.map((post) => post.note_id))
     c.header('Cache-Control', LIST_CACHE_CONTROL)
     return c.json({
         data: posts.map((post) => ({
@@ -30,6 +31,7 @@ blog.get('/blog.json', async (c) => {
             title: post.title,
             slug: post.slug,
             excerpt: resolveExcerpt(post.excerpt, post.content),
+            content: rewriteContentToCdnUrls(post.content, attachmentsByNoteId.get(post.note_id) ?? []),
             tags: JSON.parse(post.tag_list || '[]'),
             published_at: post.published_at,
         })),
@@ -45,7 +47,7 @@ blog.get('/blog/tags', async (c) => {
 // Rewrites private attachment permalinks (/api/notes/attachments/p/:slug) embedded in note
 // content to their public CDN URLs — done at read time so the stored note content never
 // needs mutating and unpublishing is a no-op for the editor's own copy of the content.
-function rewriteContentToCdnUrls(content: string, attachments: Attachment[]): string {
+export function rewriteContentToCdnUrls(content: string, attachments: Attachment[]): string {
     let rewritten = content
     for (const attachment of attachments) {
         if (!attachment.cdn_url) continue

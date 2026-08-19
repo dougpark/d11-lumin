@@ -61,6 +61,32 @@ export async function listBlogAttachments(db: D1Database, noteId: number): Promi
     return result.results
 }
 
+// Bulk variant of listBlogAttachments for rewriting attachment URLs across a whole list of
+// posts (e.g. the blog list feed and RSS) without an N+1 query per post.
+export async function listBlogAttachmentsForNotes(db: D1Database, noteIds: number[]): Promise<Map<number, Attachment[]>> {
+    const map = new Map<number, Attachment[]>()
+    if (noteIds.length === 0) return map
+
+    const placeholders = noteIds.map(() => '?').join(',')
+    const result = await db
+        .prepare(
+            `SELECT a.*, al.note_id AS note_id
+             FROM attachment_list al
+             JOIN attachments a ON a.attachment_id = al.attachment_id
+             WHERE al.note_id IN (${placeholders})
+             ORDER BY al.note_id ASC, al.sort_order ASC, a.attachment_id ASC`,
+        )
+        .bind(...noteIds)
+        .all<Attachment & { note_id: number }>()
+
+    for (const row of result.results) {
+        const list = map.get(row.note_id) ?? []
+        list.push(row)
+        map.set(row.note_id, list)
+    }
+    return map
+}
+
 // Prev/next by published_at for single-post navigation.
 export async function getAdjacentBlogPosts(
     db: D1Database,
