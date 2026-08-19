@@ -1,6 +1,8 @@
 // src/utils/cdn.ts — shared helpers for env.CDN_BUCKET (R2) used by both the admin CDN
 // router (src/routes/cdn.ts) and the notes → blog publishing flow (src/routes/notes.ts).
 
+import { setAttachmentCdnInfo } from '../db/notes.ts'
+import type { Attachment } from '../db/types.ts'
 import type { Env } from '../index.ts'
 
 export const CACHE_PRESETS = {
@@ -33,7 +35,27 @@ export function resolveCacheControl(preset: string | null): string {
 
 export function buildPublicUrl(env: Env, key: string): string {
     const base = (env.CDN_PUBLIC_BASE_URL || '').replace(/\/$/, '')
-    return `${base}/${key}`
+    // Encode each path segment (not the "/" separators) — R2 keys often contain spaces
+    // (e.g. pasted screenshot filenames), which break unescaped Markdown link syntax.
+    const encodedKey = key.split('/').map(encodeURIComponent).join('/')
+    return `${base}/${encodedKey}`
+}
+
+// Copies a note attachment's bytes into CDN_BUCKET and records its public URL — used both
+// when a post is first published and when new attachments are added to an already-published
+// post (attachments added after publish previously kept their private permalink forever).
+export async function mirrorAttachmentToCdn(env: Env, noteId: number, attachment: Attachment): Promise<void> {
+    if (!env.ATTACHMENTS || !env.CDN_BUCKET) return
+    const object = await env.ATTACHMENTS.get(attachment.url)
+    if (!object || !object.body) return
+
+    const cdnKey = `blog/${noteId}/${attachment.filename}`
+    const contentType = detectContentType(attachment.filename, attachment.content_type)
+    await env.CDN_BUCKET.put(cdnKey, object.body, {
+        httpMetadata: { contentType, cacheControl: CACHE_PRESETS.immutable },
+    })
+    const cdnUrl = buildPublicUrl(env, cdnKey)
+    await setAttachmentCdnInfo(env.DB, attachment.attachment_id, { cdn_key: cdnKey, cdn_url: cdnUrl })
 }
 
 // Fire-and-forget Cloudflare zone cache purge for the public URLs of the given keys.

@@ -26,7 +26,7 @@ import {
     updateNoteMetadata,
 } from '../db/notes.ts'
 import { generateExcerpt } from '../utils/slug.ts'
-import { buildPublicUrl, detectContentType, purgeBlogCaches, purgeCache } from '../utils/cdn.ts'
+import { mirrorAttachmentToCdn, purgeBlogCaches, purgeCache } from '../utils/cdn.ts'
 
 const notes = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -476,19 +476,8 @@ notes.patch('/:id/blog', async (c) => {
                 return c.json({ error: 'CDN storage is not configured' }, 500)
             }
             const attachments = await listNoteAttachments(c.env.DB, user.id, id)
-            const purgeKeys: string[] = []
-            await Promise.all(attachments.map(async (attachment) => {
-                const object = await c.env.ATTACHMENTS.get(attachment.url)
-                if (!object || !object.body) return
-                const cdnKey = `blog/${id}/${attachment.filename}`
-                const contentType = detectContentType(attachment.filename, attachment.content_type)
-                await c.env.CDN_BUCKET.put(cdnKey, object.body, {
-                    httpMetadata: { contentType, cacheControl: 'public, max-age=31536000, immutable' },
-                })
-                const cdnUrl = buildPublicUrl(c.env, cdnKey)
-                await setAttachmentCdnInfo(c.env.DB, attachment.attachment_id, { cdn_key: cdnKey, cdn_url: cdnUrl })
-                purgeKeys.push(cdnKey)
-            }))
+            await Promise.all(attachments.map((attachment) => mirrorAttachmentToCdn(c.env, id, attachment)))
+            const purgeKeys = attachments.map((a) => `blog/${id}/${a.filename}`)
             if (purgeKeys.length) c.executionCtx.waitUntil(purgeCache(c.env, purgeKeys))
         } else if (!willBePublic && wasPublic) {
             if (c.env.CDN_BUCKET) {
@@ -703,6 +692,16 @@ notes.post('/:id/attachments', async (c) => {
             note_id: id,
             markdown,
         })
+
+        // Attachments added to an already-published post need mirroring to CDN too —
+        // otherwise their private permalink stays embedded in the public blog HTML (401 for readers).
+        if (updatedNote?.is_blog === 1 && updatedNote.is_published === 1 && c.env.CDN_BUCKET) {
+            await mirrorAttachmentToCdn(c.env, id, attachment)
+            if (updatedNote.slug) {
+                const siteUrl = new URL(c.req.url).origin
+                c.executionCtx.waitUntil(purgeBlogCaches(c.env, siteUrl, [updatedNote.slug]))
+            }
+        }
 
         return c.json({
             data: {
