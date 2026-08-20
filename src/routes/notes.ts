@@ -765,6 +765,23 @@ notes.delete('/:id/attachments/:attachmentId', async (c) => {
         }
     }
 
+    // Blog-published attachments are mirrored to CDN_BUCKET — clean that copy up too, or it
+    // stays orphaned and publicly reachable at its CDN URL forever.
+    if (c.env.CDN_BUCKET && deleted.should_delete_object && deleted.attachment.cdn_key) {
+        try {
+            await c.env.CDN_BUCKET.delete(deleted.attachment.cdn_key)
+            c.executionCtx.waitUntil(purgeCache(c.env, [deleted.attachment.cdn_key]))
+        } catch (cleanupErr) {
+            console.error('attachment CDN cleanup failed — orphaned CDN object', {
+                objectKey: deleted.attachment.cdn_key,
+                userId: user.id,
+                noteId: id,
+                attachmentId,
+                error: (cleanupErr as Error).message,
+            })
+        }
+    }
+
     return c.json({ data: { attachment_id: attachmentId } })
 })
 
