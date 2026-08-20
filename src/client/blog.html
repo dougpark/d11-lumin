@@ -164,6 +164,14 @@
         .post-nav-next:hover {
             transform: translateX(3px);
         }
+
+        /* Dot-matrix hero banner (Tailwind CDN has no build step, so this replaces
+           a plugin like tailwindcss-hero-patterns with a plain CSS equivalent). */
+        .post-banner {
+            background-color: #eef4ff;
+            background-image: radial-gradient(rgba(66, 133, 244, 0.35) 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
     </style>
 </head>
 
@@ -364,9 +372,22 @@
                 app.innerHTML = `
                     <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
                     <article class="mt-4">
-                        <h1 class="text-2xl font-bold">${esc(post.title || 'Untitled')}</h1>
-                        <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
-                        ${post.tags.length ? `<div class="flex flex-wrap gap-2 mt-3">${post.tags.map((t) => `<button type="button" data-post-tag="${esc(t)}" class="text-xs px-3 py-1 rounded-full border border-g-border text-g-gray hover:border-g-blue">${esc(t)}</button>`).join('')}</div>` : ''}
+                        <div class="post-banner rounded-2xl border border-g-border px-6 py-8">
+                            <h1 class="text-2xl font-bold">${esc(post.title || 'Untitled')}</h1>
+                            <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
+                            <div class="flex flex-wrap items-center gap-2 mt-3">
+                                ${post.tags.map((t) => `<button type="button" data-post-tag="${esc(t)}" class="text-xs px-3 py-1 rounded-full border border-g-border bg-white text-g-gray shadow-sm hover:border-g-blue hover:text-g-blue">${esc(t)}</button>`).join('')}
+                                <button type="button" id="copy-link-btn" title="Copy link" aria-label="Copy link"
+                                    class="inline-flex items-center justify-center h-7 w-7 rounded-full text-g-gray hover:text-g-blue hover:bg-white/60 transition-colors">
+                                    <svg data-icon="link" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                    <svg data-icon="check" class="h-4 w-4 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                         <div class="blog-body mt-6">${renderMarkdown(post.content || '')}</div>
                     </article>
                     <nav class="flex items-center justify-between mt-10 pt-6 border-t border-g-border text-sm">
@@ -381,6 +402,8 @@
                         navigate('/blog')
                     })
                 })
+
+                document.getElementById('copy-link-btn')?.addEventListener('click', (event) => copyPostLink(slug, event.currentTarget))
             } catch {
                 app.innerHTML = `<p class="text-sm text-g-gray">Post not found. <a href="/blog" data-internal-link class="text-g-blue hover:underline">Back to all posts</a></p>`
             }
@@ -392,6 +415,38 @@
                 clearTimeout(timer)
                 timer = setTimeout(() => fn(...args), wait)
             }
+        }
+
+        function showToast(message) {
+            document.getElementById('copy-toast')?.remove()
+            const toast = document.createElement('div')
+            toast.id = 'copy-toast'
+            toast.textContent = message
+            toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-g-black text-white text-sm px-4 py-2 rounded-full shadow-lg z-50 opacity-0 transition-opacity duration-200'
+            document.body.appendChild(toast)
+            requestAnimationFrame(() => toast.classList.remove('opacity-0'))
+            setTimeout(() => {
+                toast.classList.add('opacity-0')
+                setTimeout(() => toast.remove(), 200)
+            }, 2000)
+        }
+
+        async function copyPostLink(slug, btn) {
+            const url = `${location.origin}/blog/${encodeURIComponent(slug)}`
+            try { await navigator.clipboard.writeText(url) } catch { /* clipboard blocked; toast still confirms intent */ }
+
+            const linkIcon = btn.querySelector('[data-icon="link"]')
+            const checkIcon = btn.querySelector('[data-icon="check"]')
+            linkIcon.classList.add('hidden')
+            checkIcon.classList.remove('hidden')
+            btn.classList.add('text-green-600')
+            showToast('Link copied!')
+
+            setTimeout(() => {
+                linkIcon.classList.remove('hidden')
+                checkIcon.classList.add('hidden')
+                btn.classList.remove('text-green-600')
+            }, 2000)
         }
 
         function route() {
