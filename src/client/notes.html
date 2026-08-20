@@ -1415,6 +1415,8 @@
                                                 d="M4 7h16M6 7l1 12h10l1-12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"></path>
                                         </svg>
                                     </span>
+                                    <span id="note-editor-modified-at" class="text-xs text-muted-fg truncate"
+                                        hidden></span>
                                 </div>
                             </div>
                         </div>
@@ -1691,6 +1693,7 @@
             noteImagePreviews: document.getElementById('note-image-previews'),
             noteEditorChannelName: document.getElementById('note-editor-channel-name'),
             noteEditorArchivedIcon: document.getElementById('note-editor-archived-icon'),
+            noteEditorModifiedAt: document.getElementById('note-editor-modified-at'),
             noteAttachmentInput: document.getElementById('note-attachment-input'),
             noteAttachmentsPanel: document.getElementById('note-attachments-panel'),
             noteAttachmentDropzone: document.getElementById('note-attachment-dropzone'),
@@ -2056,6 +2059,16 @@
             if (el.noteEditorArchivedIcon) {
                 el.noteEditorArchivedIcon.hidden = !(state.editingNote && state.editingNote.is_archived === 1)
             }
+            updateNoteEditorModifiedAt()
+        }
+
+        function updateNoteEditorModifiedAt() {
+            if (!el.noteEditorModifiedAt) return
+            const modifiedAt = state.editingNote?.last_modified_at
+            el.noteEditorModifiedAt.hidden = !modifiedAt
+            if (modifiedAt) {
+                el.noteEditorModifiedAt.textContent = `\u00b7 ${new Date(modifiedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+            }
         }
 
         function updateComposerVisibility() {
@@ -2404,6 +2417,7 @@
                 note.title,
                 note.is_blog,
                 note.is_published,
+                note.published_at,
                 selected,
             ].join('|')
         }
@@ -2424,7 +2438,7 @@
                             ` : ''}
                             <div class="note-card-meta-row">
                                 <div class="note-card-date-wrap min-w-0">
-                                    <div class="text-xs text-muted-fg whitespace-nowrap">${new Date(note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div class="text-xs text-muted-fg whitespace-nowrap">${new Date(note.is_blog === 1 && note.published_at ? note.published_at : note.last_modified_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                                     ${note.pinned === 1 ? `
                                         <svg class="note-card-pinned-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                             <path fill="currentColor" d="M14 3l7 7-2 2-2.5-2.5-3.5 3.5V18l-2 2-1-1 1.5-1.5-3.5-3.5L7 16l-2-2 3.5-3.5L5 8l2-2 3.5 3.5L14 3z"/>
@@ -2997,6 +3011,7 @@
                 if (res?.data) {
                     state.editingNote = res.data
                     state.noteLastSavedContent = (res.data.content || content).trim()
+                    updateNoteEditorModifiedAt()
                     await loadNotes({ silent: true })
                     return true
                 }
@@ -3175,6 +3190,7 @@
                 if (res?.data) {
                     state.editingNote = res.data
                     renderNoteBlogPanel()
+                    updateNoteEditorModifiedAt()
                     await loadNotes({ silent: true })
                 }
             } catch (err) {
@@ -3195,6 +3211,7 @@
                 })
                 if (res?.data) {
                     state.editingNote = res.data
+                    updateNoteEditorModifiedAt()
                     await loadNotes({ silent: true })
                 }
             } catch (err) {
@@ -3215,6 +3232,7 @@
                 if (res?.data) {
                     state.editingNote = res.data
                     renderNoteBlogPanel()
+                    updateNoteEditorModifiedAt()
                     await loadNotes({ silent: true })
                 }
             } catch (err) {
