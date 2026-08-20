@@ -1486,10 +1486,15 @@
                         class="w-full text-sm px-3 py-3 rounded-xl border border-border resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Write your note..."></textarea>
                     <div id="note-editor-preview" class="note-markdown-preview markdown-body" hidden></div>
-                    <input id="note-blog-tags" type="text" placeholder="comma, separated, tags"
-                        list="note-blog-tag-options"
-                        class="w-full text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    <datalist id="note-blog-tag-options"></datalist>
+                    <div class="flex flex-wrap gap-1.5 mb-2" id="note-blog-tag-chips"></div>
+                    <div class="flex gap-2">
+                        <input id="note-blog-tag-input" type="text"
+                            placeholder="Add a tag and press Enter, comma, or space" list="note-blog-tag-options"
+                            class="flex-1 text-sm px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary/30">
+                        <datalist id="note-blog-tag-options"></datalist>
+                        <button id="btn-note-blog-tag-add" type="button"
+                            class="flex-shrink-0 text-sm px-3 py-2 rounded-lg border border-border text-muted-fg hover:border-primary hover:text-primary transition-colors">Add</button>
+                    </div>
                     <div id="note-attachment-container" class="flex items-center gap-2">
                         <div id="note-attachment-dropzone" class="attachment-dropzone mb-0 flex-1 min-w-0">
                             <p class="text-xs text-muted-fg">Drag and drop files here, or paste an image
@@ -1636,6 +1641,8 @@
             noteAttachmentsPanelOpen: false,
             noteBlogPanelOpen: false,
             noteBlogPublishedAmPm: 'AM',
+            noteBlogTagList: [],
+            noteBlogTagsNoteId: null,
             noteTagOptions: [],
             noteLastSavedContent: '',
             noteSaveInFlight: false,
@@ -1711,7 +1718,9 @@
             btnNoteBlogToggle: document.getElementById('btn-note-blog-toggle'),
             noteBlogPanel: document.getElementById('note-blog-panel'),
             noteBlogTitle: document.getElementById('note-blog-title'),
-            noteBlogTags: document.getElementById('note-blog-tags'),
+            noteBlogTagChips: document.getElementById('note-blog-tag-chips'),
+            noteBlogTagInput: document.getElementById('note-blog-tag-input'),
+            btnNoteBlogTagAdd: document.getElementById('btn-note-blog-tag-add'),
             noteBlogTagOptions: document.getElementById('note-blog-tag-options'),
             noteBlogIsBlog: document.getElementById('note-blog-is-blog'),
             noteBlogPublishedFields: document.getElementById('note-blog-published-fields'),
@@ -3157,7 +3166,13 @@
 
             const note = state.editingNote
             setNoteBlogFieldValue(el.noteBlogTitle, note.title || '')
-            setNoteBlogFieldValue(el.noteBlogTags, parseJsonArray(note.tag_list).join(', '))
+
+            if (state.noteBlogTagsNoteId !== note.note_id) {
+                state.noteBlogTagsNoteId = note.note_id
+                state.noteBlogTagList = parseJsonArray(note.tag_list)
+            }
+            renderNoteBlogTagChips()
+
             if (!isNoteBlogAdmin()) return
 
             setNoteBlogError('')
@@ -3174,15 +3189,50 @@
             if (canView) el.noteBlogViewLink.href = `/blog/${note.slug}`
         }
 
+        // ── Note blog tag chips ─────────────────────────────────────────────
+        function renderNoteBlogTagChips() {
+            el.noteBlogTagChips.innerHTML = state.noteBlogTagList.map((tag) => `
+                <span class="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
+                    #${escapeHtml(tag)}
+                    <button type="button" data-remove-note-blog-tag="${escapeHtml(tag)}" class="ml-0.5 hover:opacity-70 leading-none">&times;</button>
+                </span>`).join('')
+
+            el.noteBlogTagChips.querySelectorAll('[data-remove-note-blog-tag]').forEach((btn) => {
+                btn.addEventListener('click', () => removeNoteBlogTag(btn.getAttribute('data-remove-note-blog-tag')))
+            })
+        }
+
+        function addNoteBlogTagFromInput() {
+            const input = el.noteBlogTagInput
+            const val = input.value.trim().toLowerCase().replace(/^#/, '').replace(/[^a-z0-9_-]/g, '')
+            input.value = ''
+            if (!val || state.noteBlogTagList.includes(val)) return
+            state.noteBlogTagList.push(val)
+            renderNoteBlogTagChips()
+            saveNoteBlogMetadata()
+        }
+
+        function removeNoteBlogTag(tag) {
+            state.noteBlogTagList = state.noteBlogTagList.filter((t) => t !== tag)
+            renderNoteBlogTagChips()
+            saveNoteBlogMetadata()
+        }
+
+        function handleNoteBlogTagKey(event) {
+            if (event.key === 'Enter' || event.key === ',' || event.key === ' ') {
+                event.preventDefault()
+                addNoteBlogTagFromInput()
+            }
+        }
+
         const saveNoteBlogMetadata = debounce(async () => {
             if (!state.editingNote) return
-            const tagList = el.noteBlogTags.value.split(',').map((t) => t.trim()).filter(Boolean)
             try {
                 const res = await api(`/api/notes/${state.editingNote.note_id}/metadata`, {
                     method: 'PATCH',
                     body: JSON.stringify({
                         title: el.noteBlogTitle.value,
-                        tag_list: tagList,
+                        tag_list: state.noteBlogTagList,
                         excerpt: el.noteBlogExcerpt.value,
                         slug: el.noteBlogSlug.value,
                     }),
@@ -3923,7 +3973,9 @@
         el.btnNoteBlogToggle.addEventListener('click', toggleNoteBlogPanel)
 
         el.noteBlogTitle.addEventListener('input', saveNoteBlogMetadata)
-        el.noteBlogTags.addEventListener('change', saveNoteBlogMetadata)
+        el.noteBlogTagInput.addEventListener('keydown', handleNoteBlogTagKey)
+        el.noteBlogTagInput.addEventListener('change', addNoteBlogTagFromInput)
+        el.btnNoteBlogTagAdd.addEventListener('click', addNoteBlogTagFromInput)
         el.noteBlogExcerpt.addEventListener('input', saveNoteBlogMetadata)
         el.noteBlogSlug.addEventListener('change', saveNoteBlogMetadata)
 
