@@ -2653,6 +2653,11 @@
             el.noteEditorInput.value = value ?? ''
         }
 
+        // Snapshot of where to insert pasted attachment markdown — null falls back to appending at the end.
+        function captureNoteEditorCursor() {
+            return window.D11NotesEditorShortcuts?.getCursor?.(el.noteEditorInput) || null
+        }
+
         function normalizeUrlForMatch(url) {
             try {
                 const parsed = new URL(url, location.origin)
@@ -3557,8 +3562,8 @@
             }).join('')
         }
 
-        async function uploadNoteAttachment(file, onProgress) {
-            if (!state.editingNote || !(file instanceof File)) return
+        async function uploadNoteAttachment(file, onProgress, cursorState = null) {
+            if (!state.editingNote || !(file instanceof File)) return null
             const noteId = state.editingNote.note_id
 
             const payload = await new Promise((resolve, reject) => {
@@ -3590,7 +3595,20 @@
             })
 
             if (payload?.note && state.editingNote && payload.note.note_id === state.editingNote.note_id) {
+                const markdown = payload.data?.markdown
+                const nextCursor = markdown ? window.D11NotesEditorShortcuts?.insertAtCursor?.(markdown, el.noteEditorInput, cursorState) : null
+
                 state.editingNote = payload.note
+                if (nextCursor) {
+                    // Inserted in place — leave noteLastSavedContent stale so this save persists the
+                    // cursor placement over the server's own bottom-of-note append.
+                    if (state.notePreviewOpen) renderNoteMarkdownPreview()
+                    await saveEditingNote({ force: true })
+                    await loadNoteAttachments(noteId)
+                    await loadNotes({ silent: true })
+                    return nextCursor
+                }
+
                 setNoteEditorValue(payload.note.content || '')
                 state.noteLastSavedContent = (payload.note.content || '').trim()
                 if (state.notePreviewOpen) renderNoteMarkdownPreview()
@@ -3598,10 +3616,13 @@
 
             await loadNoteAttachments(noteId)
             await loadNotes({ silent: true })
+            return null
         }
 
-        async function uploadFilesWithProgress(files) {
+        async function uploadFilesWithProgress(files, cursorState = null) {
             if (!state.editingNote || !files.length) return
+
+            let runningCursor = cursorState
 
             for (const file of files) {
                 const uploadItem = {
@@ -3614,10 +3635,10 @@
                 renderUploadQueue()
 
                 try {
-                    await uploadNoteAttachment(file, (progress) => {
+                    runningCursor = await uploadNoteAttachment(file, (progress) => {
                         uploadItem.progress = progress
                         renderUploadQueue()
-                    })
+                    }, runningCursor)
                     uploadItem.progress = 100
                     uploadItem.status = 'Done'
                 } catch (err) {
@@ -3655,7 +3676,7 @@
             const files = getPastedImageFiles(event)
             if (!files.length) return
             event.preventDefault()
-            await uploadFilesWithProgress(files)
+            await uploadFilesWithProgress(files, captureNoteEditorCursor())
         }
 
         async function downloadNoteAttachment(noteId, attachmentId, filename) {

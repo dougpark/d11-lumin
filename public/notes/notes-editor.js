@@ -47,6 +47,45 @@
         }
     }
 
+    // Captures where to insert pasted content — a CodeMirror doc position when EasyMDE is
+    // active, or a plain textarea selection range otherwise. Returns null if neither is available.
+    function getEditorCursorState(fallbackInput) {
+        const cm = activeEasyMDE?.codemirror
+        if (cm) {
+            return { type: 'codemirror', from: cm.getCursor('from'), to: cm.getCursor('to') }
+        }
+        if (fallbackInput && typeof fallbackInput.selectionStart === 'number') {
+            return { type: 'textarea', start: fallbackInput.selectionStart, end: fallbackInput.selectionEnd ?? fallbackInput.selectionStart }
+        }
+        return null
+    }
+
+    // Inserts text at a previously-captured cursor state and returns the resulting cursor
+    // state (so callers can chain further insertions immediately after it). Returns null
+    // when no cursor state was supplied, letting the caller fall back to its own default.
+    function insertTextAtCursor(text, fallbackInput, cursorState) {
+        if (!cursorState) return null
+
+        const cm = activeEasyMDE?.codemirror
+        if (cm && cursorState.type === 'codemirror') {
+            cm.replaceRange(text, cursorState.from, cursorState.to)
+            if (fallbackInput) fallbackInput.value = cm.getValue()
+            refreshEditorLayout()
+            return { type: 'codemirror', from: cm.getCursor('from'), to: cm.getCursor('to') }
+        }
+
+        if (fallbackInput && cursorState.type === 'textarea') {
+            const value = fallbackInput.value || ''
+            const nextValue = value.slice(0, cursorState.start) + text + value.slice(cursorState.end)
+            fallbackInput.value = nextValue
+            const caret = cursorState.start + text.length
+            fallbackInput.setSelectionRange?.(caret, caret)
+            return { type: 'textarea', start: caret, end: caret }
+        }
+
+        return null
+    }
+
     function setEditorVisible(isVisible, fallbackInput) {
         const visible = Boolean(isVisible)
         if (fallbackInput) {
@@ -635,6 +674,8 @@
         setEditorVisible,
         refresh: refreshEditorLayout,
         focus: focusEditor,
+        getCursor: getEditorCursorState,
+        insertAtCursor: insertTextAtCursor,
         getInstance: () => activeEasyMDE,
     }
 })(window)
