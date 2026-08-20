@@ -157,7 +157,9 @@ export async function listNotes(
     }
 
     const where = filters.join(' AND ')
-    const orderBy = 'n.pinned DESC, n.last_modified_at DESC, n.note_id DESC'
+    // Blog posts sort by their published_at (frozen at publish time, unaffected by later edits);
+    // everything else (and blog posts that were never/un-published) falls back to last_modified_at.
+    const orderBy = `n.pinned DESC, COALESCE(CASE WHEN n.is_blog = 1 THEN n.published_at END, n.last_modified_at) DESC, n.note_id DESC`
 
     const [listResult, countRow, maxModifiedRow] = await Promise.all([
         db.prepare(`SELECT n.* ${from} WHERE ${where} ORDER BY ${orderBy} LIMIT ?`)
