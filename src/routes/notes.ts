@@ -429,9 +429,18 @@ notes.patch('/:id/metadata', async (c) => {
         ? payload.tag_list.filter((t): t is string => typeof t === 'string').slice(0, 20)
         : undefined
 
+    let published_at: string | null | undefined
+    if (payload.published_at === null) {
+        published_at = null
+    } else if (typeof payload.published_at === 'string') {
+        const parsed = new Date(payload.published_at)
+        if (Number.isNaN(parsed.getTime())) return c.json({ error: 'Invalid published_at date' }, 400)
+        published_at = parsed.toISOString().replace(/\.\d{3}Z$/, 'Z')
+    }
+
     try {
         const before = await getNoteById(c.env.DB, user.id, id)
-        const updated = await updateNoteMetadata(c.env.DB, { user_id: user.id, note_id: id, title, excerpt, slug, tag_list })
+        const updated = await updateNoteMetadata(c.env.DB, { user_id: user.id, note_id: id, title, excerpt, slug, tag_list, published_at })
         if (!updated) return c.json({ error: 'Note not found' }, 404)
         if (before?.is_blog === 1 && before.is_published === 1) {
             const siteUrl = new URL(c.req.url).origin

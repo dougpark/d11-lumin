@@ -275,7 +275,15 @@ export async function listNoteTags(db: D1Database, userId: number): Promise<stri
 
 export async function updateNoteMetadata(
     db: D1Database,
-    input: { user_id: number; note_id: number; title?: string; tag_list?: string[]; excerpt?: string; slug?: string },
+    input: {
+        user_id: number
+        note_id: number
+        title?: string
+        tag_list?: string[]
+        excerpt?: string
+        slug?: string
+        published_at?: string | null
+    },
 ): Promise<Note | null> {
     const note = await getNoteById(db, input.user_id, input.note_id)
     if (!note) return null
@@ -283,6 +291,8 @@ export async function updateNoteMetadata(
     const title = input.title !== undefined ? input.title.trim().slice(0, 200) : note.title
     const excerpt = input.excerpt !== undefined ? input.excerpt.trim().slice(0, 300) : note.excerpt
     const tagList = input.tag_list !== undefined ? JSON.stringify(input.tag_list) : note.tag_list
+    // published_at is only touched here on an explicit user edit — never auto-stamped.
+    const publishedAt = input.published_at !== undefined ? input.published_at : note.published_at
 
     let slug = note.slug
     if (input.slug !== undefined) {
@@ -296,11 +306,11 @@ export async function updateNoteMetadata(
     const updated = await db
         .prepare(
             `UPDATE notes
-             SET title = ?, excerpt = ?, tag_list = ?, slug = ?, last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+             SET title = ?, excerpt = ?, tag_list = ?, slug = ?, published_at = ?, last_modified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
              WHERE note_id = ? AND user_id = ?
              RETURNING *`,
         )
-        .bind(title, excerpt, tagList, slug, input.note_id, input.user_id)
+        .bind(title, excerpt, tagList, slug, publishedAt, input.note_id, input.user_id)
         .first<Note>()
 
     return updated ?? null
