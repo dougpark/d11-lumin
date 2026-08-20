@@ -1943,15 +1943,24 @@ app.get('/settings', (c) => c.html(settingsHtml as string))
 const BLOG_OG_DEFAULTS = {
   title: 'Lumin Blog',
   desc: 'Notes and thoughts from d11.me',
-  image: '',
 }
+// Fallback share-card image (1200x630 banner) used whenever a post has no image attachment.
+const BLOG_OG_DEFAULT_IMAGE = 'https://cdn.d11cloud.com/brand/og-default.png'
 
-function injectBlogOg(html: string, baseUrl: string, og: { title: string; desc: string; image: string }): string {
+function injectBlogOg(
+  html: string,
+  baseUrl: string,
+  og: { title: string; desc: string; image: string; published?: string | null },
+): string {
+  const publishedMeta = og.published
+    ? `<meta property="article:published_time" content="${escapeHtmlAttr(og.published)}">`
+    : ''
   return html
     .replace(/%%OG_TITLE%%/g, escapeHtmlAttr(og.title))
     .replace(/%%OG_DESC%%/g, escapeHtmlAttr(og.desc))
     .replace(/%%OG_URL%%/g, escapeHtmlAttr(baseUrl))
     .replace(/%%OG_IMAGE%%/g, escapeHtmlAttr(og.image))
+    .replace(/%%OG_PUBLISHED_META%%/g, publishedMeta)
 }
 
 function escapeHtmlAttr(value: string): string {
@@ -1960,13 +1969,13 @@ function escapeHtmlAttr(value: string): string {
 
 app.get('/blog', (c) => {
   const url = new URL('/blog', c.req.url).toString()
-  return c.html(injectBlogOg(blogHtml as string, url, { title: BLOG_OG_DEFAULTS.title, desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULTS.image }))
+  return c.html(injectBlogOg(blogHtml as string, url, { title: BLOG_OG_DEFAULTS.title, desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
 })
 
 // Static route registered before the /:slug param route below so "archive" isn't treated as a post slug.
 app.get('/blog/archive', (c) => {
   const url = new URL('/blog/archive', c.req.url).toString()
-  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — Lumin Blog', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULTS.image }))
+  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — Lumin Blog', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
 })
 
 app.get('/blog/:slug', async (c) => {
@@ -1974,14 +1983,15 @@ app.get('/blog/:slug', async (c) => {
   const url = new URL(`/blog/${slug}`, c.req.url).toString()
   const post = await getBlogPostBySlug(c.env.DB, slug)
   if (!post) {
-    return c.html(injectBlogOg(blogHtml as string, url, BLOG_OG_DEFAULTS), 404)
+    return c.html(injectBlogOg(blogHtml as string, url, { ...BLOG_OG_DEFAULTS, image: BLOG_OG_DEFAULT_IMAGE }), 404)
   }
   const attachments = await listBlogAttachments(c.env.DB, post.note_id)
-  const image = attachments.find((a) => a.content_type.startsWith('image/'))?.cdn_url || ''
+  const image = attachments.find((a) => a.content_type.startsWith('image/'))?.cdn_url || BLOG_OG_DEFAULT_IMAGE
   return c.html(injectBlogOg(blogHtml as string, url, {
     title: post.title || 'Untitled',
     desc: post.excerpt || BLOG_OG_DEFAULTS.desc,
     image,
+    published: post.published_at,
   }))
 })
 

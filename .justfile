@@ -53,3 +53,8 @@ reset-attachments-remote:
 # wrangler whoami
 whoami:
     bunx wrangler whoami
+
+# Upload cdn-assets/ (hand-authored brand/OG images) to the public CDN R2 bucket
+sync-cdn:
+    bash scripts/sync-cdn-assets.sh
+    @date

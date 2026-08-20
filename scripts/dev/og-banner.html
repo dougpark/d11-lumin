@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #banner {
+            width: 1200px;
+            height: 630px;
+            position: relative;
+            background: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        #bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 14px;
+            background: #4285F4;
+        }
+
+        #content {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0 80px;
+        }
+
+        #icon {
+            width: 132px;
+            height: 132px;
+            margin-bottom: 28px;
+        }
+
+        #wordmark {
+            height: 86px;
+        }
+
+        #tagline {
+            margin-top: 26px;
+            font-size: 30px;
+            font-weight: 500;
+            color: #474747;
+            letter-spacing: 0.2px;
+        }
+
+        #domain {
+            margin-top: 14px;
+            font-size: 22px;
+            font-weight: 600;
+            color: #4285F4;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="banner">
+        <div id="bar"></div>
+        <div id="content">
+            <img id="icon" src="../../public/web-app-manifest-512x512.png" alt="">
+            <img id="wordmark" src="../../public/lumin_logo.png" alt="Lumin">
+            <div id="tagline">Notes, bookmarks &amp; ideas — curated and published</div>
+            <div id="domain">blog.d11cloud.com</div>
+        </div>
+    </div>
+</body>
+
+</html>
