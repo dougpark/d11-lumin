@@ -41,21 +41,72 @@ export function buildPublicUrl(env: Env, key: string): string {
     return `${base}/${encodedKey}`
 }
 
+// Content types worth resizing/re-encoding to WebP before mirroring — excludes GIF (would
+// collapse animations) and SVG (vector, resizing is meaningless/unsupported).
+const RESIZABLE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/bmp'])
+const IMAGE_MAX_WIDTH = 1600
+const IMAGE_QUALITY = 82
+
+function webpFilename(filename: string): string {
+    return filename.replace(/\.[^./]+$/, '') + '.webp'
+}
+
 // Copies a note attachment's bytes into CDN_BUCKET and records its public URL — used both
 // when a post is first published and when new attachments are added to an already-published
 // post (attachments added after publish previously kept their private permalink forever).
-export async function mirrorAttachmentToCdn(env: Env, noteId: number, attachment: Attachment): Promise<void> {
-    if (!env.ATTACHMENTS || !env.CDN_BUCKET) return
+// Images are downscaled (max 1600px wide, never upscaled) and re-encoded as WebP for smaller,
+// faster-loading public copies; the private ATTACHMENTS copy is left untouched.
+export async function mirrorAttachmentToCdn(
+    env: Env,
+    noteId: number,
+    attachment: Attachment,
+): Promise<{ cdnKey: string; cdnUrl: string } | null> {
+    if (!env.ATTACHMENTS || !env.CDN_BUCKET) return null
     const object = await env.ATTACHMENTS.get(attachment.url)
-    if (!object || !object.body) return
+    if (!object || !object.body) return null
 
+    if (env.IMAGES && RESIZABLE_IMAGE_TYPES.has(attachment.content_type)) {
+        try {
+            const result = await env.IMAGES.input(object.body)
+                .transform({ width: IMAGE_MAX_WIDTH, fit: 'scale-down' })
+                .output({ format: 'image/webp', quality: IMAGE_QUALITY })
+            const cdnKey = `blog/${noteId}/${webpFilename(attachment.filename)}`
+            await env.CDN_BUCKET.put(cdnKey, result.image(), {
+                httpMetadata: { contentType: 'image/webp', cacheControl: CACHE_PRESETS.immutable },
+            })
+            const cdnUrl = buildPublicUrl(env, cdnKey)
+            await setAttachmentCdnInfo(env.DB, attachment.attachment_id, { cdn_key: cdnKey, cdn_url: cdnUrl })
+            return { cdnKey, cdnUrl }
+        } catch (err) {
+            console.error('image resize failed — falling back to raw copy', {
+                noteId,
+                attachmentId: attachment.attachment_id,
+                error: (err as Error).message,
+            })
+            // Transform consumed the original stream — re-fetch for the raw fallback below.
+            const fresh = await env.ATTACHMENTS.get(attachment.url)
+            if (!fresh || !fresh.body) return null
+            return mirrorRawToCdn(env, noteId, attachment, fresh.body)
+        }
+    }
+
+    return mirrorRawToCdn(env, noteId, attachment, object.body)
+}
+
+async function mirrorRawToCdn(
+    env: Env,
+    noteId: number,
+    attachment: Attachment,
+    body: ReadableStream<Uint8Array>,
+): Promise<{ cdnKey: string; cdnUrl: string }> {
     const cdnKey = `blog/${noteId}/${attachment.filename}`
     const contentType = detectContentType(attachment.filename, attachment.content_type)
-    await env.CDN_BUCKET.put(cdnKey, object.body, {
+    await env.CDN_BUCKET.put(cdnKey, body, {
         httpMetadata: { contentType, cacheControl: CACHE_PRESETS.immutable },
     })
     const cdnUrl = buildPublicUrl(env, cdnKey)
     await setAttachmentCdnInfo(env.DB, attachment.attachment_id, { cdn_key: cdnKey, cdn_url: cdnUrl })
+    return { cdnKey, cdnUrl }
 }
 
 // Fire-and-forget Cloudflare zone cache purge for the public URLs of the given keys.

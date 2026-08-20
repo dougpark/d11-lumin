@@ -90,6 +90,7 @@ export type Env = {
   TOKEN_SECRET: string
   ENVIRONMENT: string
   AI: Ai
+  IMAGES: ImagesBinding
   AI_BOOKMARK_MODEL: string
   OLLAMA_URL: string
   CF_ACCESS_CLIENT_ID: string

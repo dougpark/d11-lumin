@@ -33,6 +33,10 @@ bucket_name = "cdn-bucket"
 [ai]
 binding = "AI"
 
+# ─── Images binding (resize/convert blog images before mirroring to CDN) ─────
+[images]
+binding = "IMAGES"
+
 # ─── Environment variables ───────────────────────────────────────────────────
 # Set TOKEN_SECRET with: wrangler secret put TOKEN_SECRET
 # (used to sign/verify API tokens – keep it out of source control)

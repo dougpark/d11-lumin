@@ -485,8 +485,8 @@ notes.patch('/:id/blog', async (c) => {
                 return c.json({ error: 'CDN storage is not configured' }, 500)
             }
             const attachments = await listNoteAttachments(c.env.DB, user.id, id)
-            await Promise.all(attachments.map((attachment) => mirrorAttachmentToCdn(c.env, id, attachment)))
-            const purgeKeys = attachments.map((a) => `blog/${id}/${a.filename}`)
+            const mirrored = await Promise.all(attachments.map((attachment) => mirrorAttachmentToCdn(c.env, id, attachment)))
+            const purgeKeys = mirrored.filter((r): r is { cdnKey: string; cdnUrl: string } => !!r).map((r) => r.cdnKey)
             if (purgeKeys.length) c.executionCtx.waitUntil(purgeCache(c.env, purgeKeys))
         } else if (!willBePublic && wasPublic) {
             if (c.env.CDN_BUCKET) {
