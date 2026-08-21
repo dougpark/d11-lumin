@@ -73,8 +73,8 @@
         }
 
         .blog-body pre {
-            background: #1F1F1F;
-            color: #fff;
+            background: #F3F4F6;
+            color: #1F1F1F;
             padding: 1rem;
             border-radius: 10px;
             overflow-x: auto;
@@ -84,6 +84,15 @@
             background: #F3F4F6;
             padding: 0.1rem 0.35rem;
             border-radius: 6px;
+        }
+
+        /* Code blocks already style .blog-body pre — reset the inline-code look so
+           the background/padding don't double up inside the block. */
+        .blog-body pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
         }
 
         .blog-body blockquote {
