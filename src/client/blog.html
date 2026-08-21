@@ -132,6 +132,15 @@
             border-color: #4285F4;
         }
 
+        /* Home article list: plain rows separated by a blue rule, no card chrome. */
+        .home-post-card {
+            padding: 1.25rem 0;
+        }
+
+        .home-post-card:not(:last-child) {
+            border-bottom: 1px solid #4285F4;
+        }
+
         .post-title {
             font-size: 1.25rem;
             font-weight: 600;
@@ -345,7 +354,7 @@
 
             document.getElementById('blog-results').innerHTML = `
                 ${posts.length ? posts.map((post) => `
-                    <article class="blog-post-card mb-5">
+                    <article class="home-post-card">
                         <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
                             <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
                         </a>
