@@ -118,18 +118,7 @@
         }
 
         .blog-post-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
             padding: 1.25rem 1.5rem;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-        }
-
-        .blog-post-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border-color: #4285F4;
         }
 
         /* Home article list: plain rows separated by a blue rule, no card chrome. */
@@ -240,7 +229,13 @@
             const wrap = document.getElementById('blog-search-wrap') || document.getElementById('archive-search-wrap')
             if (!wrap) return
             wrap.classList.toggle('hidden', !state.searchOpen)
-            if (state.searchOpen) (document.getElementById('blog-search') || document.getElementById('archive-search'))?.focus()
+            if (state.searchOpen) {
+                (document.getElementById('blog-search') || document.getElementById('archive-search'))?.focus()
+            } else if (state.q) {
+                state.q = ''
+                if (document.getElementById('blog-search-wrap')) renderList()
+                else renderArchive()
+            }
         })
 
         function esc(s) {
@@ -341,6 +336,7 @@
                         <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
                             class="search-input">
                     </div>
+                    <div class="border-b-2 border-dotted border-slate-200 mb-5"></div>
                     <div id="blog-results"><p class="text-sm text-g-gray">Loading…</p></div>
                 `
 
@@ -409,11 +405,13 @@
                         <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
                             <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
                         </a>
+                         ${post.excerpt ? `<p class="text-sm text-g-gray truncate mt-1">${esc(post.excerpt)}</p>` : ''}
+                  
                         <div class="post-date flex items-center gap-2 flex-wrap mb-0">
                             <span>${formatDate(post.published_at)}</span>
                             ${renderPostTags(post.tags, state.tag)}
                         </div>
-                    </article>
+                         </article>
                 `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
             `
 
