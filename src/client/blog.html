@@ -29,6 +29,8 @@
     <link rel="alternate" type="application/rss+xml" title="Lumin Blog Feed" href="/rss.xml">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/vendor/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/styles/github.min.css">
     <script>
         tailwind.config = {
             theme: {
@@ -241,12 +243,30 @@
             return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
         }
 
+        // Syntax-highlight fenced code blocks via highlight.js (loaded from cdnjs) so
+        // marked's default `<pre><code>` output gets the `hljs` token classes/theme.
+        const markedRenderer = (typeof marked !== 'undefined' && typeof marked.Renderer === 'function') ? new marked.Renderer() : null
+        if (markedRenderer) {
+            markedRenderer.code = ({ text, lang }) => {
+                const language = (lang || '').split(/\s+/)[0]
+                let highlighted
+                try {
+                    highlighted = (typeof hljs !== 'undefined')
+                        ? (language && hljs.getLanguage(language) ? hljs.highlight(text, { language }).value : hljs.highlightAuto(text).value)
+                        : esc(text)
+                } catch {
+                    highlighted = esc(text)
+                }
+                return `<pre><code class="hljs${language ? ` language-${language}` : ''}">${highlighted}</code></pre>`
+            }
+        }
+
         // Markdown -> HTML via the shared `marked` renderer (gfm + blockquotes/lists/etc.).
         // Attachment URLs in post content are already rewritten to CDN URLs at publish time.
         function renderMarkdown(md) {
             if (!md) return ''
             if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return `<p>${esc(md)}</p>`
-            try { return marked.parse(md, { breaks: true, gfm: true }) }
+            try { return marked.parse(md, { breaks: true, gfm: true, renderer: markedRenderer || undefined }) }
             catch { return `<p>${esc(md)}</p>` }
         }
 
