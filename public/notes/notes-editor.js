@@ -156,11 +156,6 @@
         input.dataset.easyMdeBound = 'true'
 
         const cm = easyMDE.codemirror
-        if (cm && options?.titleInput) {
-            // Reparent the title field so it renders inside the editor card, below the toolbar.
-            const wrapperEl = cm.getWrapperElement()
-            wrapperEl?.parentElement?.insertBefore(options.titleInput, wrapperEl)
-        }
         if (cm) {
             cm.addKeyMap({
                 'Shift-Cmd-L': (instance) => {
