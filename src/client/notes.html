@@ -3023,6 +3023,7 @@
         async function saveEditingNote({ force = false } = {}) {
             if (!state.editingNote || state.noteSaveInFlight) return false
 
+            const noteId = state.editingNote.note_id
             const content = getNoteEditorValue().trim()
             if (!content) return false
 
@@ -3031,14 +3032,18 @@
 
             state.noteSaveInFlight = true
             try {
-                const res = await api(`/api/notes/${state.editingNote.note_id}`, {
+                const res = await api(`/api/notes/${noteId}`, {
                     method: 'PATCH',
                     body: JSON.stringify({ content }),
                 })
                 if (res?.data) {
-                    state.editingNote = res.data
-                    state.noteLastSavedContent = (res.data.content || content).trim()
-                    updateNoteEditorModifiedAt()
+                    // Only apply the response if still editing this note — otherwise the user
+                    // has since switched notes and this stale response must not clobber it.
+                    if (state.editingNote?.note_id === noteId) {
+                        state.editingNote = res.data
+                        state.noteLastSavedContent = (res.data.content || content).trim()
+                        updateNoteEditorModifiedAt()
+                    }
                     await loadNotes({ silent: true })
                     return true
                 }
