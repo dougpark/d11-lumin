@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>CM6 Editor Spike — not linked from the app, manual test only</title>
+    <style>
+        :root {
+            --g-blue: #4285F4;
+            --g-black: #1F1F1F;
+            --g-gray: #474747;
+            --g-border: #E3E3E3;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: var(--g-black);
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0 0 4px;
+        }
+
+        p.subtitle {
+            margin: 0 0 16px;
+            color: var(--g-gray);
+            font-size: 13px;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid var(--g-border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 4px;
+            padding: 6px;
+            border-bottom: 1px solid var(--g-border);
+            background: #fafafa;
+            flex-wrap: wrap;
+        }
+
+        .toolbar button {
+            border: 1px solid var(--g-border);
+            background: #fff;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--g-black);
+        }
+
+        .toolbar button:hover {
+            border-color: var(--g-blue);
+            color: var(--g-blue);
+        }
+
+        .toolbar .sep {
+            width: 1px;
+            background: var(--g-border);
+            margin: 0 4px;
+        }
+
+        #editor-host {
+            min-height: 280px;
+        }
+
+        #editor-host .cm-editor {
+            height: 100%;
+            font-size: 15px;
+        }
+
+        #editor-host .cm-content {
+            padding: 12px;
+            min-height: 280px;
+        }
+
+        #editor-host .cm-focused {
+            outline: none;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 800px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--g-gray);
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--g-border);
+        }
+
+        #markdown-source {
+            width: 100%;
+            border: none;
+            resize: vertical;
+            min-height: 280px;
+            padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            color: var(--g-gray);
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .actions button {
+            border: 1px solid var(--g-border);
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .checklist {
+            background: #fff;
+            border: 1px solid var(--g-border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .checklist li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>CodeMirror 6 editor spike</h1>
+    <p class="subtitle">Phase 0 validation for the EasyMDE → CM6 migration. Not wired into the notes app.</p>
+
+    <div class="actions">
+        <button id="btn-load-sample">Load sample markdown</button>
+        <button id="btn-insert-attachment">Insert fake image attachment at cursor</button>
+        <button id="btn-clear">Clear</button>
+    </div>
+
+    <div class="panel">
+        <div class="toolbar">
+            <button data-format="**" title="Bold"><b>B</b></button>
+            <button data-format="*" title="Italic"><i>I</i></button>
+            <div class="sep"></div>
+            <button data-prefix="# " title="Heading">H</button>
+            <button data-prefix="- " title="Bullet list">List</button>
+            <button data-prefix="- [ ] " title="Checklist">Check</button>
+            <div class="sep"></div>
+            <button id="btn-undo" title="Undo">Undo</button>
+            <button id="btn-redo" title="Redo">Redo</button>
+        </div>
+        <div id="editor-host"></div>
+    </div>
+
+    <div class="row">
+        <div class="panel">
+            <div class="section-title">Live markdown source (round-trip check)</div>
+            <textarea id="markdown-source" readonly></textarea>
+        </div>
+        <div class="panel">
+            <div class="section-title">Manual test checklist</div>
+            <ul class="checklist">
+                <li>Type on a real phone: does autocapitalize kick in at sentence starts?</li>
+                <li>Type "hi there.." then a real double-space — does it become a period? (OS-level, not guaranteed)</li>
+                <li>Misspell a word — does the native red squiggly spellcheck underline appear?</li>
+                <li>Select text, click Bold/Italic — does it wrap with ** / * correctly?</li>
+                <li>Click H / List / Check on an empty line and a non-empty line</li>
+                <li>Click "Insert fake image attachment" mid-document — lands at cursor, not at the end</li>
+                <li>Compare the live markdown source panel against what you typed — no corruption</li>
+                <li>Undo/Redo buttons work as expected</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        // NOTE: pin the exact version. "codemirror@6" / "codemirror@6.65.x" etc. resolve to
+        // an accidentally mis-tagged republish of legacy CodeMirror 5 (see npm registry
+        // "deprecated" note on those versions) — not the real CM6 meta-package. 6.0.2 is real CM6.
+        import { EditorView, basicSetup } from 'https://esm.sh/codemirror@6.0.2'
+        import { EditorState } from 'https://esm.sh/@codemirror/state@6'
+        import { markdown } from 'https://esm.sh/@codemirror/lang-markdown@6'
+        import { undo, redo } from 'https://esm.sh/@codemirror/commands@6'
+
+        const SAMPLE = `# Sample note
+
+This is a **bold** word and this is *italic*.
+
+- first item
+- second item
+
+- [ ] unchecked task
+- [x] checked task
+
+A [link](https://example.com) in the middle of a sentence.
+`
+
+        // Real contenteditable surface (unlike CM5's hidden-textarea sync trick) —
+        // this is what actually lets native spellcheck/autocorrect/autocapitalize work.
+        const nativeInputAttributes = EditorView.contentAttributes.of({
+            spellcheck: 'true',
+            autocorrect: 'on',
+            autocapitalize: 'sentences',
+        })
+
+        const sourceEl = document.getElementById('markdown-source')
+
+        const updateSourceListener = EditorView.updateListener.of((update) => {
+            if (update.docChanged) syncSourcePanel()
+        })
+
+        let view = null
+
+        function createView(doc) {
+            if (view) view.destroy()
+            view = new EditorView({
+                state: EditorState.create({
+                    doc,
+                    extensions: [basicSetup, markdown(), nativeInputAttributes, updateSourceListener],
+                }),
+                parent: document.getElementById('editor-host'),
+            })
+            syncSourcePanel()
+        }
+
+        function syncSourcePanel() {
+            sourceEl.value = view.state.doc.toString()
+        }
+
+        function getSelectionOrCursor() {
+            const { from, to } = view.state.selection.main
+            return { from, to }
+        }
+
+        // Mirrors the sketch: wrap the current selection with a marker on both sides.
+        function formatSelection(marker) {
+            const { from, to } = getSelectionOrCursor()
+            const selected = view.state.sliceDoc(from, to)
+            const insert = `${marker}${selected}${marker}`
+            view.dispatch({
+                changes: { from, to, insert },
+                selection: { anchor: from + marker.length, head: from + marker.length + selected.length },
+            })
+            view.focus()
+        }
+
+        // Mirrors the sketch: insert a line prefix at the start of the current line.
+        function insertPrefix(prefix) {
+            const { from } = getSelectionOrCursor()
+            const line = view.state.doc.lineAt(from)
+            view.dispatch({
+                changes: { from: line.from, to: line.from, insert: prefix },
+                selection: { anchor: from + prefix.length },
+            })
+            view.focus()
+        }
+
+        function insertAtCursor(text) {
+            const { from, to } = getSelectionOrCursor()
+            view.dispatch({
+                changes: { from, to, insert: text },
+                selection: { anchor: from + text.length },
+            })
+            view.focus()
+        }
+
+        createView('# Start typing…\n')
+
+        for (const btn of document.querySelectorAll('.toolbar [data-format]')) {
+            btn.addEventListener('click', () => formatSelection(btn.dataset.format))
+        }
+        for (const btn of document.querySelectorAll('.toolbar [data-prefix]')) {
+            btn.addEventListener('click', () => insertPrefix(btn.dataset.prefix))
+        }
+
+        document.getElementById('btn-undo').addEventListener('click', () => { undo(view); view.focus() })
+        document.getElementById('btn-redo').addEventListener('click', () => { redo(view); view.focus() })
+        document.getElementById('btn-load-sample').addEventListener('click', () => createView(SAMPLE))
+        document.getElementById('btn-clear').addEventListener('click', () => createView(''))
+        document.getElementById('btn-insert-attachment').addEventListener('click', () => {
+            insertAtCursor('![test attachment](https://example.com/fake-attachment.png)')
+        })
+    </script>
+</body>
+
+</html>

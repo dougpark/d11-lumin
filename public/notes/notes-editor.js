@@ -141,6 +141,9 @@
             ],
             status: false,
             spellChecker: false,
+            nativeSpellcheck: true,
+            autocorrect: true,
+            autocapitalize: true,
             autoDownloadFontAwesome: true,
             shortcuts: {
                 toggleHeadingBigger: null,
