@@ -126,7 +126,9 @@
 
     function setEditorVisible(isVisible, fallbackInput) {
         const visible = Boolean(isVisible)
-        if (fallbackInput) {
+        // Once CM6 has mounted, the raw textarea is a permanently-hidden value store — only
+        // toggle its visibility here pre-mount, when it's still the actual visible editor.
+        if (fallbackInput && !activeView) {
             fallbackInput.hidden = !visible
         }
         activeContainer?.classList.toggle('hidden', !visible)

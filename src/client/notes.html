@@ -792,8 +792,10 @@
         }
 
         /* Contain the title's own margin so it doesn't collapse into the next
-           sibling's spacing when this whole wrap is hidden via .hidden in preview mode. */
-        #note-editor-page .note-cm6-editor-wrap {
+           sibling's spacing when this whole wrap is hidden via .hidden in preview mode.
+           :not(.hidden) keeps this from out-specificity-ing Tailwind's .hidden{display:none}
+           (this selector is ID+class, Tailwind's is class-only) when toggled by JS. */
+        #note-editor-page .note-cm6-editor-wrap:not(.hidden) {
             display: flow-root;
         }
 
@@ -3551,8 +3553,33 @@
             return files
         }
 
+        // Matches a single pasted URL with no surrounding text/whitespace (http/https only).
+        const PASTED_URL_RE = /^https?:\/\/\S+$/i
+
+        // Paste-over-selection: turns highlighted text into `[selection](url)` when the
+        // clipboard is a bare URL, mirroring the GitHub/Notion "paste link over text" pattern.
+        function tryConvertPastedUrlToMarkdownLink(event) {
+            const text = event.clipboardData?.getData('text/plain')?.trim()
+            if (!text || !PASTED_URL_RE.test(text)) return false
+
+            const cursor = captureNoteEditorCursor()
+            if (!cursor) return false
+            const start = cursor.type === 'cm6' ? cursor.from : cursor.start
+            const end = cursor.type === 'cm6' ? cursor.to : cursor.end
+            if (start === end) return false // no selection — let the URL paste in as plain text
+
+            const selected = getNoteEditorValue().slice(start, end)
+            if (!selected.trim()) return false
+
+            event.preventDefault()
+            window.D11NotesEditorShortcuts?.insertAtCursor?.(`[${selected}](${text})`, el.noteEditorInput, cursor)
+            updateNoteEditorWordCount()
+            return true
+        }
+
         async function handleNoteEditorPaste(event) {
             if (!canUseEditorInteractions()) return
+            if (tryConvertPastedUrlToMarkdownLink(event)) return
             const files = getPastedImageFiles(event)
             if (!files.length) return
             event.preventDefault()
