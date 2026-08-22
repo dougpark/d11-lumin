@@ -1,23 +1,55 @@
 // public/chat/notes-editor.js
 // Notes editor enhancements that can evolve independently from chat.html.
 (function attachNotesEditorShortcuts(globalScope) {
-    let activeEasyMDE = null
-
-    function getEasyMDEContainer() {
-        if (!activeEasyMDE?.codemirror) return null
-        return activeEasyMDE.codemirror.getWrapperElement()?.closest('.EasyMDEContainer') || null
+    // Pin exact versions — bare "codemirror@6" resolves to a mis-tagged CM5 republish.
+    // NOTE: deliberately NOT importing @codemirror/language separately here. Doing so (to
+    // get classHighlighter for stable tok-* CSS classes) resolves a different @lezer/highlight
+    // instance than the one @codemirror/lang-markdown's tags use, and crashes
+    // ("TypeError: Cannot read properties of undefined (reading 'scope')") inside
+    // @lezer/highlight's highlightRange during decoration build. minimalSetup's own bundled
+    // defaultHighlightStyle comes from the same resolution graph as `codemirror` core and
+    // works without error, so we rely on that instead (see CSS notes in notes.html).
+    const CM6_URLS = {
+        core: 'https://esm.sh/codemirror@6.0.2',
+        state: 'https://esm.sh/@codemirror/state@6',
+        view: 'https://esm.sh/@codemirror/view@6',
+        commands: 'https://esm.sh/@codemirror/commands@6',
+        markdown: 'https://esm.sh/@codemirror/lang-markdown@6',
     }
 
+    let cm6ModulesPromise = null
+    function loadCM6Modules() {
+        if (!cm6ModulesPromise) {
+            cm6ModulesPromise = Promise.all([
+                import(CM6_URLS.core),
+                import(CM6_URLS.state),
+                import(CM6_URLS.view),
+                import(CM6_URLS.commands),
+                import(CM6_URLS.markdown),
+            ]).then(([core, state, view, commands, mdLang]) => ({
+                EditorView: view.EditorView,
+                keymap: view.keymap,
+                minimalSetup: core.minimalSetup,
+                EditorState: state.EditorState,
+                markdown: mdLang.markdown,
+                undo: commands.undo,
+                redo: commands.redo,
+                historyKeymap: commands.historyKeymap,
+            }))
+        }
+        return cm6ModulesPromise
+    }
+
+    let activeView = null
+    let activeContainer = null
+
     function refreshEditorLayout() {
-        const cm = activeEasyMDE?.codemirror
-        if (!cm) return
-        cm.refresh()
+        activeView?.requestMeasure()
     }
 
     function focusEditor(fallbackInput) {
-        const cm = activeEasyMDE?.codemirror
-        if (cm) {
-            cm.focus()
+        if (activeView) {
+            activeView.focus()
             return
         }
         if (fallbackInput) {
@@ -26,20 +58,21 @@
     }
 
     function getEditorValue(fallbackInput) {
-        if (activeEasyMDE && typeof activeEasyMDE.value === 'function') {
-            return activeEasyMDE.value()
+        if (activeView) {
+            return activeView.state.doc.toString()
         }
         return fallbackInput?.value || ''
     }
 
     function setEditorValue(nextValue, fallbackInput) {
         const value = String(nextValue ?? '')
-        if (activeEasyMDE && typeof activeEasyMDE.value === 'function') {
-            activeEasyMDE.value(value)
+        if (activeView) {
+            activeView.dispatch({
+                changes: { from: 0, to: activeView.state.doc.length, insert: value },
+            })
             if (fallbackInput && fallbackInput.value !== value) {
                 fallbackInput.value = value
             }
-            refreshEditorLayout()
             return
         }
         if (fallbackInput) {
@@ -47,12 +80,12 @@
         }
     }
 
-    // Captures where to insert pasted content — a CodeMirror doc position when EasyMDE is
-    // active, or a plain textarea selection range otherwise. Returns null if neither is available.
+    // Captures where to insert pasted content — a CM6 doc position when the editor is
+    // mounted, or a plain textarea selection range otherwise. Returns null if neither is available.
     function getEditorCursorState(fallbackInput) {
-        const cm = activeEasyMDE?.codemirror
-        if (cm) {
-            return { type: 'codemirror', from: cm.getCursor('from'), to: cm.getCursor('to') }
+        if (activeView) {
+            const { from, to } = activeView.state.selection.main
+            return { type: 'cm6', from, to }
         }
         if (fallbackInput && typeof fallbackInput.selectionStart === 'number') {
             return { type: 'textarea', start: fallbackInput.selectionStart, end: fallbackInput.selectionEnd ?? fallbackInput.selectionStart }
@@ -66,12 +99,17 @@
     function insertTextAtCursor(text, fallbackInput, cursorState) {
         if (!cursorState) return null
 
-        const cm = activeEasyMDE?.codemirror
-        if (cm && cursorState.type === 'codemirror') {
-            cm.replaceRange(text, cursorState.from, cursorState.to)
-            if (fallbackInput) fallbackInput.value = cm.getValue()
-            refreshEditorLayout()
-            return { type: 'codemirror', from: cm.getCursor('from'), to: cm.getCursor('to') }
+        if (activeView && cursorState.type === 'cm6') {
+            const docLength = activeView.state.doc.length
+            const from = Math.min(cursorState.from, docLength)
+            const to = Math.min(cursorState.to, docLength)
+            activeView.dispatch({
+                changes: { from, to, insert: text },
+                selection: { anchor: from + text.length },
+            })
+            if (fallbackInput) fallbackInput.value = activeView.state.doc.toString()
+            const nextPos = from + text.length
+            return { type: 'cm6', from: nextPos, to: nextPos }
         }
 
         if (fallbackInput && cursorState.type === 'textarea') {
@@ -91,130 +129,102 @@
         if (fallbackInput) {
             fallbackInput.hidden = !visible
         }
-        const cm = activeEasyMDE?.codemirror
-        const container = getEasyMDEContainer()
-        if (container) {
-            // Toggle the toolbar/body only, so a reparented title input (a sibling
-            // inside the container) stays visible while previewing.
-            const toolbar = container.querySelector(':scope > .editor-toolbar')
-            const wrapperEl = cm?.getWrapperElement()
-            toolbar?.classList.toggle('hidden', !visible)
-            wrapperEl?.classList.toggle('hidden', !visible)
-            if (visible) {
-                requestAnimationFrame(() => {
-                    refreshEditorLayout()
-                })
-            }
-        }
+        activeContainer?.classList.toggle('hidden', !visible)
+        if (visible) refreshEditorLayout()
     }
 
-    function initEasyMDE(options) {
-        const input = options?.input
-        if (!input) return null
-        if (input.dataset.easyMdeBound === 'true' && activeEasyMDE) return activeEasyMDE
-        if (typeof globalScope.EasyMDE !== 'function') return null
+    // ─── Formatting commands (shared by the toolbar buttons and keymap below) ──────
 
-        const easyMDE = new globalScope.EasyMDE({
-            element: input,
-            forceSync: true,
-            toolbar: [
-                'bold',
-                'italic',
-                'heading',
-                '|',
-                'unordered-list',
-                {
-                    name: 'check-list',
-                    action: (editor) => {
-                        const cm = editor?.codemirror || editor
-                        applyChecklistCycleOnCurrentLine(cm)
-                    },
-                    className: 'fa fa-check-square-o',
-                    title: 'Toggle Checklist',
-                },
-                '|',
-                'link',
-                'table',
-                '|',
-                'undo',
-                'redo',
-            ],
-            status: false,
-            spellChecker: false,
-            nativeSpellcheck: true,
-            autocorrect: true,
-            autocapitalize: true,
-            autoDownloadFontAwesome: true,
-            shortcuts: {
-                toggleHeadingBigger: null,
-                toggleCheckList: null,
-                "toggleHeading1": "Cmd-Shift-T",
-                "toggleCodeBlock": "Cmd-Shift-C",
-                "drawImage": "Cmd-Shift-I",
-
-            },
+    function wrapSelectionWithMarker(view, marker) {
+        const { from, to } = view.state.selection.main
+        const selected = view.state.sliceDoc(from, to)
+        const insert = `${marker}${selected}${marker}`
+        view.dispatch({
+            changes: { from, to, insert },
+            selection: selected
+                ? { anchor: from + marker.length, head: from + marker.length + selected.length }
+                : { anchor: from + marker.length },
         })
-
-        activeEasyMDE = easyMDE
-        input.dataset.easyMdeBound = 'true'
-
-        const cm = easyMDE.codemirror
-        if (cm) {
-            cm.addKeyMap({
-                'Shift-Cmd-L': (instance) => {
-                    applyChecklistCycleOnCurrentLine(instance)
-                },
-                'Shift-Ctrl-L': (instance) => {
-                    applyChecklistCycleOnCurrentLine(instance)
-                },
-                'Shift-Cmd-H': (instance) => {
-                    applyFixedHeadingLevel(instance, 2)
-                },
-                'Shift-Ctrl-H': (instance) => {
-                    applyFixedHeadingLevel(instance, 2)
-                },
-            })
-
-            cm.on('change', () => {
-                if (typeof options?.onEditorInput === 'function') {
-                    options.onEditorInput()
-                }
-            })
-
-            cm.on('blur', () => {
-                if (typeof options?.onEditorBlur === 'function') {
-                    options.onEditorBlur()
-                }
-            })
-
-            const cmInput = cm.getInputField?.()
-            if (cmInput && typeof options?.onEditorPaste === 'function') {
-                cmInput.addEventListener('paste', (event) => {
-                    options.onEditorPaste(event)
-                })
-            }
-        }
-
-        return easyMDE
+        view.focus()
+        return true
     }
 
-    function applyChecklistCycleOnCurrentLine(cm) {
-        if (!cm) return
+    function wrapSelectionAsCode(view) {
+        const { from, to } = view.state.selection.main
+        const selected = view.state.sliceDoc(from, to)
+        if (!selected.includes('\n')) {
+            return wrapSelectionWithMarker(view, '`')
+        }
+        const insert = `\`\`\`\n${selected}\n\`\`\``
+        view.dispatch({
+            changes: { from, to, insert },
+            selection: { anchor: from + 4, head: from + 4 + selected.length },
+        })
+        view.focus()
+        return true
+    }
 
-        const doc = cm.getDoc()
-        const start = doc.getCursor('start')
-        const lineNo = start.line
-        const line = doc.getLine(lineNo) || ''
-        const match = line.match(/^(\s*)-\s\[( |x|X)\]\s?(.*)$/)
+    function insertLinePrefix(view, prefix) {
+        const { from } = view.state.selection.main
+        const line = view.state.doc.lineAt(from)
+        view.dispatch({
+            changes: { from: line.from, to: line.from, insert: prefix },
+            selection: { anchor: from + prefix.length },
+        })
+        view.focus()
+        return true
+    }
 
-        let nextLine = line
+    function insertMarkdownLinkCM6(view) {
+        const { from, to } = view.state.selection.main
+        const selected = view.state.sliceDoc(from, to)
+        const title = selected || 'title'
+        const linkText = `[${title}](url)`
+        const urlStart = from + linkText.length - 4
+        const urlEnd = from + linkText.length - 1
+        view.dispatch({
+            changes: { from, to, insert: linkText },
+            selection: { anchor: urlStart, head: urlEnd },
+        })
+        view.focus()
+        return true
+    }
+
+    function insertMarkdownImageScaffold(view) {
+        const { from, to } = view.state.selection.main
+        const selected = view.state.sliceDoc(from, to)
+        const alt = selected || 'alt text'
+        const insert = `![${alt}](url)`
+        view.dispatch({
+            changes: { from, to, insert },
+            selection: { anchor: from + 2, head: from + 2 + alt.length },
+        })
+        view.focus()
+        return true
+    }
+
+    function insertTableScaffold(view) {
+        const { from, to } = view.state.selection.main
+        const insert = '\n| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| Text     | Text     | Text     |\n'
+        view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length } })
+        view.focus()
+        return true
+    }
+
+    function applyChecklistCycleOnCurrentLine(view) {
+        const pos = view.state.selection.main.from
+        const line = view.state.doc.lineAt(pos)
+        const text = line.text
+        const match = text.match(/^(\s*)-\s\[( |x|X)\]\s?(.*)$/)
+
+        let nextLine = text
         let oldPrefixLen = 0
         let newPrefixLen = 0
 
         if (!match) {
-            const indentMatch = line.match(/^(\s*)(.*)$/)
+            const indentMatch = text.match(/^(\s*)(.*)$/)
             const indent = indentMatch ? indentMatch[1] : ''
-            const body = indentMatch ? indentMatch[2] : line
+            const body = indentMatch ? indentMatch[2] : text
             const prefix = '- [ ] '
             nextLine = `${indent}${prefix}${body}`
             oldPrefixLen = indent.length
@@ -222,56 +232,186 @@
         } else if (match[2] === ' ') {
             const prefix = `${match[1]}- [x] `
             nextLine = `${prefix}${match[3]}`
-            oldPrefixLen = line.length - match[3].length
+            oldPrefixLen = text.length - match[3].length
             newPrefixLen = prefix.length
         } else {
             nextLine = `${match[1]}${match[3]}`
-            oldPrefixLen = line.length - nextLine.length
+            oldPrefixLen = text.length - nextLine.length
             newPrefixLen = match[1].length
         }
 
-        if (nextLine === line) return
+        if (nextLine === text) return false
 
-        doc.replaceRange(nextLine, { line: lineNo, ch: 0 }, { line: lineNo, ch: line.length })
-
-        const oldCh = start.ch
+        const oldCh = pos - line.from
         const nextCh = oldCh <= oldPrefixLen
             ? Math.min(oldCh, newPrefixLen)
             : Math.min(newPrefixLen + (oldCh - oldPrefixLen), nextLine.length)
 
-        doc.setCursor({ line: lineNo, ch: nextCh })
+        view.dispatch({
+            changes: { from: line.from, to: line.to, insert: nextLine },
+            selection: { anchor: line.from + nextCh },
+        })
+        view.focus()
+        return true
     }
 
-    function applyFixedHeadingLevel(cm, level) {
-        if (!cm || !Number.isInteger(level) || level < 1) return
+    function applyFixedHeadingLevel(view, level) {
+        if (!Number.isInteger(level) || level < 1) return false
 
-        const doc = cm.getDoc()
-        const start = doc.getCursor('start')
-        const lineNo = start.line
-        const line = doc.getLine(lineNo) || ''
-        const indentMatch = line.match(/^(\s*)(.*)$/)
+        const pos = view.state.selection.main.from
+        const line = view.state.doc.lineAt(pos)
+        const text = line.text
+        const indentMatch = text.match(/^(\s*)(.*)$/)
         const indent = indentMatch ? indentMatch[1] : ''
-        const content = indentMatch ? indentMatch[2] : line
+        const content = indentMatch ? indentMatch[2] : text
 
         const headingMatch = content.match(/^#{1,}\s?(.*)$/)
         const body = headingMatch ? headingMatch[1] : content
         const nextLine = `${indent}${'#'.repeat(level)} ${body}`
 
-        if (nextLine === line) return
+        if (nextLine === text) return false
 
         const oldPrefixLen = headingMatch
-            ? line.length - `${indent}${headingMatch[1]}`.length
+            ? text.length - `${indent}${headingMatch[1]}`.length
             : indent.length
         const newPrefixLen = `${indent}${'#'.repeat(level)} `.length
 
-        doc.replaceRange(nextLine, { line: lineNo, ch: 0 }, { line: lineNo, ch: line.length })
-
-        const oldCh = start.ch
+        const oldCh = pos - line.from
         const nextCh = oldCh <= oldPrefixLen
             ? Math.min(oldCh, newPrefixLen)
             : Math.min(newPrefixLen + (oldCh - oldPrefixLen), nextLine.length)
 
-        doc.setCursor({ line: lineNo, ch: nextCh })
+        view.dispatch({
+            changes: { from: line.from, to: line.to, insert: nextLine },
+            selection: { anchor: line.from + nextCh },
+        })
+        view.focus()
+        return true
+    }
+
+    // ─── Toolbar (CM6 ships no built-in UI, unlike EasyMDE) ────────────────────────
+
+    function buildToolbarSeparator() {
+        const sep = document.createElement('i')
+        sep.className = 'separator'
+        return sep
+    }
+
+    function buildToolbarButton({ label, title, onClick }) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.title = title
+        btn.setAttribute('aria-label', title)
+        btn.innerHTML = label
+        // Keep focus (and its blur-triggered autosave) on the editor until the command runs.
+        btn.addEventListener('mousedown', (event) => event.preventDefault())
+        btn.addEventListener('click', () => { if (activeView) onClick(activeView) })
+        return btn
+    }
+
+    function buildToolbar({ undo, redo }) {
+        const toolbar = document.createElement('div')
+        toolbar.className = 'editor-toolbar'
+
+        const buttons = [
+            buildToolbarButton({ label: '<b>B</b>', title: 'Bold (Cmd-B)', onClick: (v) => wrapSelectionWithMarker(v, '**') }),
+            buildToolbarButton({ label: '<i>I</i>', title: 'Italic (Cmd-I)', onClick: (v) => wrapSelectionWithMarker(v, '*') }),
+            buildToolbarSeparator(),
+            buildToolbarButton({ label: 'H', title: 'Heading', onClick: (v) => applyFixedHeadingLevel(v, 2) }),
+            buildToolbarButton({ label: '&bull;', title: 'Bullet list', onClick: (v) => insertLinePrefix(v, '- ') }),
+            buildToolbarButton({ label: '&#9745;', title: 'Toggle checklist (Shift-Cmd-L)', onClick: (v) => applyChecklistCycleOnCurrentLine(v) }),
+            buildToolbarSeparator(),
+            buildToolbarButton({ label: '&#128279;', title: 'Insert link (Cmd-K)', onClick: (v) => insertMarkdownLinkCM6(v) }),
+            buildToolbarButton({ label: '&#9638;', title: 'Insert table', onClick: (v) => insertTableScaffold(v) }),
+            buildToolbarSeparator(),
+            buildToolbarButton({ label: '&#8630;', title: 'Undo', onClick: (v) => undo(v) }),
+            buildToolbarButton({ label: '&#8631;', title: 'Redo', onClick: (v) => redo(v) }),
+        ]
+        for (const button of buttons) toolbar.appendChild(button)
+        return toolbar
+    }
+
+    // ─── CM6 mount ──────────────────────────────────────────────────────────────────
+
+    async function initCM6(options) {
+        const input = options?.input
+        if (!input) return null
+        if (input.dataset.cm6Bound === 'true') return activeView
+        input.dataset.cm6Bound = 'true'
+
+        const modules = await loadCM6Modules()
+        if (activeView) return activeView // guard a second init racing in while modules loaded
+
+        const {
+            EditorView, keymap, minimalSetup, EditorState, markdown,
+            undo, redo, historyKeymap,
+        } = modules
+
+        const toolbar = buildToolbar({ undo, redo })
+        const host = document.createElement('div')
+        host.className = 'note-cm6-editor'
+
+        const container = document.createElement('div')
+        container.className = 'note-cm6-editor-wrap'
+        container.appendChild(toolbar)
+        container.appendChild(host)
+
+        input.hidden = true
+        input.insertAdjacentElement('afterend', container)
+        activeContainer = container
+
+        // Real contenteditable surface (unlike EasyMDE/CM5's hidden-textarea sync trick) —
+        // this is what actually lets native spellcheck/autocorrect/autocapitalize work.
+        const nativeInputAttributes = EditorView.contentAttributes.of({
+            spellcheck: 'true',
+            autocorrect: 'on',
+            autocapitalize: 'sentences',
+        })
+
+        const customKeymap = keymap.of([
+            { key: 'Mod-b', run: (v) => wrapSelectionWithMarker(v, '**') },
+            { key: 'Mod-i', run: (v) => wrapSelectionWithMarker(v, '*') },
+            { key: 'Mod-k', run: (v) => insertMarkdownLinkCM6(v) },
+            { key: 'Mod-Shift-l', run: (v) => applyChecklistCycleOnCurrentLine(v) },
+            { key: 'Mod-Shift-h', run: (v) => applyFixedHeadingLevel(v, 2) },
+            { key: 'Mod-Shift-t', run: (v) => applyFixedHeadingLevel(v, 1) },
+            { key: 'Mod-Shift-c', run: (v) => wrapSelectionAsCode(v) },
+            { key: 'Mod-Shift-i', run: (v) => insertMarkdownImageScaffold(v) },
+            ...historyKeymap,
+        ])
+
+        const updateListener = EditorView.updateListener.of((update) => {
+            if (update.docChanged && typeof options?.onEditorInput === 'function') {
+                options.onEditorInput()
+            }
+        })
+
+        const domHandlers = EditorView.domEventHandlers({
+            blur: () => {
+                if (typeof options?.onEditorBlur === 'function') options.onEditorBlur()
+            },
+            paste: (event) => {
+                if (typeof options?.onEditorPaste === 'function') options.onEditorPaste(event)
+            },
+        })
+
+        activeView = new EditorView({
+            state: EditorState.create({
+                doc: input.value || '',
+                extensions: [
+                    minimalSetup,
+                    EditorView.lineWrapping,
+                    markdown(),
+                    nativeInputAttributes,
+                    customKeymap,
+                    updateListener,
+                    domHandlers,
+                ],
+            }),
+            parent: host,
+        })
+
+        return activeView
     }
 
     function getShortcutRows() {
@@ -615,12 +755,14 @@
         if (input.dataset.notesShortcutsBound === 'true') return
 
         const helpModalApi = wireHelpModal()
-        initEasyMDE({
+        initCM6({
             input,
             titleInput: options?.titleInput,
             onEditorPaste: options?.onEditorPaste,
             onEditorInput: options?.onEditorInput,
             onEditorBlur: options?.onEditorBlur,
+        }).catch((err) => {
+            console.error('Failed to load CodeMirror 6 editor', err)
         })
 
         const enableCustomShortcuts = options?.enableCustomShortcuts === true
@@ -674,6 +816,6 @@
         focus: focusEditor,
         getCursor: getEditorCursorState,
         insertAtCursor: insertTextAtCursor,
-        getInstance: () => activeEasyMDE,
+        getInstance: () => activeView,
     }
 })(window)
