@@ -1638,6 +1638,16 @@
                 .replace(/'/g, '&#39;')
         }
 
+        // Escaping the whole markdown source before marked.parse() (instead of only literal
+        // raw-HTML tokens) double-escapes fenced/inline code content, since marked also
+        // escapes code text itself — e.g. "<!DOCTYPE html>" ends up rendered as the literal
+        // text "&lt;!DOCTYPE html". Only neutralize marked's own `html` tokens instead.
+        function createSafeMarkedRenderer() {
+            const renderer = new marked.Renderer()
+            renderer.html = (token) => escapeHtml(token?.text ?? token?.raw ?? '')
+            return renderer
+        }
+
         function isNotesPollingDebugEnabled() {
             return localStorage.getItem('d11_notes_poll_debug') === '1'
         }
@@ -1819,14 +1829,13 @@
 
         function buildNotePreviewFragment(content) {
             const source = String(content || '')
-            const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
             if (typeof marked === 'undefined' || typeof marked.parse !== 'function') {
                 const fallback = document.createElement('div')
                 fallback.textContent = source.trim() || 'No preview available.'
                 return fallback
             }
 
-            const rendered = marked.parse(safeSource, { gfm: true, breaks: true })
+            const rendered = marked.parse(source, { gfm: true, breaks: true, renderer: createSafeMarkedRenderer() })
             const template = document.createElement('template')
             template.innerHTML = rendered
 
@@ -2543,8 +2552,7 @@
             }
 
             if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                const safeSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                const rendered = marked.parse(safeSource, { gfm: true, breaks: true })
+                const rendered = marked.parse(source, { gfm: true, breaks: true, renderer: createSafeMarkedRenderer() })
 
                 const template = document.createElement('template')
                 template.innerHTML = rendered
