@@ -1942,8 +1942,8 @@ app.get('/settings', (c) => c.html(settingsHtml as string))
 
 // ─── Public blog pages ───────────────────────────────────────────────────────
 const BLOG_OG_DEFAULTS = {
-  title: 'Lumin Blog',
-  desc: 'Notes and thoughts from d11.me',
+  title: 'Local Tinkerer',
+  desc: 'Experimenting with tech, art, and life.',
 }
 // Fallback share-card image (1200x630 banner) used whenever a post has no image attachment.
 const BLOG_OG_DEFAULT_IMAGE = 'https://cdn.d11cloud.com/brand/og-default.png'
@@ -1976,7 +1976,7 @@ app.get('/blog', (c) => {
 // Static route registered before the /:slug param route below so "archive" isn't treated as a post slug.
 app.get('/blog/archive', (c) => {
   const url = new URL('/blog/archive', c.req.url).toString()
-  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — Lumin Blog', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
+  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — Local Tinkerer', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
 })
 
 app.get('/blog/:slug', async (c) => {

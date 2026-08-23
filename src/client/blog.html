@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%%OG_TITLE%% — Lumin</title>
+    <title>%%OG_TITLE%%</title>
     <meta name="title" content="%%OG_TITLE%%">
     <meta name="description" content="%%OG_DESC%%">
     <link rel="canonical" href="%%OG_URL%%">
 
     <!-- Open Graph / Facebook / iMessage / Slack -->
     <meta property="og:type" content="article">
-    <meta property="og:site_name" content="Lumin Blog">
+    <meta property="og:site_name" content="Local Tinkerer">
     <meta property="og:title" content="%%OG_TITLE%%">
     <meta property="og:description" content="%%OG_DESC%%">
     <meta property="og:url" content="%%OG_URL%%">
@@ -26,7 +26,7 @@
     <meta name="twitter:description" content="%%OG_DESC%%">
     <meta name="twitter:image" content="%%OG_IMAGE%%">
 
-    <link rel="alternate" type="application/rss+xml" title="Lumin Blog Feed" href="/rss.xml">
+    <link rel="alternate" type="application/rss+xml" title="Local Tinkerer Feed" href="/rss.xml">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/vendor/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js"></script>
@@ -202,11 +202,11 @@
         <div class="max-w-3xl mx-auto px-4 pt-4 pb-8">
             <div class="flex items-center gap-5">
                 <a href="/start" class="flex-shrink-0">
-                    <img src="/lumin_navbar_650.jpeg" alt="Lumin" class="h-20 w-auto">
+                    <img src="/local_tinkerer_logo.jpg" alt="Local Tinkerer" class="h-20 w-auto">
                 </a>
                 <a href="/blog" class="leading-tight" data-internal-link>
-                    <span class="block font-bold text-4xl text-g-black">Lumin</span>
-                    <span class="block text-lg text-g-gray">Tech is way, WAY interesting</span>
+                    <span class="block font-bold text-4xl text-g-black">Local Tinkerer</span>
+                    <span class="block text-lg text-g-gray">Experimenting with tech, art, and life.</span>
                 </a>
             </div>
         </div>
@@ -429,7 +429,7 @@
             app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
             try {
                 const { data: post, meta } = await fetchJson(`/api/blog/${encodeURIComponent(slug)}`)
-                document.title = `${post.title} — Lumin`
+                document.title = `${post.title} - Local Tinkerer`
 
                 app.innerHTML = `
                     <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
@@ -523,3 +523,4 @@
 </body>
 
 </html>
+<title>Local Tinkerer</title>
