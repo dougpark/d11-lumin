@@ -1947,7 +1947,7 @@ const BLOG_OG_DEFAULTS = {
   desc: 'Experimenting with tech, art, and life.',
 }
 // Fallback share-card image (1200x630 banner) used whenever a post has no image attachment.
-const BLOG_OG_DEFAULT_IMAGE = 'https://cdn.d11cloud.com/brand/og-default.png'
+const BLOG_OG_DEFAULT_IMAGE = 'https://cdn.d11cloud.com/brand/og-default-2.jpg'
 
 function injectBlogOg(
   html: string,
