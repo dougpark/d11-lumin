@@ -66,6 +66,10 @@ zone_name = "d11.me"
 pattern = "blog.d11cloud.com"
 custom_domain = true
 
+[[routes]]
+pattern = "localtinkerer.com"
+custom_domain = true
+
 # ─── Module rules: import HTML files as raw text strings ─────────────────────
 [[rules]]
 type = "Text"
