@@ -2,6 +2,14 @@
 <html lang="en">
 
 <head>
+    <script>
+        // Set the theme class before first paint to avoid a light-mode flash.
+        (function () {
+            const stored = localStorage.getItem('theme')
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+            if (stored ? stored === 'dark' : prefersDark) document.documentElement.classList.add('dark')
+        })()
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>%%OG_TITLE%%</title>
@@ -35,18 +43,23 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/vendor/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/styles/github.min.css">
+    <link id="hljs-theme-light" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/styles/github.min.css">
+    <link id="hljs-theme-dark" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/styles/github-dark.min.css" disabled>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        'g-blue': '#5b7083',
-                        'g-blue-hover': '#475868',
-                        'g-blue-bg': '#e8eef3',
-                        'g-black': '#1F1F1F',
-                        'g-gray': '#474747',
-                        'g-border': '#E3E3E3',
+                        'g-blue': 'var(--accent-blue)',
+                        'g-blue-hover': 'var(--accent-blue-hover)',
+                        'g-blue-bg': 'var(--accent-blue-bg)',
+                        'g-black': 'var(--text-primary)',
+                        'g-gray': 'var(--text-secondary)',
+                        'g-border': 'var(--border-color)',
+                        'g-bg': 'var(--bg-primary)',
                     },
                 },
             },
@@ -57,10 +70,49 @@
             --accent-blue: #5b7083;
             --accent-blue-hover: #475868;
             --accent-blue-bg: #e8eef3;
+            --bg-primary: #ffffff;
+            --bg-secondary: #F3F4F6;
+            --text-primary: #1F1F1F;
+            --text-secondary: #474747;
+            --border-color: #E3E3E3;
+            --code-bg: #F3F4F6;
+            --code-text: #1F1F1F;
+            --blockquote-border: #0066cc;
+            --blockquote-bg: #f9f9f9;
+            --post-date-color: #64748b;
+            --input-border: #cbd5e1;
+            --input-bg: #f8fafc;
+            --input-bg-focus: #ffffff;
+            --input-shadow: rgba(91, 112, 131, 0.15);
+            --banner-dot-color: rgba(91, 112, 131, 0.35);
+        }
+
+        html.dark {
+            --accent-blue: #0096FF;
+            --accent-blue-hover: #00BCD4;
+            --accent-blue-bg: #1E1E1E;
+            --bg-primary: #121212;
+            --bg-secondary: #1E1E1E;
+            --text-primary: #DCDCDC;
+            --text-secondary: rgba(220, 220, 220, 0.7);
+            --border-color: #1E1E1E;
+            --code-bg: #1E1E1E;
+            --code-text: #DCDCDC;
+            --blockquote-border: #00BCD4;
+            --blockquote-bg: #1E1E1E;
+            --post-date-color: rgba(220, 220, 220, 0.6);
+            --input-border: #333333;
+            --input-bg: #1E1E1E;
+            --input-bg-focus: #262626;
+            --input-shadow: rgba(0, 150, 255, 0.25);
+            --banner-dot-color: rgba(0, 150, 255, 0.35);
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         .blog-body img {
@@ -88,15 +140,16 @@
         }
 
         .blog-body pre {
-            background: #F3F4F6;
-            color: #1F1F1F;
+            background: var(--code-bg);
+            color: var(--code-text);
             padding: 1rem;
             border-radius: 10px;
             overflow-x: auto;
         }
 
         .blog-body code {
-            background: #F3F4F6;
+            background: var(--code-bg);
+            color: var(--code-text);
             padding: 0.1rem 0.35rem;
             border-radius: 6px;
         }
@@ -111,10 +164,10 @@
         }
 
         .blog-body blockquote {
-            border-left: 4px solid #0066cc;
+            border-left: 4px solid var(--blockquote-border);
             margin: 1.5em 0;
             padding: 0.5em 1em;
-            background-color: #f9f9f9;
+            background-color: var(--blockquote-bg);
             font-style: italic;
         }
 
@@ -153,7 +206,7 @@
 
         .post-date {
             font-size: 0.8rem;
-            color: #64748b;
+            color: var(--post-date-color);
             margin: 0.2rem 0 0.85rem;
         }
 
@@ -161,17 +214,18 @@
             width: 100%;
             padding: 0.65rem 1rem;
             border-radius: 8px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--input-border);
             font-size: 0.95rem;
-            background-color: #f8fafc;
+            background-color: var(--input-bg);
+            color: var(--text-primary);
             outline: none;
             transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .search-input:focus {
-            background-color: #ffffff;
+            background-color: var(--input-bg-focus);
             border-color: var(--accent-blue);
-            box-shadow: 0 0 0 3px rgba(91, 112, 131, 0.15);
+            box-shadow: 0 0 0 3px var(--input-shadow);
         }
 
         .post-nav-prev,
@@ -192,13 +246,13 @@
            a plugin like tailwindcss-hero-patterns with a plain CSS equivalent). */
         .post-banner {
             background-color: var(--accent-blue-bg);
-            background-image: radial-gradient(rgba(91, 112, 131, 0.35) 1px, transparent 1px);
+            background-image: radial-gradient(var(--banner-dot-color) 1px, transparent 1px);
             background-size: 16px 16px;
         }
     </style>
 </head>
 
-<body class="bg-white text-g-black">
+<body>
 
     <header>
         <nav class="max-w-3xl mx-auto px-4 pt-4 flex items-center justify-end gap-4 text-sm text-g-gray">
@@ -211,6 +265,18 @@
             </button>
             <a href="/blog/archive" data-internal-link class="hover:text-g-blue-hover">Archive</a>
             <a href="/rss.xml" class="hover:text-g-blue-hover">RSS</a>
+            <button type="button" id="theme-toggle" aria-label="Toggle dark mode" class="hover:text-g-blue-hover">
+                <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 3v1.5m0 15V21m9-9h-1.5m-15 0H3m15.364-6.364l-1.06 1.06M6.697 17.303l-1.06 1.06m12.727 0l-1.06-1.06M6.697 6.697l-1.06-1.06M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                </svg>
+                <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 1020.354 15.354z" />
+                </svg>
+            </button>
         </nav>
         <div class="max-w-3xl mx-auto px-4 pt-4 pb-8">
             <div class="flex items-center gap-5">
@@ -237,6 +303,22 @@
         const app = document.getElementById('app')
         const state = { posts: null, tag: '', q: '', searchOpen: false }
         const defaultTitle = document.title
+
+        // Sun/moon toggle: flips the `dark` class (drives CSS vars + the hljs stylesheet swap) and persists the choice.
+        function applyTheme(isDark) {
+            document.getElementById('theme-icon-sun').classList.toggle('hidden', !isDark)
+            document.getElementById('theme-icon-moon').classList.toggle('hidden', isDark)
+            document.getElementById('hljs-theme-dark').disabled = !isDark
+            document.getElementById('hljs-theme-light').disabled = isDark
+        }
+
+        applyTheme(document.documentElement.classList.contains('dark'))
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark')
+            localStorage.setItem('theme', isDark ? 'dark' : 'light')
+            applyTheme(isDark)
+        })
 
         document.getElementById('search-toggle').addEventListener('click', () => {
             state.searchOpen = !state.searchOpen
@@ -323,7 +405,7 @@
             const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'
             return `
                 <button type="button" data-copy-slug="${esc(slug)}" title="Copy link" aria-label="Copy link"
-                    class="inline-flex items-center justify-center ${btnSize} rounded-full text-g-gray hover:text-g-blue-hover hover:bg-black/5 transition-colors">
+                    class="inline-flex items-center justify-center ${btnSize} rounded-full text-g-gray hover:text-g-blue-hover hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
                     <svg data-icon="link" xmlns="http://www.w3.org/2000/svg" class="${iconSize}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
@@ -350,7 +432,7 @@
                         <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
                             class="search-input">
                     </div>
-                    <div class="border-b-2 border-dotted border-slate-200 mb-5"></div>
+                    <div class="border-b-2 border-dotted border-g-border mb-5"></div>
                     <div id="blog-results"><p class="text-sm text-g-gray">Loading…</p></div>
                 `
 
@@ -452,7 +534,7 @@
                             <h1 class="text-2xl font-bold">${esc(post.title || 'Untitled')}</h1>
                             <p class="text-xs text-g-gray mt-1">${formatDate(post.published_at)}</p>
                             <div class="flex flex-wrap items-center gap-2 mt-3">
-                                ${post.tags.map((t) => `<button type="button" data-post-tag="${esc(t)}" class="text-xs px-3 py-1 rounded-full border border-g-border bg-white text-g-gray shadow-sm hover:border-g-blue-hover hover:text-g-blue-hover">${esc(t)}</button>`).join('')}
+                                ${post.tags.map((t) => `<button type="button" data-post-tag="${esc(t)}" class="text-xs px-3 py-1 rounded-full border border-g-border bg-g-bg text-g-gray shadow-sm hover:border-g-blue-hover hover:text-g-blue-hover">${esc(t)}</button>`).join('')}
                                 ${renderCopyLinkButton(slug)}
                             </div>
                         </div>
@@ -490,7 +572,7 @@
             const toast = document.createElement('div')
             toast.id = 'copy-toast'
             toast.textContent = message
-            toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-g-black text-white text-sm px-4 py-2 rounded-full shadow-lg z-50 opacity-0 transition-opacity duration-200'
+            toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-neutral-800 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50 opacity-0 transition-opacity duration-200'
             document.body.appendChild(toast)
             requestAnimationFrame(() => toast.classList.remove('opacity-0'))
             setTimeout(() => {
