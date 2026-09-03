@@ -603,3 +603,12 @@ CREATE TRIGGER IF NOT EXISTS notes_fts_au
     INSERT INTO notes_fts(rowid, content, tag_list, ai_tags, ai_summary)
     VALUES (new.note_id, new.content, new.tag_list, new.ai_tags, new.ai_summary);
   END;
+
+
+-- September 2, 2026 - Cloudflare stopped d1 due to over use
+-- added new indexes to improve query performance
+-- Fixes the 4.74M row scan query
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_url ON bookmarks(user_id, url);
+
+-- Fixes the 607k row scan query
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);
