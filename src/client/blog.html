@@ -20,11 +20,11 @@
     <link rel="icon" type="image/svg+xml" href="/tinkerer/favicon.svg" />
     <link rel="shortcut icon" href="/tinkerer/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/tinkerer/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="Local Tinkerer" />
+    <meta name="apple-mobile-web-app-title" content="The Analog Pixel" />
     <link rel="manifest" href="/tinkerer/site.webmanifest" />
     <!-- Open Graph / Facebook / iMessage / Slack -->
     <meta property="og:type" content="article">
-    <meta property="og:site_name" content="Local Tinkerer">
+    <meta property="og:site_name" content="The Analog Pixel">
     <meta property="og:title" content="%%OG_TITLE%%">
     <meta property="og:description" content="%%OG_DESC%%">
     <meta property="og:url" content="%%OG_URL%%">
@@ -39,7 +39,7 @@
     <meta name="twitter:description" content="%%OG_DESC%%">
     <meta name="twitter:image" content="%%OG_IMAGE%%">
 
-    <link rel="alternate" type="application/rss+xml" title="Local Tinkerer Feed" href="/rss.xml">
+    <link rel="alternate" type="application/rss+xml" title="The Analog Pixel Feed" href="/rss.xml">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/vendor/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js"></script>
@@ -281,11 +281,11 @@
         <div class="max-w-3xl mx-auto px-4 pt-4 pb-8">
             <div class="flex items-center gap-5">
                 <a href="/start" class="flex-shrink-0">
-                    <img src="/TLT_Neon_glowing_logo.jpeg" alt="Local Tinkerer" class="h-20 w-auto">
+                    <img src="/TLT_Neon_glowing_logo.jpeg" alt="The Analog Pixel" class="h-20 w-auto">
                 </a>
                 <a href="/blog" class="leading-tight" data-internal-link>
-                    <span class="block font-bold text-4xl text-g-black">Local Tinkerer</span>
-                    <span class="block text-lg text-g-gray">Experimenting with tech, art, and life.</span>
+                    <span class="block font-bold text-4xl text-g-black">The Analog Pixel</span>
+                    <span class="block text-lg text-g-gray">Exploring Tech, Art and Life.</span>
                 </a>
             </div>
         </div>
@@ -294,7 +294,7 @@
     <main id="app" class="max-w-3xl mx-auto px-4 py-8 min-h-[60vh]"></main>
 
     <footer class="border-t border-g-border mt-12">
-        <p class="max-w-3xl mx-auto px-4 py-6 text-xs text-g-gray text-center">&copy; 2026 localtinkerer.com &bull;
+        <p class="max-w-3xl mx-auto px-4 py-6 text-xs text-g-gray text-center">&copy; 2026 theanalogpixel.com &bull;
             Powered by
             Lumin &amp; Cloudflare Workers</p>
     </footer>
@@ -525,7 +525,7 @@
             app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
             try {
                 const { data: post, meta } = await fetchJson(`/api/blog/${encodeURIComponent(slug)}`)
-                document.title = `${post.title} - Local Tinkerer`
+                document.title = `${post.title} - The Analog Pixel`
 
                 app.innerHTML = `
                     <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
@@ -619,4 +619,4 @@
 </body>
 
 </html>
-<title>Local Tinkerer</title>
+<title>The Analog Pixel</title>

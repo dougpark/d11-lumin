@@ -158,13 +158,13 @@ app.use('*', async (c, next) => {
 })
 
 // ─── blog.d11cloud.com isolation ──────────────────────────────────────────────
-// blog.d11cloud.com (and localtinkerer.com, an alias pointed at the same blog)
+// blog.d11cloud.com (and localtinkerer.com, theanalogpixel.com, an alias pointed at the same blog)
 // are public-facing domains dedicated to the blog. All blog routes already
 // live at /blog, /api/blog*, and /rss.xml (shared with d11.me), so no route
 // changes are needed there — this just blocks every other route (auth,
 // bookmark app, notes, drive, admin, etc.) from being reachable on these
 // hosts, and sends bare "/" to "/blog".
-const BLOG_HOSTS = new Set(['blog.d11cloud.com', 'localtinkerer.com', 'www.localtinkerer.com'])
+const BLOG_HOSTS = new Set(['blog.d11cloud.com', 'localtinkerer.com', 'www.localtinkerer.com', 'theanalogpixel.com', 'www.theanalogpixel.com'])
 const BLOG_ALLOWED_PATH = /^\/(blog(\/.*)?|rss\.xml|api\/blog(\.json|\/.*)?)$/
 
 app.use('*', async (c, next) => {
@@ -1943,8 +1943,8 @@ app.get('/settings', (c) => c.html(settingsHtml as string))
 
 // ─── Public blog pages ───────────────────────────────────────────────────────
 const BLOG_OG_DEFAULTS = {
-  title: 'Local Tinkerer',
-  desc: 'Experimenting with tech, art, and life.',
+  title: 'The Analog Pixel',
+  desc: 'Exploring Tech, Art and Life',
 }
 // Fallback share-card image (1200x630 banner) used whenever a post has no image attachment.
 const BLOG_OG_DEFAULT_IMAGE = 'https://cdn.d11cloud.com/brand/og-default-2.jpg'
@@ -1977,7 +1977,7 @@ app.get('/blog', (c) => {
 // Static route registered before the /:slug param route below so "archive" isn't treated as a post slug.
 app.get('/blog/archive', (c) => {
   const url = new URL('/blog/archive', c.req.url).toString()
-  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — Local Tinkerer', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
+  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — The Analog Pixel', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
 })
 
 app.get('/blog/:slug', async (c) => {
