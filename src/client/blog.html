@@ -116,6 +116,27 @@
             transition: background-color 0.2s ease, color 0.2s ease;
         }
 
+        /* Home-list clamp: ~800px ≈ 300-350 words of prose. Fade + "Read more" appear only when content overflows. */
+        .blog-body.is-clamped {
+            max-height: 800px;
+            overflow: hidden;
+            position: relative;
+            -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 96px), transparent);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - 96px), transparent);
+        }
+
+        .read-more {
+            display: inline-block;
+            margin-top: 0.5rem;
+            font-weight: 500;
+            color: var(--accent-blue);
+        }
+
+        .read-more:hover {
+            color: var(--accent-blue-hover);
+            text-decoration: underline;
+        }
+
         .blog-body img {
             display: block;
             max-width: 100%;
@@ -456,10 +477,24 @@
                             ${renderPostTags(post.tags, state.tag)}
                             ${renderCopyLinkButton(post.slug, 'sm')}
                         </div>
-                        <div class="blog-body mt-2">${renderMarkdown(post.content || '')}</div>
+                        <div class="blog-body is-clamped mt-2" data-clamp>${renderMarkdown(post.content || '')}</div>
+                        <a href="/blog/${esc(post.slug)}" data-post-link class="read-more hidden">Read more →</a>
                     </article>
                 `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
             `
+
+            // Only clamp posts that actually overflow; re-check once images load since they change height.
+            const applyClamp = (body) => {
+                const link = body.nextElementSibling
+                const overflows = body.scrollHeight > 800
+                body.classList.toggle('is-clamped', overflows)
+                link.classList.toggle('hidden', !overflows)
+            }
+            document.querySelectorAll('[data-clamp]').forEach((body) => {
+                body.classList.remove('is-clamped')
+                applyClamp(body)
+                body.querySelectorAll('img').forEach((img) => img.addEventListener('load', () => applyClamp(body)))
+            })
 
             app.querySelectorAll('[data-tag]').forEach((btn) => {
                 btn.addEventListener('click', () => {
