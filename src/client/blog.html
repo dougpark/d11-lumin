@@ -138,6 +138,50 @@
         }
 
         .blog-body img {
+            cursor: zoom-in;
+        }
+
+        #lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            background: rgba(0, 0, 0, 0.92);
+            cursor: zoom-out;
+            overscroll-behavior: contain;
+            touch-action: none;
+        }
+
+        #lightbox.open {
+            display: flex;
+        }
+
+        #lightbox img {
+            max-width: 100vw;
+            max-height: 100vh;
+            max-height: 100dvh;
+            object-fit: contain;
+        }
+
+        #lightbox button {
+            position: absolute;
+            top: calc(env(safe-area-inset-top) + 12px);
+            right: 12px;
+            width: 44px;
+            height: 44px;
+            border-radius: 9999px;
+            border: 0;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .blog-body img {
             display: block;
             max-width: 100%;
             border-radius: 12px;
@@ -388,7 +432,11 @@
         function renderMarkdown(md) {
             if (!md) return ''
             if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return `<p>${esc(md)}</p>`
-            try { return marked.parse(md, { breaks: true, gfm: true, renderer: markedRenderer || undefined }) }
+            try {
+                const html = marked.parse(md, { breaks: true, gfm: true, renderer: markedRenderer || undefined })
+                // `![alt](url){width=300}` → marked leaves the `{…}` as text right after the <img>; fold it into a width attribute.
+                return html.replace(/(<img\b[^>]*?)\s*\/?>\{width=(\d{1,4})(px)?\}/g, '$1 width="$2">')
+            }
             catch { return `<p>${esc(md)}</p>` }
         }
 
@@ -406,6 +454,35 @@
         })
 
         window.addEventListener('popstate', route)
+
+        // Lightbox: delegated so it covers images in every rendered post. Dismiss via tap anywhere, ✕, or Esc.
+        const lightbox = document.createElement('div')
+        lightbox.id = 'lightbox'
+        lightbox.setAttribute('role', 'dialog')
+        lightbox.setAttribute('aria-modal', 'true')
+        lightbox.innerHTML = '<img alt=""><button type="button" aria-label="Close image">&times;</button>'
+        document.body.appendChild(lightbox)
+        const lightboxImg = lightbox.querySelector('img')
+
+        function closeLightbox() {
+            lightbox.classList.remove('open')
+            lightboxImg.removeAttribute('src')
+            document.body.style.overflow = ''
+        }
+
+        lightbox.addEventListener('click', closeLightbox)
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox() })
+
+        document.addEventListener('click', (event) => {
+            const img = event.target.closest('.blog-body img')
+            if (!img) return
+            event.preventDefault()
+            event.stopPropagation()
+            lightboxImg.src = img.currentSrc || img.src
+            lightboxImg.alt = img.alt || ''
+            lightbox.classList.add('open')
+            document.body.style.overflow = 'hidden'
+        }, true)
 
         async function fetchJson(url) {
             const res = await fetch(url)
