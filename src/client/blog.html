@@ -164,6 +164,11 @@
             max-height: 100vh;
             max-height: 100dvh;
             object-fit: contain;
+            transform-origin: center center;
+            will-change: transform;
+            user-select: none;
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
         }
 
         #lightbox button {
@@ -464,13 +469,114 @@
         document.body.appendChild(lightbox)
         const lightboxImg = lightbox.querySelector('img')
 
+        // Zoom/pan state. Transform origin is the image centre, so tx/ty are offsets from centre.
+        const zoom = { s: 1, tx: 0, ty: 0 }
+        const MAX_ZOOM = 6
+        const pointers = new Map()
+        let gesture = null // snapshot taken when the pointer count changes
+        let moved = false
+
+        function applyZoom() {
+            lightboxImg.style.transform = `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.s})`
+        }
+
+        function resetZoom() {
+            zoom.s = 1; zoom.tx = 0; zoom.ty = 0
+            applyZoom()
+        }
+
         function closeLightbox() {
             lightbox.classList.remove('open')
             lightboxImg.removeAttribute('src')
             document.body.style.overflow = ''
+            pointers.clear()
+            gesture = null
+            resetZoom()
         }
 
-        lightbox.addEventListener('click', closeLightbox)
+        // Coordinates relative to the viewport centre.
+        function centred(x, y) {
+            return { x: x - window.innerWidth / 2, y: y - window.innerHeight / 2 }
+        }
+
+        function startGesture() {
+            const pts = [...pointers.values()]
+            if (!pts.length) { gesture = null; return }
+            const mid = centred(pts.reduce((a, p) => a + p.x, 0) / pts.length, pts.reduce((a, p) => a + p.y, 0) / pts.length)
+            const dist = pts.length > 1 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0
+            gesture = { mid, dist, s: zoom.s, tx: zoom.tx, ty: zoom.ty, count: pts.length }
+        }
+
+        // Zoom about a viewport point so the content under it stays put.
+        function zoomAt(mid, newScale, base) {
+            const s = Math.min(MAX_ZOOM, Math.max(1, newScale))
+            const ix = (mid.x - base.tx) / base.s
+            const iy = (mid.y - base.ty) / base.s
+            zoom.s = s
+            zoom.tx = mid.x - ix * s
+            zoom.ty = mid.y - iy * s
+        }
+
+        lightbox.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('button')) return
+            lightbox.setPointerCapture(e.pointerId)
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (pointers.size === 1) moved = false
+            startGesture()
+        })
+
+        lightbox.addEventListener('pointermove', (e) => {
+            if (!pointers.has(e.pointerId) || !gesture) return
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            const pts = [...pointers.values()]
+            const mid = centred(pts.reduce((a, p) => a + p.x, 0) / pts.length, pts.reduce((a, p) => a + p.y, 0) / pts.length)
+            if (pts.length >= 2 && gesture.dist > 0) {
+                moved = true
+                const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+                zoomAt(gesture.mid, gesture.s * dist / gesture.dist, gesture)
+                zoom.tx += mid.x - gesture.mid.x
+                zoom.ty += mid.y - gesture.mid.y
+                applyZoom()
+            } else if (pts.length === 1) {
+                const dx = mid.x - gesture.mid.x
+                const dy = mid.y - gesture.mid.y
+                if (Math.hypot(dx, dy) > 8) moved = true
+                if (moved && zoom.s > 1) {
+                    zoom.tx = gesture.tx + dx
+                    zoom.ty = gesture.ty + dy
+                    applyZoom()
+                }
+            }
+        })
+
+        function endPointer(e) {
+            if (!pointers.has(e.pointerId)) return
+            const wasSingle = pointers.size === 1
+            pointers.delete(e.pointerId)
+            if (zoom.s < 1.05) resetZoom()
+            if (pointers.size) { startGesture(); return }
+            gesture = null
+            // A clean tap closes at 1x; while zoomed it just returns to 1x.
+            if (wasSingle && !moved && e.type === 'pointerup') {
+                if (zoom.s > 1) resetZoom()
+                else closeLightbox()
+            }
+        }
+
+        lightbox.addEventListener('pointerup', endPointer)
+        lightbox.addEventListener('pointercancel', endPointer)
+        lightbox.addEventListener('click', (e) => e.stopPropagation())
+        lightbox.querySelector('button').addEventListener('click', closeLightbox)
+
+        // Desktop: wheel / trackpad pinch (ctrl+wheel) zooms about the cursor.
+        lightbox.addEventListener('wheel', (e) => {
+            e.preventDefault()
+            const base = { s: zoom.s, tx: zoom.tx, ty: zoom.ty }
+            zoomAt(centred(e.clientX, e.clientY), zoom.s * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)), base)
+            if (zoom.s < 1.05) resetZoom()
+            else applyZoom()
+        }, { passive: false })
+
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox() })
 
         document.addEventListener('click', (event) => {
