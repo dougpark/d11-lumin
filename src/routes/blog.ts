@@ -4,25 +4,34 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../index.ts'
 import type { Attachment } from '../db/types.ts'
-import { getAdjacentBlogPosts, getBlogPostBySlug, listAllBlogTags, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPosts } from '../db/blog.ts'
+import { getAdjacentBlogPosts, getBlogPostBySlug, listAllBlogTags, listBlogArchive, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPosts } from '../db/blog.ts'
 import { generateExcerpt } from '../utils/slug.ts'
 
 const blog = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 const LIST_CACHE_CONTROL = 'public, max-age=300, s-maxage=300'
 
+// Full posts per page on the blog home page (/blog, /blog/page/2, …).
+export const BLOG_PAGE_SIZE = 10
+
 // Falls back to the first 500 chars of the (markdown-stripped) post body when no excerpt is set.
 function resolveExcerpt(excerpt: string, content: string): string {
     return excerpt.trim() || generateExcerpt(content, 500)
 }
 
+// ?page=N returns BLOG_PAGE_SIZE posts plus meta.has_more; without it, ?limit (max 50) keeps the old behaviour.
 blog.get('/blog.json', async (c) => {
     const tag = c.req.query('tag')?.trim() || undefined
     const q = c.req.query('q')?.trim() || undefined
+    const pageParam = Number.parseInt(c.req.query('page') ?? '', 10)
+    const page = Number.isInteger(pageParam) && pageParam > 0 ? Math.min(pageParam, 1000) : null
     const limitParam = Number.parseInt(c.req.query('limit') ?? '', 10)
-    const limit = Number.isInteger(limitParam) ? limitParam : undefined
+    const limit = page ? BLOG_PAGE_SIZE + 1 : Number.isInteger(limitParam) ? Math.min(limitParam, 50) : undefined
+    const offset = page ? (page - 1) * BLOG_PAGE_SIZE : 0
 
-    const posts = await listBlogPosts(c.env.DB, { tag, q, limit })
+    const rows = await listBlogPosts(c.env.DB, { tag, q, limit, offset })
+    const hasMore = page !== null && rows.length > BLOG_PAGE_SIZE
+    const posts = page ? rows.slice(0, BLOG_PAGE_SIZE) : rows
     const attachmentsByNoteId = await listBlogAttachmentsForNotes(c.env.DB, posts.map((post) => post.note_id))
     c.header('Cache-Control', LIST_CACHE_CONTROL)
     return c.json({
@@ -35,7 +44,17 @@ blog.get('/blog.json', async (c) => {
             tags: JSON.parse(post.tag_list || '[]'),
             published_at: post.published_at,
         })),
+        meta: page ? { page, page_size: BLOG_PAGE_SIZE, has_more: hasMore } : undefined,
     })
+})
+
+// Every matching post, title/slug/date only — powers the year-grouped archive page.
+blog.get('/blog/archive.json', async (c) => {
+    const tag = c.req.query('tag')?.trim() || undefined
+    const q = c.req.query('q')?.trim() || undefined
+    const posts = await listBlogArchive(c.env.DB, { tag, q })
+    c.header('Cache-Control', LIST_CACHE_CONTROL)
+    return c.json({ data: posts })
 })
 
 blog.get('/blog/tags', async (c) => {

@@ -449,6 +449,7 @@
         function navigate(path, { replace = false } = {}) {
             if (replace) history.replaceState({}, '', path)
             else history.pushState({}, '', path)
+            window.scrollTo(0, 0)
             route()
         }
 
@@ -628,8 +629,25 @@
             })
         }
 
-        async function renderList() {
-            document.title = defaultTitle
+        function listQuery(extra = {}) {
+            const params = new URLSearchParams(extra)
+            if (state.q) params.set('q', state.q)
+            if (state.tag) params.set('tag', state.tag)
+            const qs = params.toString()
+            return qs ? `?${qs}` : ''
+        }
+
+        // Search/tag changes always restart at page 1 (/blog).
+        function resetToFirstPage() {
+            if (location.pathname !== '/blog') history.replaceState({}, '', '/blog')
+        }
+
+        function pageHref(page) {
+            return page <= 1 ? '/blog' : `/blog/page/${page}`
+        }
+
+        async function renderList(page = 1) {
+            document.title = page > 1 ? `Page ${page} — ${defaultTitle}` : defaultTitle
 
             const isFirstRender = !document.getElementById('blog-search')
             if (isFirstRender) {
@@ -644,11 +662,13 @@
 
                 document.getElementById('blog-search').addEventListener('input', debounce((event) => {
                     state.q = event.target.value.trim()
+                    resetToFirstPage()
                     renderList()
                 }, 300))
             }
 
-            const { data: posts } = await fetchJson(`/api/blog.json${state.q ? `?q=${encodeURIComponent(state.q)}` : ''}${state.tag ? `${state.q ? '&' : '?'}tag=${encodeURIComponent(state.tag)}` : ''}`)
+            const { data: posts, meta } = await fetchJson(`/api/blog.json${listQuery({ page })}`)
+            const hasMore = !!meta?.has_more
 
             document.getElementById('blog-results').innerHTML = `
                 ${posts.length ? posts.map((post) => `
@@ -664,7 +684,14 @@
                         <div class="blog-body is-clamped mt-2" data-clamp>${renderMarkdown(post.content || '')}</div>
                         <a href="/blog/${esc(post.slug)}" data-post-link class="read-more hidden">Read more →</a>
                     </article>
-                `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
+                `).join('') : `<p class="text-sm text-g-gray">${page > 1 ? `No posts on page ${page}. <a href="/blog" data-internal-link class="text-g-blue hover:underline">Back to the latest posts</a>` : 'No posts yet.'}</p>`}
+                ${page > 1 || hasMore ? `
+                    <nav class="flex items-center justify-between gap-4 mt-8 pt-5 border-t-2 border-dotted border-g-border text-sm" aria-label="Pagination">
+                        ${page > 1 ? `<a href="${pageHref(page - 1)}" data-internal-link rel="prev" class="text-g-blue hover:underline">&larr; Newer posts</a>` : '<span></span>'}
+                        <span class="text-g-gray">Page ${page}</span>
+                        ${hasMore ? `<a href="${pageHref(page + 1)}" data-internal-link rel="next" class="text-g-blue hover:underline">Older posts &rarr;</a>` : '<span></span>'}
+                    </nav>
+                ` : ''}
             `
 
             // Only clamp posts that actually overflow; re-check once images load since they change height.
@@ -684,6 +711,7 @@
                 btn.addEventListener('click', () => {
                     const tag = btn.getAttribute('data-tag')
                     state.tag = state.tag === tag ? '' : tag
+                    resetToFirstPage()
                     renderList()
                 })
             })
@@ -691,7 +719,7 @@
             bindCopyLinkButtons(document.getElementById('blog-results'))
         }
 
-        // Same data/search/tag-filter as renderList(), minus the article body — title/date/tags only.
+        // Every post (title + date only), grouped by year. Honours the same search/tag filter as the home page.
         async function renderArchive() {
             document.title = `Archive — ${defaultTitle}`
 
@@ -713,28 +741,40 @@
                 }, 300))
             }
 
-            const { data: posts } = await fetchJson(`/api/blog.json${state.q ? `?q=${encodeURIComponent(state.q)}` : ''}${state.tag ? `${state.q ? '&' : '?'}tag=${encodeURIComponent(state.tag)}` : ''}`)
+            const { data: posts } = await fetchJson(`/api/blog/archive.json${listQuery()}`)
+
+            const years = []
+            for (const post of posts) {
+                const year = post.published_at ? new Date(post.published_at).getFullYear() : 'Undated'
+                if (years.at(-1)?.year !== year) years.push({ year, posts: [] })
+                years.at(-1).posts.push(post)
+            }
+            const shortDate = (iso) => iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''
 
             document.getElementById('archive-results').innerHTML = `
-                ${posts.length ? posts.map((post) => `
-                    <article class="blog-post-card mb-3">
-                        <a href="/blog/${esc(post.slug)}" data-post-link class="block group">
-                            <h2 class="post-title group-hover:underline">${esc(post.title || 'Untitled')}</h2>
-                        </a>
-                         ${post.excerpt ? `<p class="text-sm text-g-gray truncate mt-1">${esc(post.excerpt)}</p>` : ''}
-                  
-                        <div class="post-date flex items-center gap-2 flex-wrap mb-0">
-                            <span>${formatDate(post.published_at)}</span>
-                            ${renderPostTags(post.tags, state.tag)}
-                        </div>
-                         </article>
-                `).join('') : '<p class="text-sm text-g-gray">No posts yet.</p>'}
+                <p class="text-sm text-g-gray mb-4 flex items-center gap-2 flex-wrap">
+                    <span>${posts.length} post${posts.length === 1 ? '' : 's'}</span>
+                    ${state.tag ? `${renderPostTags([state.tag], state.tag)}` : ''}
+                </p>
+                ${posts.length ? years.map(({ year, posts }) => `
+                    <section class="mb-6">
+                        <h2 class="text-lg font-bold mb-2">${year} <span class="text-sm font-normal text-g-gray">(${posts.length})</span></h2>
+                        <ul class="space-y-1.5">
+                            ${posts.map((post) => `
+                                <li class="flex gap-3 items-baseline">
+                                    <span class="post-date shrink-0 w-14 tabular-nums">${shortDate(post.published_at)}</span>
+                                    <a href="/blog/${esc(post.slug)}" data-post-link class="hover:underline">${esc(post.title || 'Untitled')}</a>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </section>
+                `).join('') : '<p class="text-sm text-g-gray">No posts found.</p>'}
             `
 
+            // The only tag pill here is the active filter; clicking it clears the filter.
             app.querySelectorAll('[data-tag]').forEach((btn) => {
                 btn.addEventListener('click', () => {
-                    const tag = btn.getAttribute('data-tag')
-                    state.tag = state.tag === tag ? '' : tag
+                    state.tag = ''
                     renderArchive()
                 })
             })
@@ -824,9 +864,12 @@
         function route() {
             const path = window.location.pathname.replace(/\/$/, '') || '/'
             const match = path.match(/^\/blog\/([^/]+)$/)
+            const pageMatch = path.match(/^\/blog\/page\/(\d+)$/)
             const queryPost = new URLSearchParams(window.location.search).get('post')
             if (path === '/blog/archive') {
                 renderArchive()
+            } else if (pageMatch) {
+                renderList(Math.max(Number(pageMatch[1]), 1))
             } else if (match) {
                 renderPost(decodeURIComponent(match[1]))
             } else if (queryPost) {

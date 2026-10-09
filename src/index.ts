@@ -1,6 +1,7 @@
 // src/index.ts — Cloudflare Worker entry point (Hono)
 
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { cors } from 'hono/cors'
 import type { User, ApiToken } from './db/types.ts'
 import { authMiddleware } from './middleware/authMiddleware.ts'
@@ -26,8 +27,8 @@ import { extractBearer, hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
-import { getBlogPostBySlug, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPostsForRss, listBlogPostsForSitemap } from './db/blog.ts'
-import { rewriteContentToCdnUrls } from './routes/blog.ts'
+import { getBlogPostBySlug, listBlogArchive, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPosts, listBlogPostsForRss, listBlogPostsForSitemap } from './db/blog.ts'
+import { BLOG_PAGE_SIZE, rewriteContentToCdnUrls } from './routes/blog.ts'
 import { renderMarkdownToHtml } from './utils/markdown.ts'
 import {
   createAttachmentDownloadToken,
@@ -1994,16 +1995,31 @@ function blogCanonical(path: string): string {
   return `${BLOG_PRIMARY_ORIGIN}${path}`
 }
 
-app.get('/blog', async (c) => {
-  const posts = await listBlogPostsForRss(c.env.DB, 20)
+// Shared SSR for /blog (page 1) and /blog/page/:n — mirrors the SPA's paged home list for crawlers.
+async function renderBlogListPage(c: Context<{ Bindings: Env; Variables: Variables }>, page: number) {
+  const rows = await listBlogPosts(c.env.DB, { limit: BLOG_PAGE_SIZE + 1, offset: (page - 1) * BLOG_PAGE_SIZE })
+  const posts = rows.slice(0, BLOG_PAGE_SIZE)
+  const hasMore = rows.length > BLOG_PAGE_SIZE
+  const path = page === 1 ? '/blog' : `/blog/page/${page}`
+  const canonical = blogCanonical(path)
+  if (page > 1 && posts.length === 0) {
+    return c.html(injectBlogOg(blogHtml as string, canonical, { ...BLOG_OG_DEFAULTS, image: BLOG_OG_DEFAULT_IMAGE }), 404)
+  }
+  const pageHref = (n: number) => (n <= 1 ? '/blog' : `/blog/page/${n}`)
+  const title = page === 1 ? BLOG_OG_DEFAULTS.title : `Page ${page} — ${BLOG_OG_DEFAULTS.title}`
   // Crawler-visible list; the SPA replaces #app on load.
-  const ssrHtml = `<h1>${escapeHtmlAttr(BLOG_OG_DEFAULTS.title)}</h1>` + posts.map((post) => `
+  const ssrHtml = `<h1>${escapeHtmlAttr(title)}</h1>` + posts.map((post) => `
     <article>
       <h2><a href="/blog/${escapeHtmlAttr(post.slug ?? '')}">${escapeHtmlAttr(post.title || 'Untitled')}</a></h2>
       <p>${escapeHtmlAttr(post.excerpt || '')}</p>
-    </article>`).join('')
-  return c.html(injectBlogOg(blogHtml as string, blogCanonical('/blog'), {
-    title: BLOG_OG_DEFAULTS.title,
+    </article>`).join('') + `
+    <nav>
+      ${page > 1 ? `<a href="${pageHref(page - 1)}" rel="prev">Newer posts</a>` : ''}
+      ${hasMore ? `<a href="${pageHref(page + 1)}" rel="next">Older posts</a>` : ''}
+      <a href="/blog/archive">Archive</a>
+    </nav>`
+  return c.html(injectBlogOg(blogHtml as string, canonical, {
+    title,
     desc: BLOG_OG_DEFAULTS.desc,
     image: BLOG_OG_DEFAULT_IMAGE,
     jsonLd: {
@@ -2011,15 +2027,36 @@ app.get('/blog', async (c) => {
       '@type': 'Blog',
       name: BLOG_OG_DEFAULTS.title,
       description: BLOG_OG_DEFAULTS.desc,
-      url: blogCanonical('/blog'),
+      url: canonical,
     },
-    ssr: { key: '/blog', html: ssrHtml },
+    ssr: { key: path, html: ssrHtml },
   }))
+}
+
+app.get('/blog', (c) => renderBlogListPage(c, 1))
+
+// Static routes registered before the /:slug param route below so "archive"/"page" aren't treated as post slugs.
+app.get('/blog/page/:n', (c) => {
+  const n = c.req.param('n')
+  if (!/^\d+$/.test(n)) return c.notFound()
+  const page = Number(n)
+  if (page <= 1) return c.redirect('/blog', 301)
+  if (page > 1000) return c.notFound()
+  return renderBlogListPage(c, page)
 })
 
-// Static route registered before the /:slug param route below so "archive" isn't treated as a post slug.
-app.get('/blog/archive', (c) => {
-  return c.html(injectBlogOg(blogHtml as string, blogCanonical('/blog/archive'), { title: 'Archive — The Analog Pixel', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
+app.get('/blog/archive', async (c) => {
+  const posts = await listBlogArchive(c.env.DB)
+  // Crawler-visible full index of every post — strong internal linking for the long tail of old posts.
+  const ssrHtml = `<h1>Archive</h1><ul>` + posts.map((post) => `
+    <li><time datetime="${escapeHtmlAttr(post.published_at ?? '')}">${escapeHtmlAttr((post.published_at ?? '').slice(0, 10))}</time>
+      <a href="/blog/${escapeHtmlAttr(post.slug ?? '')}">${escapeHtmlAttr(post.title || 'Untitled')}</a></li>`).join('') + `</ul>`
+  return c.html(injectBlogOg(blogHtml as string, blogCanonical('/blog/archive'), {
+    title: 'Archive — The Analog Pixel',
+    desc: BLOG_OG_DEFAULTS.desc,
+    image: BLOG_OG_DEFAULT_IMAGE,
+    ssr: { key: '/blog/archive', html: ssrHtml },
+  }))
 })
 
 app.get('/blog/:slug', async (c) => {

@@ -135,7 +135,7 @@ export async function purgeCache(env: Env, keys: string[]): Promise<void> {
 // whenever a note's publish state or published metadata changes, since blog.json/rss.xml
 // are edge-cached (5min/1hr) and would otherwise keep serving stale data until they expire.
 export async function purgeBlogCaches(env: Env, siteUrl: string, slugs: string[] = []): Promise<void> {
-    const urls = [`${siteUrl}/rss.xml`, `${siteUrl}/api/blog.json`, `${siteUrl}/api/blog/tags`, `${siteUrl}/blog`]
+    const urls = [`${siteUrl}/rss.xml`, `${siteUrl}/api/blog.json`, `${siteUrl}/api/blog/tags`, `${siteUrl}/api/blog/archive.json`, `${siteUrl}/blog`, `${siteUrl}/blog/archive`]
     for (const slug of slugs) {
         if (slug) urls.push(`${siteUrl}/blog/${slug}`, `${siteUrl}/api/blog/${slug}`)
     }

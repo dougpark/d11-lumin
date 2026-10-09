@@ -6,11 +6,8 @@ import type { Attachment, Note } from './types.ts'
 
 export type BlogPostSummary = Pick<Note, 'note_id' | 'title' | 'slug' | 'excerpt' | 'tag_list' | 'published_at' | 'content'>
 
-export async function listBlogPosts(
-    db: D1Database,
-    opts: { tag?: string; q?: string; limit?: number } = {},
-): Promise<BlogPostSummary[]> {
-    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 50)
+// Shared tag/search filter for the list and archive queries.
+function blogListFilters(opts: { tag?: string; q?: string }): { where: string; bindings: (string | number)[] } {
     const filters = ['is_blog = 1', 'is_published = 1']
     const bindings: (string | number)[] = []
 
@@ -25,17 +22,46 @@ export async function listBlogPosts(
         bindings.push(like, like)
     }
 
+    return { where: filters.join(' AND '), bindings }
+}
+
+export async function listBlogPosts(
+    db: D1Database,
+    opts: { tag?: string; q?: string; limit?: number; offset?: number } = {},
+): Promise<BlogPostSummary[]> {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 51)
+    const offset = Math.max(opts.offset ?? 0, 0)
+    const { where, bindings } = blogListFilters(opts)
+
     const result = await db
         .prepare(
             `SELECT note_id, title, slug, excerpt, tag_list, published_at, content
              FROM notes
-             WHERE ${filters.join(' AND ')}
+             WHERE ${where}
              ORDER BY published_at DESC
-             LIMIT ?`,
+             LIMIT ? OFFSET ?`,
         )
-        .bind(...bindings, limit)
+        .bind(...bindings, limit, offset)
         .all<BlogPostSummary>()
 
+    return result.results
+}
+
+export type BlogArchiveEntry = Pick<Note, 'title' | 'slug' | 'published_at'>
+
+// Title/date only (no content), so every matching post fits in one small response.
+export async function listBlogArchive(db: D1Database, opts: { tag?: string; q?: string } = {}): Promise<BlogArchiveEntry[]> {
+    const { where, bindings } = blogListFilters(opts)
+    const result = await db
+        .prepare(
+            `SELECT title, slug, published_at
+             FROM notes
+             WHERE ${where}
+             ORDER BY published_at DESC
+             LIMIT 5000`,
+        )
+        .bind(...bindings)
+        .all<BlogArchiveEntry>()
     return result.results
 }
 
