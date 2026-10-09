@@ -31,6 +31,7 @@
     <meta property="og:image" content="%%OG_IMAGE%%">
     <meta property="og:image:alt" content="%%OG_TITLE%%">
     %%OG_PUBLISHED_META%%
+    %%SEO_JSONLD%%
 
     <!-- Twitter / Discord / Messaging Apps (Crucial for Large Images) -->
     <meta name="twitter:card" content="summary_large_image">
@@ -362,7 +363,7 @@
         </div>
     </header>
 
-    <main id="app" class="max-w-3xl mx-auto px-4 py-8 min-h-[60vh]"></main>
+    <main id="app" class="max-w-3xl mx-auto px-4 py-8 min-h-[60vh]" %%SSR_ATTR%%>%%SSR_CONTENT%%</main>
 
     <footer class="border-t border-g-border mt-12">
         <p class="max-w-3xl mx-auto px-4 py-6 text-xs text-g-gray text-center">&copy; 2026 theanalogpixel.com &bull;
@@ -741,7 +742,9 @@
 
 
         async function renderPost(slug) {
-            app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
+            // Keep the server-rendered article visible (no "Loading…" flash) until the SPA version replaces it.
+            if (app.dataset.ssr !== `/blog/${slug}`) app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
+            delete app.dataset.ssr
             try {
                 const { data: post, meta } = await fetchJson(`/api/blog/${encodeURIComponent(slug)}`)
                 document.title = `${post.title} - The Analog Pixel`

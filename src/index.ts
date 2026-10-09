@@ -26,7 +26,7 @@ import { extractBearer, hashToken } from './utils/auth.ts'
 import { getCookie } from 'hono/cookie'
 import { fetchFeed, buildTagList, extractKeywords } from './utils/rss.ts'
 import { renderHeader } from './utils/header.ts'
-import { getBlogPostBySlug, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPostsForRss } from './db/blog.ts'
+import { getBlogPostBySlug, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPostsForRss, listBlogPostsForSitemap } from './db/blog.ts'
 import { rewriteContentToCdnUrls } from './routes/blog.ts'
 import { renderMarkdownToHtml } from './utils/markdown.ts'
 import {
@@ -165,13 +165,20 @@ app.use('*', async (c, next) => {
 // bookmark app, notes, drive, admin, etc.) from being reachable on these
 // hosts, and sends bare "/" to "/blog".
 const BLOG_HOSTS = new Set(['blog.d11cloud.com', 'localtinkerer.com', 'www.localtinkerer.com', 'theanalogpixel.com', 'www.theanalogpixel.com'])
-const BLOG_ALLOWED_PATH = /^\/(blog(\/.*)?|rss\.xml|api\/blog(\.json|\/.*)?)$/
+const BLOG_ALLOWED_PATH = /^\/(blog(\/.*)?|rss\.xml|sitemap\.xml|robots\.txt|api\/blog(\.json|\/.*)?)$/
+// Single canonical host for SEO: every other blog alias 301s here (pages/feeds only; /api stays put).
+const BLOG_PRIMARY_HOST = 'theanalogpixel.com'
+const BLOG_PRIMARY_ORIGIN = `https://${BLOG_PRIMARY_HOST}`
 
 app.use('*', async (c, next) => {
   const host = (c.req.header('host') || '').toLowerCase().split(':')[0]
   if (!BLOG_HOSTS.has(host)) return next()
 
-  const path = new URL(c.req.url).pathname
+  const reqUrl = new URL(c.req.url)
+  const path = reqUrl.pathname
+  if (host !== BLOG_PRIMARY_HOST && (c.req.method === 'GET' || c.req.method === 'HEAD') && !path.startsWith('/api/')) {
+    return c.redirect(`${BLOG_PRIMARY_ORIGIN}${path}${reqUrl.search}`, 301)
+  }
   // "/" and "/start" (the logo link, borrowed from the personal site's header) both land on the blog home.
   if (path === '/' || path === '/start' || path === '/s') return c.redirect('/blog', 302)
   if (!BLOG_ALLOWED_PATH.test(path)) return c.notFound()
@@ -1952,49 +1959,126 @@ const BLOG_OG_DEFAULT_IMAGE = 'https://cdn.d11cloud.com/brand/og-default-3.jpg'
 function injectBlogOg(
   html: string,
   baseUrl: string,
-  og: { title: string; desc: string; image: string; published?: string | null },
+  og: { title: string; desc: string; image: string; published?: string | null; jsonLd?: object | null; ssr?: { key: string; html: string } | null },
 ): string {
   const publishedMeta = og.published
     ? `<meta property="article:published_time" content="${escapeHtmlAttr(og.published)}">`
     : ''
+  // `<` is escaped so post text can never close the script tag.
+  const jsonLd = og.jsonLd
+    ? `<script type="application/ld+json">${JSON.stringify(og.jsonLd).replace(/</g, '\\u003c')}</script>`
+    : ''
+  const ssrAttr = og.ssr ? ` data-ssr="${escapeHtmlAttr(og.ssr.key)}"` : ''
+  // Function replacers: content may contain "$&"-style sequences that string replacers would interpret.
   return html
-    .replace(/%%OG_TITLE%%/g, escapeHtmlAttr(og.title))
-    .replace(/%%OG_DESC%%/g, escapeHtmlAttr(og.desc))
-    .replace(/%%OG_URL%%/g, escapeHtmlAttr(baseUrl))
-    .replace(/%%OG_IMAGE%%/g, escapeHtmlAttr(og.image))
-    .replace(/%%OG_PUBLISHED_META%%/g, publishedMeta)
+    .replace(/%%OG_TITLE%%/g, () => escapeHtmlAttr(og.title))
+    .replace(/%%OG_DESC%%/g, () => escapeHtmlAttr(og.desc))
+    .replace(/%%OG_URL%%/g, () => escapeHtmlAttr(baseUrl))
+    .replace(/%%OG_IMAGE%%/g, () => escapeHtmlAttr(og.image))
+    .replace(/%%OG_PUBLISHED_META%%/g, () => publishedMeta)
+    .replace(/%%SEO_JSONLD%%/g, () => jsonLd)
+    .replace(/%%SSR_ATTR%%/g, () => ssrAttr)
+    .replace(/%%SSR_CONTENT%%/g, () => og.ssr?.html ?? '')
 }
 
 function escapeHtmlAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-app.get('/blog', (c) => {
-  const url = new URL('/blog', c.req.url).toString()
-  return c.html(injectBlogOg(blogHtml as string, url, { title: BLOG_OG_DEFAULTS.title, desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
+function escapeXml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// Canonical URLs always use the primary domain, regardless of which host served the request.
+function blogCanonical(path: string): string {
+  return `${BLOG_PRIMARY_ORIGIN}${path}`
+}
+
+app.get('/blog', async (c) => {
+  const posts = await listBlogPostsForRss(c.env.DB, 20)
+  // Crawler-visible list; the SPA replaces #app on load.
+  const ssrHtml = `<h1>${escapeHtmlAttr(BLOG_OG_DEFAULTS.title)}</h1>` + posts.map((post) => `
+    <article>
+      <h2><a href="/blog/${escapeHtmlAttr(post.slug ?? '')}">${escapeHtmlAttr(post.title || 'Untitled')}</a></h2>
+      <p>${escapeHtmlAttr(post.excerpt || '')}</p>
+    </article>`).join('')
+  return c.html(injectBlogOg(blogHtml as string, blogCanonical('/blog'), {
+    title: BLOG_OG_DEFAULTS.title,
+    desc: BLOG_OG_DEFAULTS.desc,
+    image: BLOG_OG_DEFAULT_IMAGE,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Blog',
+      name: BLOG_OG_DEFAULTS.title,
+      description: BLOG_OG_DEFAULTS.desc,
+      url: blogCanonical('/blog'),
+    },
+    ssr: { key: '/blog', html: ssrHtml },
+  }))
 })
 
 // Static route registered before the /:slug param route below so "archive" isn't treated as a post slug.
 app.get('/blog/archive', (c) => {
-  const url = new URL('/blog/archive', c.req.url).toString()
-  return c.html(injectBlogOg(blogHtml as string, url, { title: 'Archive — The Analog Pixel', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
+  return c.html(injectBlogOg(blogHtml as string, blogCanonical('/blog/archive'), { title: 'Archive — The Analog Pixel', desc: BLOG_OG_DEFAULTS.desc, image: BLOG_OG_DEFAULT_IMAGE }))
 })
 
 app.get('/blog/:slug', async (c) => {
   const slug = c.req.param('slug')
-  const url = new URL(`/blog/${slug}`, c.req.url).toString()
+  const url = blogCanonical(`/blog/${encodeURIComponent(slug)}`)
   const post = await getBlogPostBySlug(c.env.DB, slug)
   if (!post) {
     return c.html(injectBlogOg(blogHtml as string, url, { ...BLOG_OG_DEFAULTS, image: BLOG_OG_DEFAULT_IMAGE }), 404)
   }
   const attachments = await listBlogAttachments(c.env.DB, post.note_id)
   const image = attachments.find((a) => a.content_type.startsWith('image/'))?.cdn_url || BLOG_OG_DEFAULT_IMAGE
+  const desc = post.excerpt || BLOG_OG_DEFAULTS.desc
+  const body = renderMarkdownToHtml(rewriteContentToCdnUrls(post.content, attachments))
+  const tags: string[] = (() => { try { return JSON.parse(post.tag_list || '[]') } catch { return [] } })()
+  const ssrHtml = `<article class="mt-4">
+    <h1 class="text-2xl font-bold">${escapeHtmlAttr(post.title || 'Untitled')}</h1>
+    <p class="text-xs text-g-gray mt-1"><time datetime="${escapeHtmlAttr(post.published_at ?? '')}">${escapeHtmlAttr((post.published_at ?? '').slice(0, 10))}</time></p>
+    <div class="blog-body mt-6">${body}</div>
+  </article>`
   return c.html(injectBlogOg(blogHtml as string, url, {
     title: post.title || 'Untitled',
-    desc: post.excerpt || BLOG_OG_DEFAULTS.desc,
+    desc,
     image,
     published: post.published_at,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.title || 'Untitled',
+      description: desc,
+      image: [image],
+      datePublished: post.published_at,
+      dateModified: post.last_modified_at || post.published_at,
+      mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+      url,
+      keywords: tags.join(', '),
+      publisher: { '@type': 'Organization', name: BLOG_OG_DEFAULTS.title, url: BLOG_PRIMARY_ORIGIN },
+    },
+    ssr: { key: `/blog/${slug}`, html: ssrHtml },
   }))
+})
+
+app.get('/robots.txt', (c) => {
+  c.header('Cache-Control', 'public, max-age=86400')
+  return c.text(`User-agent: *\nAllow: /\n\nSitemap: ${BLOG_PRIMARY_ORIGIN}/sitemap.xml\n`)
+})
+
+app.get('/sitemap.xml', async (c) => {
+  const posts = await listBlogPostsForSitemap(c.env.DB)
+  const urls = [
+    `  <url><loc>${blogCanonical('/blog')}</loc></url>`,
+    `  <url><loc>${blogCanonical('/blog/archive')}</loc></url>`,
+    ...posts.map((post) => {
+      const lastmod = (post.last_modified_at || post.published_at || '').slice(0, 10)
+      return `  <url><loc>${escapeXml(blogCanonical(`/blog/${encodeURIComponent(post.slug as string)}`))}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`
+    }),
+  ].join('\n')
+  c.header('Content-Type', 'application/xml; charset=utf-8')
+  c.header('Cache-Control', 'public, max-age=3600, s-maxage=3600')
+  return c.body(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`)
 })
 
 // GET /rss.xml — top-level (not under /api) per spec, same query shape as blog.json but full content.

@@ -143,3 +143,18 @@ export async function listBlogPostsForRss(db: D1Database, limit = 20): Promise<B
         .all<BlogRssPost>()
     return result.results
 }
+
+export type BlogSitemapPost = Pick<Note, 'slug' | 'published_at' | 'last_modified_at'>
+
+export async function listBlogPostsForSitemap(db: D1Database): Promise<BlogSitemapPost[]> {
+    const result = await db
+        .prepare(
+            `SELECT slug, published_at, last_modified_at
+             FROM notes
+             WHERE is_blog = 1 AND is_published = 1 AND slug IS NOT NULL AND slug != ''
+             ORDER BY published_at DESC
+             LIMIT 5000`,
+        )
+        .all<BlogSitemapPost>()
+    return result.results
+}
