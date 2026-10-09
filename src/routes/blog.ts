@@ -12,7 +12,7 @@ const blog = new Hono<{ Bindings: Env; Variables: Variables }>()
 const LIST_CACHE_CONTROL = 'public, max-age=300, s-maxage=300'
 
 // Full posts per page on the blog home page (/blog, /blog/page/2, …).
-export const BLOG_PAGE_SIZE = 10
+export const BLOG_PAGE_SIZE = 20
 
 // Falls back to the first 500 chars of the (markdown-stripped) post body when no excerpt is set.
 function resolveExcerpt(excerpt: string, content: string): string {
