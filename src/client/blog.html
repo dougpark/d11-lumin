@@ -42,7 +42,6 @@
 
     <link rel="alternate" type="application/rss+xml" title="The Analog Pixel Feed" href="/rss.xml">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/vendor/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js"></script>
     <link id="hljs-theme-light" rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/styles/github.min.css">
@@ -377,6 +376,8 @@
         let blogTags = null
         let tagsRequest = null
         let listRequest = 0
+        let postRequest = 0
+        let asciiModule = null
         const defaultTitle = document.title
 
         // Sun/moon toggle: flips the `dark` class (drives CSS vars + the hljs stylesheet swap) and persists the choice.
@@ -430,35 +431,33 @@
             return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
         }
 
-        // Syntax-highlight fenced code blocks via highlight.js (loaded from cdnjs) so
-        // marked's default `<pre><code>` output gets the `hljs` token classes/theme.
-        const markedRenderer = (typeof marked !== 'undefined' && typeof marked.Renderer === 'function') ? new marked.Renderer() : null
-        if (markedRenderer) {
-            markedRenderer.code = ({ text, lang }) => {
-                const language = (lang || '').split(/\s+/)[0]
-                let highlighted
-                try {
-                    highlighted = (typeof hljs !== 'undefined')
-                        ? (language && hljs.getLanguage(language) ? hljs.highlight(text, { language }).value : hljs.highlightAuto(text).value)
-                        : esc(text)
-                } catch {
-                    highlighted = esc(text)
-                }
-                return `<pre><code class="hljs${language ? ` language-${language}` : ''}">${highlighted}</code></pre>`
-            }
+        function highlightPostCode() {
+            if (typeof hljs === 'undefined') return
+            app.querySelectorAll('.blog-body pre code').forEach((code) => hljs.highlightElement(code))
         }
 
-        // Markdown -> HTML via the shared `marked` renderer (gfm + blockquotes/lists/etc.).
-        // Attachment URLs in post content are already rewritten to CDN URLs at publish time.
-        function renderMarkdown(md) {
-            if (!md) return ''
-            if (typeof marked === 'undefined' || typeof marked.parse !== 'function') return `<p>${esc(md)}</p>`
+        async function activatePostEmbeds(request) {
+            const placeholders = [...app.querySelectorAll('[data-blog-ascii-piece]')]
+            if (!placeholders.length) return
             try {
-                const html = marked.parse(md, { breaks: true, gfm: true, renderer: markedRenderer || undefined })
-                // `![alt](url){width=300}` → marked leaves the `{…}` as text right after the <img>; fold it into a width attribute.
-                return html.replace(/(<img\b[^>]*?)\s*\/?>\{width=(\d{1,4})(px)?\}/g, '$1 width="$2">')
+                if (!asciiModule) asciiModule = import('https://ascii.rest/ascii.js')
+                await asciiModule
+                if (!customElements.get('ascii-art')) throw new Error('ascii.rest did not register its embed')
+                if (request !== postRequest) return
+                for (const placeholder of placeholders) {
+                    if (!placeholder.isConnected) continue
+                    const art = document.createElement('ascii-art')
+                    art.setAttribute('piece', placeholder.getAttribute('data-blog-ascii-piece'))
+                    placeholder.replaceWith(art)
+                }
+            } catch (error) {
+                asciiModule = null
+                console.error('Failed to load ascii.rest embed', error)
+                if (request !== postRequest) return
+                for (const placeholder of placeholders) {
+                    if (placeholder.isConnected) placeholder.textContent = 'Interactive content could not be loaded. Reload the page to try again.'
+                }
             }
-            catch { return `<p>${esc(md)}</p>` }
         }
 
         function navigate(path, { replace = false } = {}) {
@@ -775,7 +774,7 @@
                             ${renderPostTags(post.tags, state.tag)}
                             ${renderCopyLinkButton(post.slug, 'sm')}
                         </div>
-                        <div class="blog-body is-clamped mt-2" data-clamp>${renderMarkdown(post.content || '')}</div>
+                        <div class="blog-body is-clamped mt-2" data-clamp>${post.content_html}</div>
                         <a href="/blog/${esc(post.slug)}" data-post-link class="read-more hidden">Read more →</a>
                     </article>
                 `).join('') : `<p class="text-sm text-g-gray">${page > 1 ? `No posts on page ${page}. <a href="/blog" data-internal-link class="text-g-blue hover:underline">Back to the latest posts</a>` : 'No posts yet.'}</p>`}
@@ -788,6 +787,7 @@
                 ` : ''}
             `
 
+            highlightPostCode()
             // Only clamp posts that actually overflow; re-check once images load since they change height.
             const applyClamp = (body) => {
                 const link = body.nextElementSibling
@@ -869,11 +869,13 @@
 
 
         async function renderPost(slug) {
+            const request = postRequest
             // Keep the server-rendered article visible (no "Loading…" flash) until the SPA version replaces it.
             if (app.dataset.ssr !== `/blog/${slug}`) app.innerHTML = `<p class="text-sm text-g-gray">Loading…</p>`
             delete app.dataset.ssr
             try {
                 const { data: post, meta } = await fetchJson(`/api/blog/${encodeURIComponent(slug)}`)
+                if (request !== postRequest) return
                 document.title = `${post.title} - The Analog Pixel`
 
                 app.innerHTML = `
@@ -887,7 +889,7 @@
                                 ${renderCopyLinkButton(slug)}
                             </div>
                         </div>
-                        <div class="blog-body mt-6">${renderMarkdown(post.content || '')}</div>
+                        <div class="blog-body mt-6">${post.content_html}</div>
                     </article>
                     <nav class="flex items-center justify-between mt-10 pt-6 border-t border-g-border text-sm">
                         ${meta.prev ? `<a href="/blog/${esc(meta.prev.slug)}" data-post-link class="post-nav-prev text-g-blue hover:underline">&larr; ${esc(meta.prev.title)}</a>` : '<span></span>'}
@@ -904,7 +906,11 @@
                 })
 
                 bindCopyLinkButtons(app)
-            } catch {
+                highlightPostCode()
+                activatePostEmbeds(request)
+            } catch (error) {
+                if (request !== postRequest) return
+                console.error('Failed to load blog post', error)
                 app.innerHTML = `<p class="text-sm text-g-gray">Post not found. <a href="/blog" data-internal-link class="text-g-blue hover:underline">Back to all posts</a></p>`
             }
         }
@@ -950,6 +956,8 @@
         }
 
         function route() {
+            postRequest++
+            listRequest++
             const path = window.location.pathname.replace(/\/$/, '') || '/'
             const match = path.match(/^\/blog\/([^/]+)$/)
             const pageMatch = path.match(/^\/blog\/page\/(\d+)$/)

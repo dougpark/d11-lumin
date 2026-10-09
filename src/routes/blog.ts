@@ -6,6 +6,7 @@ import type { Env, Variables } from '../index.ts'
 import type { Attachment } from '../db/types.ts'
 import { getAdjacentBlogPosts, getBlogPostBySlug, listAllBlogTags, listBlogArchive, listBlogAttachments, listBlogAttachmentsForNotes, listBlogPosts } from '../db/blog.ts'
 import { generateExcerpt } from '../utils/slug.ts'
+import { renderMarkdownToHtml } from '../utils/markdown.ts'
 
 const blog = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -35,15 +36,16 @@ blog.get('/blog.json', async (c) => {
     const attachmentsByNoteId = await listBlogAttachmentsForNotes(c.env.DB, posts.map((post) => post.note_id))
     c.header('Cache-Control', LIST_CACHE_CONTROL)
     return c.json({
-        data: posts.map((post) => ({
+        data: await Promise.all(posts.map(async (post) => ({
             id: post.note_id,
             title: post.title,
             slug: post.slug,
             excerpt: resolveExcerpt(post.excerpt, post.content),
             content: rewriteContentToCdnUrls(post.content, attachmentsByNoteId.get(post.note_id) ?? []),
+            content_html: await renderMarkdownToHtml(rewriteContentToCdnUrls(post.content, attachmentsByNoteId.get(post.note_id) ?? [])),
             tags: JSON.parse(post.tag_list || '[]'),
             published_at: post.published_at,
-        })),
+        }))),
         meta: page ? { page, page_size: BLOG_PAGE_SIZE, has_more: hasMore } : undefined,
     })
 })
@@ -96,6 +98,7 @@ blog.get('/blog/:slug', async (c) => {
             slug: post.slug,
             excerpt: resolveExcerpt(post.excerpt, post.content),
             content: rewriteContentToCdnUrls(post.content, attachments),
+            content_html: await renderMarkdownToHtml(rewriteContentToCdnUrls(post.content, attachments), { embeds: true }),
             tags: JSON.parse(post.tag_list || '[]'),
             published_at: post.published_at,
             attachments: attachments.map((a) => ({ filename: a.filename, content_type: a.content_type, url: a.cdn_url })),

@@ -2069,7 +2069,7 @@ app.get('/blog/:slug', async (c) => {
   const attachments = await listBlogAttachments(c.env.DB, post.note_id)
   const image = attachments.find((a) => a.content_type.startsWith('image/'))?.cdn_url || BLOG_OG_DEFAULT_IMAGE
   const desc = post.excerpt || BLOG_OG_DEFAULTS.desc
-  const body = renderMarkdownToHtml(rewriteContentToCdnUrls(post.content, attachments))
+  const body = await renderMarkdownToHtml(rewriteContentToCdnUrls(post.content, attachments), { embeds: true })
   const tags: string[] = (() => { try { return JSON.parse(post.tag_list || '[]') } catch { return [] } })()
   const ssrHtml = `<article class="mt-4">
     <h1 class="text-2xl font-bold">${escapeHtmlAttr(post.title || 'Untitled')}</h1>
@@ -2133,7 +2133,7 @@ app.get('/rss.xml', async (c) => {
   const attachmentsByNoteId = await listBlogAttachmentsForNotes(c.env.DB, posts.map((post) => post.note_id))
   const siteUrl = new URL('/', c.req.url).origin
 
-  const rssItems = posts.map((post) => {
+  const rssItems = (await Promise.all(posts.map(async (post) => {
     const content = rewriteContentToCdnUrls(post.content, attachmentsByNoteId.get(post.note_id) ?? [])
     return `
     <item>
@@ -2141,10 +2141,10 @@ app.get('/rss.xml', async (c) => {
       <link>${siteUrl}/blog/${post.slug}</link>
       <guid isPermaLink="true">${siteUrl}/blog/${post.slug}</guid>
       <pubDate>${new Date(post.published_at as string).toUTCString()}</pubDate>
-      <description><![CDATA[${renderMarkdownToHtml(content)}]]></description>
+      <description><![CDATA[${await renderMarkdownToHtml(content)}]]></description>
     </item>
   `
-  }).join('')
+  }))).join('')
 
   const rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
