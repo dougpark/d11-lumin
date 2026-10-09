@@ -17,9 +17,9 @@ function blogListFilters(opts: { tag?: string; q?: string }): { where: string; b
     }
 
     if (opts.q) {
-        filters.push('(title LIKE ? OR excerpt LIKE ?)')
+        filters.push('(title LIKE ? OR excerpt LIKE ? OR EXISTS (SELECT 1 FROM json_each(notes.tag_list) WHERE json_each.value LIKE ?))')
         const like = `%${opts.q}%`
-        bindings.push(like, like)
+        bindings.push(like, like, like)
     }
 
     return { where: filters.join(' AND '), bindings }

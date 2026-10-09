@@ -87,7 +87,8 @@ To make blog.html smooth to navigate and easy to publish from, add these structu
 • Slug Field Override: Provide an optional "Custom URL Slug" input in the note metadata panel (e.g., my-post-title), falling back to a sanitized version of the note title if left blank.
 
 ### Public Reader Page (blog.html)
-• Lightweight Client-Side Search & Tag Filtering: Since you are fetching a consolidated blog.json array containing the latest 50 posts, implement client-side filtering via JavaScript for immediate tag clicks and search queries without secondary server round-trips.
+• Search visibility: `/blog/archive` opens with the search field visible. On a single-post page, the header search icon navigates to `/blog`, opens the search field, and focuses it. On list and archive pages, the icon toggles search; closing an active search clears the query.
+• Integrated search and tags: On the home and archive pages, search matches titles, excerpts, and individual tags (including partial tag names). Up to eight matching tags appear beneath the search field. Selecting a suggestion clears the text query and applies an exact tag filter, shown as a removable pill; typing again narrows that tag's posts. Post tag buttons use the same filter. Filtering is server-side and retains home-page pagination; no separate tags view is needed.
 • URL Hash / Query State Routing: Support clean routing states (e.g., blog.html?post=slug-name, blog.html?tag=typescript, or blog.html?q=searchterm) so you can link directly to specific posts or filtered views.
 • Canonical & OpenGraph Meta Injector: Have your Worker or frontend dynamically append OpenGraph image and description tags based on the single post view for clean link previews when sharing on social platforms.
 

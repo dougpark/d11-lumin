@@ -374,6 +374,9 @@
     <script>
         const app = document.getElementById('app')
         const state = { posts: null, tag: '', q: '', searchOpen: false }
+        let blogTags = null
+        let tagsRequest = null
+        let listRequest = 0
         const defaultTitle = document.title
 
         // Sun/moon toggle: flips the `dark` class (drives CSS vars + the hljs stylesheet swap) and persists the choice.
@@ -393,16 +396,28 @@
         })
 
         document.getElementById('search-toggle').addEventListener('click', () => {
-            state.searchOpen = !state.searchOpen
             const wrap = document.getElementById('blog-search-wrap') || document.getElementById('archive-search-wrap')
-            if (!wrap) return
+            if (!wrap) {
+                state.searchOpen = true
+                navigate('/blog')
+                document.getElementById('blog-search')?.focus()
+                return
+            }
+            state.searchOpen = !state.searchOpen
             wrap.classList.toggle('hidden', !state.searchOpen)
             if (state.searchOpen) {
                 (document.getElementById('blog-search') || document.getElementById('archive-search'))?.focus()
+                updateTagSearch()
             } else if (state.q) {
                 state.q = ''
-                if (document.getElementById('blog-search-wrap')) renderList()
-                else renderArchive()
+                if (document.getElementById('blog-search-wrap')) {
+                    document.getElementById('blog-search').value = ''
+                    resetToFirstPage()
+                    renderList()
+                } else {
+                    document.getElementById('archive-search').value = ''
+                    renderArchive()
+                }
             }
         })
 
@@ -637,6 +652,88 @@
             return qs ? `?${qs}` : ''
         }
 
+        function renderSearchControls(prefix) {
+            return `
+                <div id="${prefix}-search-wrap" class="mb-3 ${state.searchOpen ? '' : 'hidden'}">
+                    <input id="${prefix}-search" type="search" placeholder="Search posts or tags…" aria-label="Search posts or tags"
+                        value="${esc(state.q)}" class="search-input">
+                    <div id="tag-suggestions" class="flex flex-wrap items-center gap-2 mt-2" aria-label="Matching tags"></div>
+                </div>
+                <div id="active-tag-filter" class="mb-3"></div>
+            `
+        }
+
+        function refreshSearchResults() {
+            if (document.getElementById('archive-search')) renderArchive()
+            else if (document.getElementById('blog-search')) {
+                resetToFirstPage()
+                renderList()
+            }
+        }
+
+        function bindSearchControls(prefix) {
+            const input = document.getElementById(`${prefix}-search`)
+            const refresh = debounce(() => {
+                if (document.getElementById(`${prefix}-search`) === input) refreshSearchResults()
+            }, 300)
+            input.addEventListener('input', () => {
+                state.q = input.value.trim()
+                updateTagSearch()
+                refresh()
+            })
+        }
+
+        async function updateTagSearch() {
+            const active = document.getElementById('active-tag-filter')
+            const suggestions = document.getElementById('tag-suggestions')
+            if (!active || !suggestions) return
+            active.innerHTML = state.tag ? `
+                <button type="button" data-clear-tag aria-label="Remove tag filter: ${esc(state.tag)}"
+                    class="text-xs px-3 py-1 rounded-full border border-g-blue bg-g-blue text-white">
+                    ${esc(state.tag)} &times;
+                </button>` : ''
+            active.querySelector('[data-clear-tag]')?.addEventListener('click', () => {
+                state.tag = ''
+                refreshSearchResults()
+            })
+            if (!state.searchOpen || !state.q) {
+                suggestions.innerHTML = ''
+                return
+            }
+            try {
+                if (!blogTags) {
+                    if (!tagsRequest) tagsRequest = fetchJson('/api/blog/tags').then(({ data }) => data)
+                    blogTags = await tagsRequest
+                }
+            } catch (error) {
+                tagsRequest = null
+                console.error('Failed to load blog tags', error)
+                if (document.getElementById('tag-suggestions') === suggestions) {
+                    suggestions.innerHTML = '<p class="text-xs text-g-gray" role="status">Tag suggestions could not be loaded. Try typing again.</p>'
+                }
+                return
+            }
+            if (document.getElementById('tag-suggestions') !== suggestions) return
+            const matches = state.searchOpen && state.q
+                ? blogTags.filter((tag) => tag !== state.tag && tag.toLowerCase().includes(state.q.toLowerCase())).slice(0, 8)
+                : []
+            suggestions.innerHTML = matches.length ? `<span class="text-xs text-g-gray">Tags:</span>` + matches.map((tag) => `
+                <button type="button" data-search-tag="${esc(tag)}"
+                    class="text-xs px-3 py-1 rounded-full border border-g-border text-g-gray hover:border-g-blue-hover">
+                    ${esc(tag)}
+                </button>`).join('') : ''
+            suggestions.querySelectorAll('[data-search-tag]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    state.tag = btn.getAttribute('data-search-tag')
+                    state.q = ''
+                    const input = document.getElementById('blog-search') || document.getElementById('archive-search')
+                    input.value = ''
+                    input.focus()
+                    refreshSearchResults()
+                })
+            })
+        }
+
         // Search/tag changes always restart at page 1 (/blog).
         function resetToFirstPage() {
             if (location.pathname !== '/blog') history.replaceState({}, '', '/blog')
@@ -652,22 +749,19 @@
             const isFirstRender = !document.getElementById('blog-search')
             if (isFirstRender) {
                 app.innerHTML = `
-                    <div id="blog-search-wrap" class="mb-3 ${state.searchOpen ? '' : 'hidden'}">
-                        <input id="blog-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
-                            class="search-input">
-                    </div>
+                    ${renderSearchControls('blog')}
                     <div class="border-b-2 border-dotted border-g-border mb-5"></div>
                     <div id="blog-results"><p class="text-sm text-g-gray">Loading…</p></div>
                 `
 
-                document.getElementById('blog-search').addEventListener('input', debounce((event) => {
-                    state.q = event.target.value.trim()
-                    resetToFirstPage()
-                    renderList()
-                }, 300))
+                bindSearchControls('blog')
             }
 
+            updateTagSearch()
+            const request = ++listRequest
+            const results = document.getElementById('blog-results')
             const { data: posts, meta } = await fetchJson(`/api/blog.json${listQuery({ page })}`)
+            if (request !== listRequest || document.getElementById('blog-results') !== results) return
             const hasMore = !!meta?.has_more
 
             document.getElementById('blog-results').innerHTML = `
@@ -711,6 +805,8 @@
                 btn.addEventListener('click', () => {
                     const tag = btn.getAttribute('data-tag')
                     state.tag = state.tag === tag ? '' : tag
+                    state.searchOpen = true
+                    document.getElementById('blog-search-wrap').classList.remove('hidden')
                     resetToFirstPage()
                     renderList()
                 })
@@ -725,23 +821,22 @@
 
             const isFirstRender = !document.getElementById('archive-search')
             if (isFirstRender) {
+                state.searchOpen = true
                 app.innerHTML = `
                     <a href="/blog" data-internal-link class="text-sm text-g-blue hover:underline">&larr; All posts</a>
                     <h1 class="text-2xl font-bold mt-4 mb-4">Archive</h1>
-                    <div id="archive-search-wrap" class="mb-3 ${state.searchOpen ? '' : 'hidden'}">
-                        <input id="archive-search" type="search" placeholder="Search posts…" value="${esc(state.q)}"
-                            class="search-input">
-                    </div>
+                    ${renderSearchControls('archive')}
                     <div id="archive-results"><p class="text-sm text-g-gray">Loading…</p></div>
                 `
 
-                document.getElementById('archive-search').addEventListener('input', debounce((event) => {
-                    state.q = event.target.value.trim()
-                    renderArchive()
-                }, 300))
+                bindSearchControls('archive')
             }
 
+            updateTagSearch()
+            const request = ++listRequest
+            const results = document.getElementById('archive-results')
             const { data: posts } = await fetchJson(`/api/blog/archive.json${listQuery()}`)
+            if (request !== listRequest || document.getElementById('archive-results') !== results) return
 
             const years = []
             for (const post of posts) {
@@ -754,7 +849,6 @@
             document.getElementById('archive-results').innerHTML = `
                 <p class="text-sm text-g-gray mb-4 flex items-center gap-2 flex-wrap">
                     <span>${posts.length} post${posts.length === 1 ? '' : 's'}</span>
-                    ${state.tag ? `${renderPostTags([state.tag], state.tag)}` : ''}
                 </p>
                 ${posts.length ? years.map(({ year, posts }) => `
                     <section class="mb-6">
@@ -771,13 +865,6 @@
                 `).join('') : '<p class="text-sm text-g-gray">No posts found.</p>'}
             `
 
-            // The only tag pill here is the active filter; clicking it clears the filter.
-            app.querySelectorAll('[data-tag]').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    state.tag = ''
-                    renderArchive()
-                })
-            })
         }
 
 
@@ -811,6 +898,7 @@
                 app.querySelectorAll('[data-post-tag]').forEach((btn) => {
                     btn.addEventListener('click', () => {
                         state.tag = btn.getAttribute('data-post-tag')
+                        state.searchOpen = true
                         navigate('/blog')
                     })
                 })
