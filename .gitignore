@@ -9,3 +9,5 @@ dist/
 .dev.vars
 .env
 .env*.local
+.import-pelican-report.json
+.recover-images-report.json

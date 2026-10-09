@@ -2061,6 +2061,15 @@ app.get('/blog/:slug', async (c) => {
   }))
 })
 
+// Dev-only stand-in for the CDN domain: serves CDN_BUCKET objects when running on localhost.
+app.get('/cdn-local/*', async (c) => {
+  if (new URL(c.req.url).hostname !== 'localhost') return c.notFound()
+  const key = decodeURIComponent(new URL(c.req.url).pathname.replace(/^\/cdn-local\//, ''))
+  const obj = await c.env.CDN_BUCKET.get(key)
+  if (!obj) return c.notFound()
+  return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream' } })
+})
+
 app.get('/robots.txt', (c) => {
   c.header('Cache-Control', 'public, max-age=86400')
   return c.text(`User-agent: *\nAllow: /\n\nSitemap: ${BLOG_PRIMARY_ORIGIN}/sitemap.xml\n`)
