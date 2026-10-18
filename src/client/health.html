@@ -51,6 +51,16 @@
             transition: color .2s ease;
         }
 
+        /* iOS Safari auto-zooms on focus when form controls are < 16px */
+        @supports (-webkit-touch-callout: none) {
+
+            input,
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
         .health-chart-wrap {
             position: relative;
             width: 100%;
