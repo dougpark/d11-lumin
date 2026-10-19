@@ -99,4 +99,4 @@ watch_dir = "web"
 directory = "./dist"
 binding = "ASSETS"
 # Vite-built pages go through the Worker so security headers + blog-host isolation still apply.
-run_worker_first = ["/health", "/health.html"]
+run_worker_first = ["/health", "/health.html", "/food", "/food.html"]

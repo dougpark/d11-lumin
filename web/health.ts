@@ -3,8 +3,8 @@ import type { ChartConfiguration } from 'chart.js'
 import { qs, escHtml } from './lib/dom.ts'
 import { api, apiError } from './lib/api.ts'
 import { requireUser, initSuiteMenu, applyUserToHeader } from './lib/session.ts'
-
-type AmPm = 'AM' | 'PM'
+import { createTimestampField, formatDateInput, type AmPm } from './lib/timestamp.ts'
+import { createSaveIndicator, mergeEntries, formatEntryTimestamp } from './lib/entries.ts'
 
 type HealthEntry = {
     id: number
@@ -54,35 +54,18 @@ const state = {
     charts: {} as Record<string, Chart>,
     selectedSince: '',
     selectedBefore: '',
-    timeAmPm: 'AM' as AmPm,
     selectedTimePill: 'now',
     selectedAnalysisRangeMonths: null as number | null,
 }
 
 const input = (sel: string) => qs<HTMLInputElement>(sel)
-const saveIndicator = qs('#save-indicator')
-
-function setSaveIndicator(mode: 'idle' | 'saving' | 'saved' | 'error', text: string) {
-    saveIndicator.textContent = text
-    saveIndicator.classList.remove('text-g-gray', 'text-g-blue', 'text-green-700', 'text-red-500')
-    if (mode === 'saving') saveIndicator.classList.add('text-g-blue')
-    else if (mode === 'saved') saveIndicator.classList.add('text-green-700')
-    else if (mode === 'error') saveIndicator.classList.add('text-red-500')
-    else saveIndicator.classList.add('text-g-gray')
-}
+const setSaveIndicator = createSaveIndicator()
+const ts = createTimestampField()
 
 function parseNum(value: string, integer: boolean): number | null {
     if (value === '') return null
     const parsed = integer ? Number.parseInt(value, 10) : Number.parseFloat(value)
     return Number.isFinite(parsed) ? parsed : null
-}
-
-function pad2(n: number) {
-    return String(n).padStart(2, '0')
-}
-
-function formatDateInput(date: Date) {
-    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
 
 function setActiveAnalysisRangePill(months: number | null) {
@@ -109,79 +92,6 @@ function applyAnalysisRangePreset(months: number) {
     refreshAnalysis()
 }
 
-function formatTimeForInput(hour12: number, minute: number) {
-    return `${pad2(hour12)}:${pad2(minute)}`
-}
-
-function to12HourParts(date: Date): { hour12: number; minute: number; ampm: AmPm } {
-    const hour24 = date.getHours()
-    const minute = date.getMinutes()
-    const ampm = hour24 >= 12 ? 'PM' : 'AM'
-    let hour12 = hour24 % 12
-    if (hour12 === 0) hour12 = 12
-    return { hour12, minute, ampm }
-}
-
-function parseTimeInput(raw: string): { hour12: number; minute: number } | null {
-    if (!raw || !raw.trim()) return null
-    const cleaned = raw.trim().replace(/[^0-9:]/g, '')
-    if (!cleaned) return null
-
-    let hour = NaN
-    let minute = NaN
-
-    if (cleaned.includes(':')) {
-        const parts = cleaned.split(':')
-        if (parts.length !== 2) return null
-        hour = Number.parseInt(parts[0], 10)
-        minute = Number.parseInt(parts[1], 10)
-    } else {
-        const digits = cleaned
-        if (digits.length <= 2) {
-            hour = Number.parseInt(digits, 10)
-            minute = 0
-        } else if (digits.length === 3) {
-            hour = Number.parseInt(digits.slice(0, 1), 10)
-            minute = Number.parseInt(digits.slice(1), 10)
-        } else if (digits.length === 4) {
-            hour = Number.parseInt(digits.slice(0, 2), 10)
-            minute = Number.parseInt(digits.slice(2), 10)
-        } else {
-            return null
-        }
-    }
-
-    if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null
-    if (hour < 1 || hour > 12) return null
-    if (minute < 0 || minute > 59) return null
-    return { hour12: hour, minute }
-}
-
-function composeIsoFromControls(): string | null {
-    const dateRaw = input('#timestamp-date-input').value
-    if (!dateRaw || !dateRaw.trim()) return null
-    const parsed = parseTimeInput(input('#timestamp-time-input').value)
-    if (!parsed) return null
-
-    let hour24 = parsed.hour12 % 12
-    if (state.timeAmPm === 'PM') hour24 += 12
-    const d = new Date(`${dateRaw}T${pad2(hour24)}:${pad2(parsed.minute)}:00`)
-    if (Number.isNaN(d.getTime())) return null
-    return d.toISOString()
-}
-
-function setAmPm(value: AmPm) {
-    state.timeAmPm = value
-    const amActive = value === 'AM'
-
-    qs('#btn-ampm-am').className = amActive
-        ? 'px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50'
-        : 'px-3 py-2 text-xs font-semibold text-g-gray bg-white'
-    qs('#btn-ampm-pm').className = amActive
-        ? 'px-3 py-2 text-xs font-semibold text-g-gray bg-white border-l border-g-border'
-        : 'px-3 py-2 text-xs font-semibold text-g-blue bg-blue-50 border-l border-g-border'
-}
-
 function setActiveTimePill(key: string) {
     state.selectedTimePill = key
     document.querySelectorAll<HTMLButtonElement>('button[data-time-pill]').forEach((button) => {
@@ -190,26 +100,19 @@ function setActiveTimePill(key: string) {
 }
 
 function updatePillFromCurrentTime() {
-    const parsed = parseTimeInput(input('#timestamp-time-input').value)
+    const parsed = ts.parseTime()
     if (!parsed) {
         setActiveTimePill('custom')
         return
     }
 
     const { hour12: hour, minute } = parsed
-    const ampm = state.timeAmPm
+    const ampm = ts.ampm
     if (hour === 7 && minute === 0 && ampm === 'AM') return setActiveTimePill('7am')
     if (hour === 9 && minute === 0 && ampm === 'AM') return setActiveTimePill('9am')
     if (hour === 12 && minute === 0 && ampm === 'PM') return setActiveTimePill('12pm')
     if (hour === 6 && minute === 0 && ampm === 'PM') return setActiveTimePill('6pm')
     setActiveTimePill('custom')
-}
-
-function normalizeTimeInputField() {
-    const parsed = parseTimeInput(input('#timestamp-time-input').value)
-    if (!parsed) return false
-    input('#timestamp-time-input').value = formatTimeForInput(parsed.hour12, parsed.minute)
-    return true
 }
 
 const TIME_PRESETS: Record<string, { hour12: number; minute: number; ampm: AmPm }> = {
@@ -220,15 +123,10 @@ const TIME_PRESETS: Record<string, { hour12: number; minute: number; ampm: AmPm 
 }
 
 function applyTimePill(pillKey: string) {
-    const dateInput = input('#timestamp-date-input')
-    if (!dateInput.value) dateInput.value = formatDateInput(new Date())
+    ts.ensureDate()
 
     if (pillKey === 'now') {
-        const now = new Date()
-        const parts = to12HourParts(now)
-        dateInput.value = formatDateInput(now)
-        input('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
-        setAmPm(parts.ampm)
+        ts.setFromDate(new Date())
         setActiveTimePill('now')
         return
     }
@@ -236,8 +134,7 @@ function applyTimePill(pillKey: string) {
     const preset = TIME_PRESETS[pillKey]
     if (!preset) return
 
-    input('#timestamp-time-input').value = formatTimeForInput(preset.hour12, preset.minute)
-    setAmPm(preset.ampm)
+    ts.setTime(preset.hour12, preset.minute, preset.ampm)
     setActiveTimePill(pillKey)
 }
 
@@ -252,7 +149,7 @@ function hasAnyMeaningfulValue(payload: EntryPayload) {
 
 function getFormPayload(): EntryPayload {
     const noteRaw = qs<HTMLTextAreaElement>('#note-input').value.trim()
-    const tsIso = composeIsoFromControls()
+    const tsIso = ts.toIso()
 
     const payload: EntryPayload = {
         weight: parseNum(input('#weight-input').value, false),
@@ -281,12 +178,7 @@ function applyEntryToForm(entry: HealthEntry | null) {
 
     if (entry?.timestamp) {
         const d = new Date(entry.timestamp)
-        if (!Number.isNaN(d.getTime())) {
-            const parts = to12HourParts(d)
-            input('#timestamp-date-input').value = formatDateInput(d)
-            input('#timestamp-time-input').value = formatTimeForInput(parts.hour12, parts.minute)
-            setAmPm(parts.ampm)
-        }
+        if (!Number.isNaN(d.getTime())) ts.setFromDate(d)
         updatePillFromCurrentTime()
         return
     }
@@ -352,18 +244,8 @@ function scheduleSave(debounceMs: number) {
     saveCurrentEntry()
 }
 
-function normalizeEntries(entries: HealthEntry[]) {
-    const byId = new Map<number, HealthEntry>()
-    for (const entry of entries) {
-        if (!entry || typeof entry.id !== 'number') continue
-        byId.set(entry.id, entry)
-    }
-    return Array.from(byId.values())
-        .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (b.id - a.id))
-}
-
 function upsertEntry(entry: HealthEntry) {
-    state.entries = normalizeEntries([...state.entries, entry])
+    state.entries = mergeEntries([...state.entries, entry])
     renderEntries()
     refreshAnalysis()
 }
@@ -379,7 +261,7 @@ function renderEntries() {
             <article class="border ${isActive ? 'border-g-blue bg-blue-50/40' : 'border-g-border bg-white'} rounded-[12px] p-3">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <p class="text-xs text-g-gray">${new Date(entry.timestamp).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        <p class="text-xs text-g-gray">${formatEntryTimestamp(entry.timestamp)}</p>
                         <div class="mt-1 flex flex-wrap gap-2 text-xs">
                             ${entry.weight !== null ? `<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">W: ${escHtml(entry.weight)}</span>` : ''}
                             ${entry.glucose_level !== null ? `<span class="px-2 py-0.5 rounded-full bg-[#F4F7FF] text-g-black">G: ${escHtml(entry.glucose_level)}</span>` : ''}
@@ -414,7 +296,7 @@ async function loadEntries(reset: boolean) {
         const body = await res.json() as { data?: HealthEntry[]; meta?: { total_pages?: number } }
         const incoming = Array.isArray(body.data) ? body.data : []
         state.totalPages = body.meta?.total_pages || 1
-        state.entries = normalizeEntries(reset ? incoming : state.entries.concat(incoming))
+        state.entries = mergeEntries(reset ? incoming : state.entries.concat(incoming))
         renderEntries()
     } catch (err) {
         setSaveIndicator('error', err instanceof Error ? err.message : 'Could not load entries')
@@ -597,7 +479,7 @@ function bindEvents() {
         const el = input(sel)
         el.addEventListener('change', () => scheduleSave(0))
         el.addEventListener('blur', () => {
-            if (sel === '#timestamp-time-input' && !normalizeTimeInputField()) {
+            if (sel === '#timestamp-time-input' && !ts.normalize()) {
                 setSaveIndicator('error', 'Time must be HH:MM')
                 return
             }
@@ -606,14 +488,14 @@ function bindEvents() {
         })
     }
 
-    qs('#btn-ampm-am').addEventListener('click', () => {
-        setAmPm('AM')
+    ts.amBtn.addEventListener('click', () => {
+        ts.setAmPm('AM')
         updatePillFromCurrentTime()
         scheduleSave(0)
     })
 
-    qs('#btn-ampm-pm').addEventListener('click', () => {
-        setAmPm('PM')
+    ts.pmBtn.addEventListener('click', () => {
+        ts.setAmPm('PM')
         updatePillFromCurrentTime()
         scheduleSave(0)
     })
@@ -726,7 +608,7 @@ async function boot() {
         if (!user) return
         applyUserToHeader(user)
 
-        setAmPm('AM')
+        ts.setAmPm('AM')
         setActiveTimePill('now')
 
         bindEvents()

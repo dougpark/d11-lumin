@@ -39,7 +39,7 @@ src/client/           ← Self-contained HTML pages; imported as raw text string
 web/                  ← Vite-built pages (migrated off the CDN) + shared modules in web/lib/
 ```
 
-**Vite pages (`web/`)** — `wrangler.toml` `[build]` runs `vite build` before every `wrangler dev`/`deploy`, outputting to `dist/` (which also gets a copy of `public/`; `[assets]` serves `dist/`). To migrate a page: move it to `web/<name>.html` + `web/<name>.ts`, add it to `pages` in `vite.config.ts`, add its path to `run_worker_first` in `wrangler.toml`, and replace its `index.ts` route with `c.env.ASSETS.fetch(c.req.raw)` (keeps security headers + blog-host isolation). Use `bun run dev:web` for HMR (proxies `/api` to :8787).
+**Vite pages (`web/`)** — `wrangler.toml` `[build]` runs `vite build` before every `wrangler dev`/`deploy`, outputting to `dist/` (which also gets a copy of `public/`; `[assets]` serves `dist/`). To migrate a page: move it to `web/<name>.html` + `web/<name>.ts`, add it to `pages` in `vite.config.ts`, add its path to `run_worker_first` in `wrangler.toml`, and replace its `index.ts` route with `app.get('/<name>', serveBuiltPage)` (keeps security headers + blog-host isolation). Reuse `web/lib/` (api, session, dom, timestamp, entries) instead of copying helpers. Use `bun run dev:web` for HMR (proxies `/api` to :8787).
 
 Sub-routers are Hono instances, mounted in `index.ts` via `app.route(path, subRouter)`.
 

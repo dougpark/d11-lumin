@@ -7,6 +7,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 // Pages migrated off the Tailwind CDN. Each entry is built to dist/<name>.html.
 const pages = {
     health: r('./web/health.html'),
+    food: r('./web/food.html'),
 }
 
 export default defineConfig({

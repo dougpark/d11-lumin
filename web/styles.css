@@ -41,6 +41,10 @@
     }
 }
 
+.save-indicator {
+    transition: color .2s ease;
+}
+
 .spinner {
     border: 2px solid #E3E3E3;
     border-top-color: #4285F4;
