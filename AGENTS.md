@@ -13,7 +13,7 @@ See [README.md](README.md) for full project docs, API reference, and setup.
 | Database | Cloudflare D1 (SQLite) — bound as `DB` |
 | AI | Cloudflare Workers AI — bound as `AI` |
 | Toolchain | Wrangler v4 + Bun |
-| CSS | Tailwind CDN — **no build step**, no bundler |
+| CSS | Tailwind CDN for `src/client/` pages; compiled Tailwind v4 via Vite for `web/` pages |
 
 ## Commands
 
@@ -36,7 +36,10 @@ src/middleware/       ← authMiddleware (session token) · apiTokenMiddleware (
 src/db/               ← Raw D1 query helpers per entity — no ORM
 src/utils/            ← auth (hashing) · preview (OG fetch) · rss · search (FTS query builder)
 src/client/           ← Self-contained HTML pages; imported as raw text strings by Wrangler
+web/                  ← Vite-built pages (migrated off the CDN) + shared modules in web/lib/
 ```
+
+**Vite pages (`web/`)** — `wrangler.toml` `[build]` runs `vite build` before every `wrangler dev`/`deploy`, outputting to `dist/` (which also gets a copy of `public/`; `[assets]` serves `dist/`). To migrate a page: move it to `web/<name>.html` + `web/<name>.ts`, add it to `pages` in `vite.config.ts`, add its path to `run_worker_first` in `wrangler.toml`, and replace its `index.ts` route with `c.env.ASSETS.fetch(c.req.raw)` (keeps security headers + blog-host isolation). Use `bun run dev:web` for HMR (proxies `/api` to :8787).
 
 Sub-routers are Hono instances, mounted in `index.ts` via `app.route(path, subRouter)`.
 

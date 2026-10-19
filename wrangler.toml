@@ -89,5 +89,14 @@ crons = ["*/30 * * * *"]
 port = 8787
 local_protocol = "http"
 
+# Vite builds web/ pages + copies public/ into dist/ (see vite.config.ts).
+# Runs automatically before `wrangler deploy` and `wrangler dev`.
+[build]
+command = "bun run build:web"
+watch_dir = "web"
+
 [assets]
-directory = "./public"
+directory = "./dist"
+binding = "ASSETS"
+# Vite-built pages go through the Worker so security headers + blog-host isolation still apply.
+run_worker_first = ["/health", "/health.html"]
